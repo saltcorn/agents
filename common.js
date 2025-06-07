@@ -1,5 +1,5 @@
 const get_skills = () => {
-  return [require("./skills/RAG")];
+  return [require("./skills/RAG"), require("./skills/AdaptiveFeedback")];
 };
 
 module.exports = {
