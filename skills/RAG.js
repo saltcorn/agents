@@ -23,6 +23,7 @@ class RAG {
     return [
       {
         name: "mode",
+        label: "Mode",
         type: "String",
         required: true,
         attributes: { options: ["Tool", "Search on every user input"] },
