@@ -1,3 +1,4 @@
+const { div } = require("@saltcorn/markup/tags");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
@@ -75,12 +76,18 @@ class RAG {
       type: "function",
       process({ phrase_or_question }) {
         return {
-          response: "There are no documents related to: "+phrase_or_question,
+          response: "There are no documents related to: " + phrase_or_question,
         };
+      },
+      renderToolCall({ phrase_or_question }) {
+        return div({ class: "border border-info p-2 m-2" }, phrase_or_question);
+      },
+      renderToolResponse({ response }) {
+        return div({ class: "border border-success p-2 m-2" }, response);
       },
       function: {
         name: "rag",
-        description: `Search an archive for imformation related to a search phrase or a question. The relevant documents will be returned`,
+        description: `Search an archive for information related to a search phrase or a question. The relevant documents will be returned`,
         parameters: {
           type: "object",
           required: ["phrase_or_question"],

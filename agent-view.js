@@ -143,7 +143,9 @@ const run = async (
                     wrapSegment(
                       wrapCard(
                         toolSkill.skill.constructor.skill_name,
-                        pre(JSON.stringify(row, null, 2))
+                        toolSkill.tool.renderToolCall
+                          ? toolSkill.tool.renderToolCall(row)
+                          : pre(JSON.stringify(row, null, 2))
                       ),
                       "Copilot"
                     )
@@ -164,18 +166,26 @@ const run = async (
         case "tool":
           if (interact.content !== "Action run") {
             let markupContent;
+            console.log("interact", interact);
+            const toolSkill = find_tool(interact.name, action.configuration);
             try {
-              markupContent = JSON.stringify(
-                JSON.parse(interact.content),
-                null,
-                2
-              );
+              if (toolSkill?.tool?.renderToolResponse)
+                markupContent = toolSkill?.tool?.renderToolResponse(
+                  JSON.parse(interact.content)
+                );
+              else
+                markupContent = pre(
+                  JSON.stringify(JSON.parse(interact.content), null, 2)
+                );
             } catch {
-              markupContent = interact.content;
+              markupContent = pre(interact.content);
             }
             interactMarkups.push(
               wrapSegment(
-                wrapCard(interact.name, pre(markupContent)),
+                wrapCard(
+                  toolSkill?.skill?.constructor.skill_name || interact.name,
+                  pre(markupContent)
+                ),
                 "Copilot"
               )
             );
@@ -529,7 +539,9 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
             wrapSegment(
               wrapCard(
                 action.trigger_name + " result",
-                pre(JSON.stringify(result?.response || result, null, 2))
+                tool.renderToolCall
+                  ? tool.renderToolCall(result)
+                  : pre(JSON.stringify(result, null, 2))
               ),
               "Copilot"
             )
@@ -542,11 +554,10 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
               role: "tool",
               tool_call_id: tool_call.id,
               name: tool_call.function.name,
-              content: result?.response
-                ? result?.response
-                : result && typeof result !== "string"
-                ? JSON.stringify(result)
-                : result || "Action run",
+              content:
+                result && typeof result !== "string"
+                  ? JSON.stringify(result)
+                  : result || "Action run",
             },
           ],
         });
