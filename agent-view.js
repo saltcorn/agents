@@ -26,6 +26,7 @@ const {
   small,
   form,
   textarea,
+  a,
 } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const {
@@ -57,6 +58,15 @@ const configuration_workflow = (req) =>
                     name: a.id,
                   })),
                 },
+                sublabel:
+                  "A trigger with <code>Agent</code> action. " +
+                  a(
+                    {
+                      "data-dyn-href": `\`/actions/configure/\${action_id}\``,
+                      target: "_blank",
+                    },
+                    req.__("Configure")
+                  ),
               },
               {
                 name: "show_prev_runs",
