@@ -392,118 +392,12 @@ const run = async (
 
 const getCompletionArguments = async (config) => {
   let tools = [];
-  const sysPrompts = [];
 
-  if (config.tables.length) {
-    let properties = {};
-
-    const tableNames = (config?.tables || []).map((t) => t.table_name);
-    properties.table_name = {
-      type: "string",
-      enum: tableNames,
-      description: `Which table is this query from. Every query has to select rows from one table, even if it is based on joins from different tables`,
-    };
-    properties.sql_id_query = {
-      type: "string",
-      description: `An SQL query for this table's primary keys. This must select only the primary keys (even if the user wants a count), for example SELECT ${
-        tableNames[0][0]
-      }."${Table.findOne(tableNames[0]).pk_name}" from "${tableNames[0]}" ${
-        tableNames[0][0]
-      } JOIN ... where... Use this to join other tables in the database.`,
-    };
-    properties.is_count = {
-      type: "boolean",
-      description: `Is the only desired output a count? Make this true if the user wants a count of rows`,
-    };
-
-    tools.push({
-      type: "function",
-      function: {
-        name: "TableQuery",
-        description: `Query a table and show the results to the user in a grid format`,
-        parameters: {
-          type: "object",
-          required: ["table_name", "sql_id_query", "is_count"],
-          properties,
-        },
-      },
-    });
+  let sysPrompts = [config.sys_prompt];
+  for (const skill of config.skills) {
   }
-
-  for (const action of config?.actions || []) {
-    let properties = {};
-
-    const trigger = Trigger.findOne({ name: action.trigger_name });
-    if (trigger.table_id) {
-      const table = Table.findOne({ id: trigger.table_id });
-
-      table.fields
-        .filter((f) => !f.primary_key)
-        .forEach((field) => {
-          properties[field.name] = {
-            description: field.label + " " + field.description || "",
-            ...fieldProperties(field),
-          };
-        });
-    }
-    tools.push({
-      type: "function",
-      function: {
-        name: action.trigger_name,
-        description: trigger.description,
-        parameters: {
-          type: "object",
-          //required: ["action_javascript_code", "action_name"],
-          properties,
-        },
-      },
-    });
-  }
-  const tables = (await Table.find({})).filter(
-    (t) => !t.external && !t.provider_name
-  );
-  const schemaPrefix = db.getTenantSchemaPrefix();
-  const systemPrompt =
-    "You are helping users retrieve information and perform actions on a relational database" +
-    config.sys_prompt +
-    (config.tables.length
-      ? `
-    If you are generating SQL, Your database has the following tables in PostgreSQL: 
-
-` +
-        tables
-          .map(
-            (t) => `CREATE TABLE "${t.name}" (${
-              t.description
-                ? `
-  /* ${t.description} */`
-                : ""
-            }
-${t.fields
-  .map(
-    (f) =>
-      `  "${f.name}" ${
-        f.primary_key && f.type?.name === "Integer"
-          ? "SERIAL PRIMARY KEY"
-          : f.sql_type.replace(schemaPrefix, "")
-      }`
-  )
-  .join(",\n")}
-)`
-          )
-          .join(";\n\n") +
-        `
-      
-Use the TableQuery tool if the user asks to see, find or count or otherwise access rows from a table that matches what the user is looking for, or if
-the user is asking for a summary or inference from such rows. The TableQuery query is parametrised by a SQL SELECT query which 
-selects primary key values from the specified table. You can join other tables or use complex logic in the WHERE clause, but you must 
-always return porimary key values from the specified table.
-`
-      : "");
-  //console.log("sysprompt", systemPrompt);
-
   if (tools.length === 0) tools = undefined;
-  return { tools, systemPrompt };
+  return { tools, systemPrompt: sysPrompts.join("\n\n") };
 };
 
 /*
@@ -519,8 +413,8 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     run = await WorkflowRun.create({
       status: "Running",
       started_by: req.user?.id,
+      trigger_id: config.action_id,
       context: {
-        copilot: viewname,
         implemented_fcall_ids: [],
         interactions: [{ role: "user", content: userinput }],
         funcalls: {},
@@ -540,7 +434,8 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
   let run;
 
   run = await WorkflowRun.findOne({ id: +run_id });
-  await run.delete();
+  if (req.user?.role_id === 1 || req.user?.id === run.started_by)
+    await run.delete();
 
   return;
 };
@@ -596,7 +491,8 @@ const renderQueryInteraction = async (table, result, config, req) => {
 };
 
 const process_interaction = async (run, config, req, prevResponses = []) => {
-  const complArgs = await getCompletionArguments(config);
+  const action = await Trigger.findOne({ id: config.action_id });
+  const complArgs = await getCompletionArguments(action.configuration);
   complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
@@ -678,80 +574,6 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
             },
           ],
         });
-      } else if (tool_call.function.name == "TableQuery") {
-        const query = JSON.parse(tool_call.function.arguments);
-        const table = Table.findOne({
-          name: query.table_name,
-        });
-        const tableCfg = config.tables.find((t) => t.table_name === table.name);
-
-        const is_sqlite = db.isSQLite;
-
-        const client = is_sqlite ? db : await db.getClient();
-        await client.query(`BEGIN;`);
-        if (!is_sqlite) {
-          await client.query(
-            `SET LOCAL search_path TO "${db.getTenantSchema()}";`
-          );
-          await client.query(
-            `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;`
-          );
-        }
-
-        const { rows } = await client.query(query.sql_id_query);
-        await client.query(`ROLLBACK;`);
-
-        if (!is_sqlite) client.release(true);
-        let result;
-        const id_query = {
-          [table.pk_name]: { in: rows.map((r) => r[table.pk_name]) },
-        };
-
-        if (query.is_count) {
-          const role = req.user?.role_id || 100;
-          if (role <= table.min_role_read) {
-            result = await table.countRows(id_query);
-          } else result = "Not authorized";
-        } else {
-          result = await table.getRows(id_query, {
-            forUser: req.user,
-            forPublic: !req.user,
-          });
-          if (tableCfg.exclude_fields) {
-            const fields = tableCfg.exclude_fields
-              .split(",")
-              .map((s) => s.trim());
-            fields.forEach((f) => {
-              result.forEach((r) => {
-                delete r[f];
-              });
-            });
-          }
-        }
-        responses.push(
-          wrapSegment(
-            wrapCard(
-              "Query " + tool_call.function.name.replace("Query", ""),
-              pre(query.sql_id_query)
-            ),
-            "Copilot"
-          )
-        );
-
-        await addToContext(run, {
-          interactions: [
-            {
-              role: "tool",
-              tool_call_id: tool_call.id,
-              name: tool_call.function.name,
-              content: JSON.stringify(result),
-            },
-          ],
-        });
-        responses.push(
-          await renderQueryInteraction(table, result, config, req)
-        );
-        hasResult = true;
       }
     }
     if (hasResult)
