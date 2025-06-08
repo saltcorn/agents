@@ -35,6 +35,7 @@ const {
   incompleteCfgMsg,
   fieldProperties,
   get_skill_class,
+  get_skill_instances,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -405,9 +406,9 @@ const getCompletionArguments = async (config) => {
   let tools = [];
 
   let sysPrompts = [config.sys_prompt];
-  for (const skillCfg of config.skills) {
-    const klass = get_skill_class(skillCfg.skill_type);
-    const skill = new klass(skillCfg);
+
+  const skills = get_skill_instances(config);
+  for (const skill of skills) {
     const sysPr = skill.systemPrompt();
     if (sysPr) sysPrompts.push(sysPr);
   }
