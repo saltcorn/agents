@@ -36,6 +36,7 @@ const {
   fieldProperties,
   get_skill_class,
   get_skill_instances,
+  find_tool,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -412,7 +413,8 @@ const getCompletionArguments = async (config) => {
     const sysPr = skill.systemPrompt();
     if (sysPr) sysPrompts.push(sysPr);
     const skillTools = skill.provideTools();
-    if (skillTools && skillTools.length) tools.push(...skillTools);
+    if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
+    else if (skillTools) tools.push(skillTools);
   }
   if (tools.length === 0) tools = undefined;
   return { tools, systemPrompt: sysPrompts.join("\n\n") };
@@ -542,28 +544,11 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
       await addToContext(run, {
         funcalls: { [tool_call.id]: tool_call.function },
       });
-      const action = config.actions.find(
-        (a) => a.trigger_name === tool_call.function.name
-      );
-      console.log({ action });
 
-      if (action) {
-        const trigger = Trigger.findOne({ name: action.trigger_name });
-        const row = JSON.parse(tool_call.function.arguments);
-        if (Object.keys(row || {}).length)
-          responses.push(
-            wrapSegment(
-              wrapCard(action.trigger_name, pre(JSON.stringify(row, null, 2))),
-              "Copilot"
-            )
-          );
-        const result = await trigger.runWithoutRow({ user: req.user, row });
-        console.log("ran trigger with result", {
-          name: trigger.name,
-          row,
-          result,
-        });
+      const tool = find_tool(tool_call.function.name, action.configuration);
 
+      if (tool) {
+        const result = tool.process(JSON.parse(tool_call.function.arguments));
         if (
           (typeof result === "object" && Object.keys(result || {}).length) ||
           typeof result === "string"
@@ -572,7 +557,7 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
             wrapSegment(
               wrapCard(
                 action.trigger_name + " result",
-                pre(JSON.stringify(result, null, 2))
+                pre(JSON.stringify(result?.response || result, null, 2))
               ),
               "Copilot"
             )
@@ -585,10 +570,11 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
               role: "tool",
               tool_call_id: tool_call.id,
               name: tool_call.function.name,
-              content:
-                result && typeof result !== "string"
-                  ? JSON.stringify(result)
-                  : result || "Action run",
+              content: result?.response
+                ? result?.response
+                : result && typeof result !== "string"
+                ? JSON.stringify(result)
+                : result || "Action run",
             },
           ],
         });

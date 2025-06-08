@@ -19,6 +19,20 @@ const get_skill_instances = (config) => {
   return instances;
 };
 
+const find_tool = (name, config) => {
+  const skills = get_skill_instances(config);
+  for (const skill of skills) {
+    const skillTools = skill.provideTools();
+    const tools = !skillTools
+      ? []
+      : Array.isArray(skillTools)
+      ? skillTools
+      : [skillTools];
+    const found = tools.find((t) => t?.function.name === name);
+    if (found) return found;
+  }
+};
+
 const getCompletion = async (language, prompt) => {
   return getState().functions.llm_generate.run(prompt, {
     systemPrompt: `You are a helpful code assistant. Your language of choice is ${language}. Do not include any explanation, just generate the code block itself.`,
@@ -49,5 +63,6 @@ module.exports = {
   get_skill_class,
   incompleteCfgMsg,
   getCompletion,
+  find_tool,
   get_skill_instances,
 };
