@@ -71,6 +71,26 @@ class RAG {
 
   provideTools() {
     if (this.mode !== "Tool") return [];
+    return [
+      {
+        type: "function",
+        function: {
+          name: "rag",
+          description: `Search an archive for imformation related to a search phrase or a question. The relevant documents will be returned`,
+          parameters: {
+            type: "object",
+            required: ["phrase_or_question"],
+            properties: {
+              phrase_or_question: {
+                type: "string",
+                description:
+                  "The phrase or question to search the archive with",
+              },
+            },
+          },
+        },
+      },
+    ];
   }
 }
 

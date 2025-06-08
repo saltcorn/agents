@@ -411,6 +411,8 @@ const getCompletionArguments = async (config) => {
   for (const skill of skills) {
     const sysPr = skill.systemPrompt();
     if (sysPr) sysPrompts.push(sysPr);
+    const skillTools = skill.provideTools();
+    if (skillTools && skillTools.length) tools.push(...skillTools);
   }
   if (tools.length === 0) tools = undefined;
   return { tools, systemPrompt: sysPrompts.join("\n\n") };
