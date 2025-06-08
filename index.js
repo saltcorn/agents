@@ -7,8 +7,9 @@ const { applyAsync } = require("@saltcorn/data/utils");
 module.exports = {
   sc_plugin_api_version: 1,
   dependencies: ["@saltcorn/large-language-model"],
+  viewtemplates: [require("./agent-view")],
   actions: {
-    agent: {
+    Agent: {
       disableInBuilder: true,
       disableInList: true,
       disableInWorkflow: true,
@@ -74,6 +75,7 @@ module.exports = {
           where,
         },
         user,
+        run_id,
         ...rest
       }) => {},
     },
