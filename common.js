@@ -4,6 +4,11 @@ const get_skills = () => {
   return [require("./skills/RAG"), require("./skills/AdaptiveFeedback")];
 };
 
+const get_skill_class = (type) => {
+  const classes = get_skills();
+  return classes.find((c) => c.skill_name === type);
+};
+
 const getCompletion = async (language, prompt) => {
   return getState().functions.llm_generate.run(prompt, {
     systemPrompt: `You are a helpful code assistant. Your language of choice is ${language}. Do not include any explanation, just generate the code block itself.`,
@@ -31,6 +36,7 @@ const incompleteCfgMsg = () => {
 
 module.exports = {
   get_skills,
+  get_skill_class,
   incompleteCfgMsg,
   getCompletion,
 };

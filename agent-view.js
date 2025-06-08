@@ -34,6 +34,7 @@ const {
   getPromptFromTemplate,
   incompleteCfgMsg,
   fieldProperties,
+  get_skill_class,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -404,7 +405,11 @@ const getCompletionArguments = async (config) => {
   let tools = [];
 
   let sysPrompts = [config.sys_prompt];
-  for (const skill of config.skills) {
+  for (const skillCfg of config.skills) {
+    const klass = get_skill_class(skillCfg.skill_type);
+    const skill = new klass(skillCfg);
+    const sysPr = skill.systemPrompt();
+    if (sysPr) sysPrompts.push(sysPr);
   }
   if (tools.length === 0) tools = undefined;
   return { tools, systemPrompt: sysPrompts.join("\n\n") };
@@ -505,7 +510,7 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
   const complArgs = await getCompletionArguments(action.configuration);
   complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
-  //console.log("complArgs", JSON.stringify(complArgs, null, 2));
+  console.log("complArgs", JSON.stringify(complArgs, null, 2));
 
   const answer = await getState().functions.llm_generate.run("", complArgs);
   console.log("answer", answer);

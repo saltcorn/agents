@@ -4,6 +4,16 @@ const Table = require("@saltcorn/data/models/table");
 
 class RAG {
   static skill_name = "Retrieval-Augmented Generation";
+
+  constructor(cfg) {
+    Object.assign(this, cfg);
+  }
+
+  systemPrompt() {
+    if (this.mode === "Tool")
+      return `Use the rag tool to search an archive for documents related to a search phrase or a question`;
+  }
+
   static async configFields() {
     const allTables = await Table.find();
     const tableOpts = [];
@@ -56,11 +66,11 @@ class RAG {
   }
 
   onMessage(msgs) {
-    if (this.config !== "Search on every user input") return;
+    if (this.mode !== "Search on every user input") return;
   }
 
   provideTools() {
-    if (this.config !== "Tool") return [];
+    if (this.mode !== "Tool") return [];
   }
 }
 
