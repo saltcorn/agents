@@ -132,32 +132,22 @@ const run = async (
               );
             }
             for (const tool_call of interact.tool_calls) {
-              const action = config.actions.find(
-                (a) => a.trigger_name === tool_call.function.name
+              const toolSkill = find_tool(
+                tool_call.function.name,
+                action.configuration
               );
-              if (action) {
+              if (toolSkill) {
                 const row = JSON.parse(tool_call.function.arguments);
                 if (Object.keys(row || {}).length)
                   interactMarkups.push(
                     wrapSegment(
                       wrapCard(
-                        action.trigger_name,
+                        toolSkill.skill.constructor.skill_name,
                         pre(JSON.stringify(row, null, 2))
                       ),
                       "Copilot"
                     )
                   );
-              } else if (tool_call.function.name === "TableQuery") {
-                const query = JSON.parse(tool_call.function.arguments);
-                const queryText = query.sql_id_query
-                  ? query.sql_id_query
-                  : JSON.stringify(query, null, 2);
-                interactMarkups.push(
-                  wrapSegment(
-                    wrapCard("Query " + query.table_name, pre(queryText)),
-                    "Copilot"
-                  )
-                );
               }
             }
           } else
@@ -172,27 +162,7 @@ const run = async (
             );
           break;
         case "tool":
-          if (interact.name === "TableQuery") {
-            const tool_call = run.context.interactions
-              .map(
-                (i) =>
-                  i.tool_calls &&
-                  i.tool_calls.find((tc) => tc.id === interact.tool_call_id)
-              )
-              .filter(Boolean)[0];
-            if (tool_call) {
-              const args = JSON.parse(tool_call.function.arguments);
-              const table = Table.findOne(args.table_name);
-              interactMarkups.push(
-                await renderQueryInteraction(
-                  table,
-                  JSON.parse(interact.content),
-                  config,
-                  req
-                )
-              );
-            }
-          } else if (interact.content !== "Action run") {
+          if (interact.content !== "Action run") {
             let markupContent;
             try {
               markupContent = JSON.stringify(
@@ -548,7 +518,9 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
       const tool = find_tool(tool_call.function.name, action.configuration);
 
       if (tool) {
-        const result = tool.process(JSON.parse(tool_call.function.arguments));
+        const result = tool.tool.process(
+          JSON.parse(tool_call.function.arguments)
+        );
         if (
           (typeof result === "object" && Object.keys(result || {}).length) ||
           typeof result === "string"

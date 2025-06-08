@@ -29,7 +29,7 @@ const find_tool = (name, config) => {
       ? skillTools
       : [skillTools];
     const found = tools.find((t) => t?.function.name === name);
-    if (found) return found;
+    if (found) return { tool: found, skill };
   }
 };
 
