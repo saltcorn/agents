@@ -138,18 +138,19 @@ const run = async (
               );
               if (toolSkill) {
                 const row = JSON.parse(tool_call.function.arguments);
-                if (Object.keys(row || {}).length)
-                  interactMarkups.push(
-                    wrapSegment(
-                      wrapCard(
-                        toolSkill.skill.constructor.skill_name,
-                        toolSkill.tool.renderToolCall
-                          ? toolSkill.tool.renderToolCall(row)
-                          : pre(JSON.stringify(row, null, 2))
-                      ),
-                      "Copilot"
-                    )
-                  );
+                if (toolSkill.tool.renderToolCall) {
+                  const rendered = toolSkill.tool.renderToolCall(row);
+                  if (rendered)
+                    interactMarkups.push(
+                      wrapSegment(
+                        wrapCard(
+                          toolSkill.skill.constructor.skill_name,
+                          rendered
+                        ),
+                        "Copilot"
+                      )
+                    );
+                }
               }
             }
           } else
@@ -170,25 +171,22 @@ const run = async (
             const toolSkill = find_tool(interact.name, action.configuration);
             try {
               if (toolSkill?.tool?.renderToolResponse)
-                markupContent = toolSkill?.tool?.renderToolResponse(
+                markupContent = toolSkill?.tool?.renderToolResponse?.(
                   JSON.parse(interact.content)
-                );
-              else
-                markupContent = pre(
-                  JSON.stringify(JSON.parse(interact.content), null, 2)
                 );
             } catch {
               markupContent = pre(interact.content);
             }
-            interactMarkups.push(
-              wrapSegment(
-                wrapCard(
-                  toolSkill?.skill?.constructor.skill_name || interact.name,
-                  pre(markupContent)
-                ),
-                "Copilot"
-              )
-            );
+            if (markupContent)
+              interactMarkups.push(
+                wrapSegment(
+                  wrapCard(
+                    toolSkill?.skill?.constructor.skill_name || interact.name,
+                    pre(markupContent)
+                  ),
+                  "Copilot"
+                )
+              );
           }
           break;
       }
@@ -528,19 +526,17 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
       const tool = find_tool(tool_call.function.name, action.configuration);
 
       if (tool) {
-        const row = JSON.parse(tool_call.function.arguments);
-
-        responses.push(
-          wrapSegment(
-            wrapCard(
-              tool.skill.constructor.skill_name,
-              tool.tool.renderToolCall
-                ? tool.tool.renderToolCall(row)
-                : pre(JSON.stringify(row, null, 2))
-            ),
-            "Copilot"
-          )
-        );
+        if (tool.tool.renderToolCall) {
+          const row = JSON.parse(tool_call.function.arguments);
+          const rendered = tool.tool.renderToolCall(row);
+          if (rendered)
+            responses.push(
+              wrapSegment(
+                wrapCard(tool.skill.constructor.skill_name, rendered),
+                "Copilot"
+              )
+            );
+        }
         hasResult = true;
         const result = tool.tool.process(
           JSON.parse(tool_call.function.arguments)
@@ -549,17 +545,16 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
           (typeof result === "object" && Object.keys(result || {}).length) ||
           typeof result === "string"
         ) {
-          responses.push(
-            wrapSegment(
-              wrapCard(
-                tool.skill.constructor.skill_name,
-                tool.tool.renderToolResponse
-                  ? tool.tool.renderToolResponse(result)
-                  : pre(JSON.stringify(result, null, 2))
-              ),
-              "Copilot"
-            )
-          );
+          if (tool.tool.renderToolResponse) {
+            const rendered = tool.tool.renderToolResponse(result);
+            if (rendered)
+              responses.push(
+                wrapSegment(
+                  wrapCard(tool.skill.constructor.skill_name, rendered),
+                  "Copilot"
+                )
+              );
+          }
           hasResult = true;
         }
         await addToContext(run, {
