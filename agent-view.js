@@ -231,82 +231,64 @@ const run = async (
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
       )
     )
-
-    /*i(
-      small(
-        "Skills you can request: " +
-          actionClasses.map((ac) => ac.title).join(", ")
-      )
-    )*/
   );
-  return {
-    widths: [3, 9],
-    gx: 3,
-    besides: [
+
+  const prev_runs_side_bar = div(
+    div(
       {
-        type: "container",
-        contents: div(
-          div(
-            {
-              class: "d-flex justify-content-between align-middle mb-2",
-            },
-            h5("Sessions"),
-
-            button(
-              {
-                type: "button",
-                class: "btn btn-secondary btn-sm py-0",
-                style: "font-size: 0.9em;height:1.5em",
-                onclick: "unset_state_field('run_id')",
-                title: "New session",
-              },
-              i({ class: "fas fa-redo fa-sm" })
-            )
-          ),
-          prevRuns.map((run) =>
-            div(
-              {
-                onclick: `set_state_field('run_id',${run.id})`,
-                class: "prevcopilotrun border p-2",
-              },
-              div(
-                { class: "d-flex justify-content-between" },
-                localeDateTime(run.started_at),
-                i({
-                  class: "far fa-trash-alt",
-                  onclick: `delprevrun(event, ${run.id})`,
-                })
-              ),
-
-              p(
-                { class: "prevrun_content" },
-                run.context.interactions[0]?.content
-              )
-            )
-          )
-        ),
+        class: "d-flex justify-content-between align-middle mb-2",
       },
-      {
-        type: "container",
-        contents: div(
-          { class: "card" },
-          div(
-            { class: "card-body" },
-            script({
-              src: `/static_assets/${db.connectObj.version_tag}/mermaid.min.js`,
-            }),
-            script(
-              { type: "module" },
-              `mermaid.initialize({securityLevel: 'loose'${
-                getState().getLightDarkMode(req.user) === "dark"
-                  ? ",theme: 'dark',"
-                  : ""
-              }});`
-            ),
-            div({ id: "copilotinteractions" }, runInteractions),
-            input_form,
-            style(
-              `div.interaction-segment:not(:first-child) {border-top: 1px solid #e7e7e7; }
+      h5("Sessions"),
+
+      button(
+        {
+          type: "button",
+          class: "btn btn-secondary btn-sm py-0",
+          style: "font-size: 0.9em;height:1.5em",
+          onclick: "unset_state_field('run_id')",
+          title: "New session",
+        },
+        i({ class: "fas fa-redo fa-sm" })
+      )
+    ),
+    prevRuns.map((run) =>
+      div(
+        {
+          onclick: `set_state_field('run_id',${run.id})`,
+          class: "prevcopilotrun border p-2",
+        },
+        div(
+          { class: "d-flex justify-content-between" },
+          localeDateTime(run.started_at),
+          i({
+            class: "far fa-trash-alt",
+            onclick: `delprevrun(event, ${run.id})`,
+          })
+        ),
+
+        p({ class: "prevrun_content" }, run.context.interactions[0]?.content)
+      )
+    )
+  );
+  const main_chat = div(
+    { class: "card" },
+    div(
+      { class: "card-body" },
+      script({
+        src: `/static_assets/${db.connectObj.version_tag}/mermaid.min.js`,
+      }),
+      script(
+        { type: "module" },
+        `mermaid.initialize({securityLevel: 'loose'${
+          getState().getLightDarkMode(req.user) === "dark"
+            ? ",theme: 'dark',"
+            : ""
+        }});`
+      ),
+      div({ id: "copilotinteractions" }, runInteractions),
+      input_form,
+      style(
+        `div.interaction-segment:not(:first-child) {border-top: 1px solid #e7e7e7; }
               div.interaction-segment {padding-top: 5px;padding-bottom: 5px;}
               div.interaction-segment p {margin-bottom: 0px;}
               div.interaction-segment div.card {margin-top: 0.5rem;}            
@@ -327,8 +309,8 @@ const run = async (
     margin-bottom: 0px;
     display: block;
     text-overflow: ellipsis;}`
-            ),
-            script(`function processCopilotResponse(res) {
+      ),
+      script(`function processCopilotResponse(res) {
         $("#sendbuttonicon").attr("class","far fa-paper-plane");
         const $runidin= $("input[name=run_id")
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
@@ -379,11 +361,24 @@ const run = async (
       $("#sendbuttonicon").attr("class","fas fa-spinner fa-spin");
     }
 `)
-          )
-        ),
-      },
-    ],
-  };
+    )
+  );
+  return show_prev_runs
+    ? {
+        widths: [3, 9],
+        gx: 3,
+        besides: [
+          {
+            type: "container",
+            contents: prev_runs_side_bar,
+          },
+          {
+            type: "container",
+            contents: main_chat,
+          },
+        ],
+      }
+    : main_chat;
 };
 
 const getCompletionArguments = async (config) => {
