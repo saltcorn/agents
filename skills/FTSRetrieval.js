@@ -1,7 +1,9 @@
-const { div } = require("@saltcorn/markup/tags");
+const { div, pre } = require("@saltcorn/markup/tags");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
+const { getState } = require("@saltcorn/data/db/state");
+const db = require("@saltcorn/data/db");
 
 class RetrievalByFullTextSearch {
   static skill_name = "Retrieval by full-text search";
@@ -10,27 +12,18 @@ class RetrievalByFullTextSearch {
     Object.assign(this, cfg);
   }
 
+  get toolName() {
+    return `search_${this.table_name.replaceAll(" ", "")}`;
+  }
+
   systemPrompt() {
     if (this.mode === "Tool")
-      return `Use the rag tool to search an archive for documents related to a search phrase or a question`;
+      return `Use the ${this.toolName} tool to search the ${this.table_name} database by a search phrase which will locate rows where any field match that query`;
   }
 
   static async configFields() {
     const allTables = await Table.find();
-    const tableOpts = [];
-    const relation_opts = {};
-    for (const table of allTables) {
-      table.fields
-        .filter((f) => f.type?.name === "PGVector")
-        .forEach((f) => {
-          const relNm = `${table.name}.${f.name}`;
-          tableOpts.push(relNm);
-          const fkeys = table.fields
-            .filter((f) => f.is_fkey)
-            .map((f) => f.name);
-          relation_opts[relNm] = ["", ...fkeys];
-        });
-    }
+
     return [
       {
         name: "mode",
@@ -40,21 +33,12 @@ class RetrievalByFullTextSearch {
         attributes: { options: ["Tool", "Search on every user input"] },
       },
       {
-        name: "vec_field",
-        label: "Vector field",
-        sublabel: "Field to search for vector similarity",
+        name: "table_name",
+        label: "Table",
+        sublabel: "Which table to search",
         type: "String",
         required: true,
-        attributes: { options: tableOpts },
-      },
-      {
-        name: "doc_relation",
-        label: "Document relation",
-        sublabel:
-          "Optional. For each vector match, retrieve row in the table related by this key instead",
-        type: "String",
-        required: true,
-        attributes: { calcOptions: ["vec_field", relation_opts] },
+        attributes: { options: allTables.map((t) => t.name) },
       },
       {
         name: "contents_expr",
@@ -72,32 +56,52 @@ class RetrievalByFullTextSearch {
 
   provideTools() {
     if (this.mode !== "Tool") return [];
+    const table = Table.findOne(this.table_name);
     return {
       type: "function",
-      process({ phrase_or_question }) {
-        return {
-          response: "There are no documents related to: " + phrase_or_question,
-        };
+      async process({ phrase }) {
+        const scState = getState();
+        const language = scState.pg_ts_config;
+        const use_websearch = scState.getConfig("search_use_websearch", false);
+        const rows = await table.getRows({
+          _fts: {
+            fields: table.fields,
+            searchTerm: phrase,
+            language,
+            use_websearch,
+            table: table.name,
+            schema: db.isSQLite ? undefined : db.getTenantSchema(),
+          },
+        });
+        if (rows.length) return { rows };
+        else
+          return {
+            response: "There are no documents related to: " + phrase,
+          };
       },
-      renderToolCall({ phrase_or_question }) {
-        return div(
-          { class: "border border-primary p-2 m-2" },
-          phrase_or_question
-        );
+      renderToolCall({ phrase }) {
+        return div({ class: "border border-primary p-2 m-2" }, phrase);
       },
-      renderToolResponse({ response }) {
+      renderToolResponse({ response, rows }) {
+        if (rows)
+          div(
+            { class: "border border-success p-2 m-2" },
+            pre(JSON.stringify(rows))
+          );
         return div({ class: "border border-success p-2 m-2" }, response);
       },
       function: {
-        name: "rag",
-        description: `Search an archive for information related to a search phrase or a question. The relevant documents will be returned`,
+        name: this.toolName,
+        description: `Search the ${this.table_name} database table ${
+          table.description ? `(${table.description})` : ""
+        } by a search phrase matched against all fields in the table with full text search. The retrieved rows will be returned`,
         parameters: {
           type: "object",
-          required: ["phrase_or_question"],
+          required: ["phrase"],
           properties: {
-            phrase_or_question: {
+            phrase: {
               type: "string",
-              description: "The phrase or question to search the archive with",
+              description: "The phrase to search the table with",
             },
           },
         },
@@ -106,4 +110,4 @@ class RetrievalByFullTextSearch {
   }
 }
 
-module.exports = RetrievalByEmbedding;
+module.exports = RetrievalByFullTextSearch;

@@ -2,8 +2,8 @@ const { getState } = require("@saltcorn/data/db/state");
 
 const get_skills = () => {
   return [
-    require("./skills/EmbeddingRetrival"),
-    require("./skills/FTSRetrival"),
+    require("./skills/EmbeddingRetrieval"),
+    require("./skills/FTSRetrieval"),
     require("./skills/AdaptiveFeedback"),
   ];
 };

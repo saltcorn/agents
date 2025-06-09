@@ -538,7 +538,7 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
             );
         }
         hasResult = true;
-        const result = tool.tool.process(
+        const result = await tool.tool.process(
           JSON.parse(tool_call.function.arguments)
         );
         if (
