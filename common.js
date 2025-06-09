@@ -1,7 +1,11 @@
 const { getState } = require("@saltcorn/data/db/state");
 
 const get_skills = () => {
-  return [require("./skills/RAG"), require("./skills/AdaptiveFeedback")];
+  return [
+    require("./skills/EmbeddingRetrival"),
+    require("./skills/FTSRetrival"),
+    require("./skills/AdaptiveFeedback"),
+  ];
 };
 
 const get_skill_class = (type) => {
