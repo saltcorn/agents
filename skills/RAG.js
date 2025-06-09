@@ -80,7 +80,7 @@ class RAG {
         };
       },
       renderToolCall({ phrase_or_question }) {
-        return div({ class: "border border-info p-2 m-2" }, phrase_or_question);
+        return div({ class: "border border-primary p-2 m-2" }, phrase_or_question);
       },
       renderToolResponse({ response }) {
         return div({ class: "border border-success p-2 m-2" }, response);

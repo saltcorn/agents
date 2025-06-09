@@ -528,6 +528,20 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
       const tool = find_tool(tool_call.function.name, action.configuration);
 
       if (tool) {
+        const row = JSON.parse(tool_call.function.arguments);
+
+        responses.push(
+          wrapSegment(
+            wrapCard(
+              tool.skill.constructor.skill_name,
+              tool.tool.renderToolCall
+                ? tool.tool.renderToolCall(row)
+                : pre(JSON.stringify(row, null, 2))
+            ),
+            "Copilot"
+          )
+        );
+        hasResult = true;
         const result = tool.tool.process(
           JSON.parse(tool_call.function.arguments)
         );
@@ -538,9 +552,9 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
           responses.push(
             wrapSegment(
               wrapCard(
-                action.trigger_name + " result",
-                tool.renderToolCall
-                  ? tool.renderToolCall(result)
+                tool.skill.constructor.skill_name,
+                tool.tool.renderToolResponse
+                  ? tool.tool.renderToolResponse(result)
                   : pre(JSON.stringify(result, null, 2))
               ),
               "Copilot"
