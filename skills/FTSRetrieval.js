@@ -2,6 +2,7 @@ const { div, pre } = require("@saltcorn/markup/tags");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
+const View = require("@saltcorn/data/models/view");
 const { getState } = require("@saltcorn/data/db/state");
 const db = require("@saltcorn/data/db");
 
@@ -23,7 +24,16 @@ class RetrievalByFullTextSearch {
 
   static async configFields() {
     const allTables = await Table.find();
-
+    const list_view_opts = {};
+    for (const t of allTables) {
+      const lviews = await View.find_table_views_where(
+        t.id,
+        ({ state_fields, viewrow }) =>
+          viewrow.viewtemplate !== "Edit" &&
+          state_fields.every((sf) => !sf.required)
+      );
+      list_view_opts[t.name] = lviews.map((v) => v.name);
+    }
     return [
       {
         name: "mode",
@@ -39,6 +49,14 @@ class RetrievalByFullTextSearch {
         type: "String",
         required: true,
         attributes: { options: allTables.map((t) => t.name) },
+      },
+      {
+        name: "list_view",
+        label: "List view",
+        type: "String",
+        attributes: {
+          calcOptions: ["table_name", list_view_opts],
+        },
       },
       {
         name: "contents_expr",
@@ -76,18 +94,24 @@ class RetrievalByFullTextSearch {
         if (rows.length) return { rows };
         else
           return {
-            response: "There are no documents related to: " + phrase,
+            response: "There are no rows related to: " + phrase,
           };
       },
-      renderToolCall({ phrase }) {
+      /*renderToolCall({ phrase }, { req }) {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
-      },
-      renderToolResponse({ response, rows }) {
-        if (rows)
-          div(
-            { class: "border border-success p-2 m-2" },
-            pre(JSON.stringify(rows))
-          );
+      },*/
+      renderToolResponse: async ({ response, rows }, { req }) => {
+        if (rows) {
+          const view = View.findOne({ name: this.list_view });
+
+          if (view) {
+            const viewRes = await view.run(
+              { [table.pk_name]: { in: rows.map((r) => r[table.pk_name]) } },
+              { req }
+            );
+            return viewRes;
+          } else return "";
+        }
         return div({ class: "border border-success p-2 m-2" }, response);
       },
       function: {

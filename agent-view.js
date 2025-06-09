@@ -139,7 +139,9 @@ const run = async (
               if (toolSkill) {
                 const row = JSON.parse(tool_call.function.arguments);
                 if (toolSkill.tool.renderToolCall) {
-                  const rendered = toolSkill.tool.renderToolCall(row);
+                  const rendered = await toolSkill.tool.renderToolCall(row, {
+                    req,
+                  });
                   if (rendered)
                     interactMarkups.push(
                       wrapSegment(
@@ -171,8 +173,11 @@ const run = async (
             const toolSkill = find_tool(interact.name, action.configuration);
             try {
               if (toolSkill?.tool?.renderToolResponse)
-                markupContent = toolSkill?.tool?.renderToolResponse?.(
-                  JSON.parse(interact.content)
+                markupContent = await toolSkill?.tool?.renderToolResponse?.(
+                  JSON.parse(interact.content),
+                  {
+                    req,
+                  }
                 );
             } catch {
               markupContent = pre(interact.content);
@@ -182,7 +187,7 @@ const run = async (
                 wrapSegment(
                   wrapCard(
                     toolSkill?.skill?.constructor.skill_name || interact.name,
-                    pre(markupContent)
+                    markupContent
                   ),
                   "Copilot"
                 )
@@ -438,56 +443,6 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
   return;
 };
 
-const renderQueryInteraction = async (table, result, config, req) => {
-  if (typeof result === "number")
-    return wrapSegment(
-      wrapCard(
-        "Query " + table?.name || "",
-        //div("Query: ", code(JSON.stringify(query))),
-        `${result}`
-      ),
-      "Copilot"
-    );
-  if (result.length === 0)
-    return wrapSegment(
-      wrapCard(
-        "Query " + table?.name || "",
-        //div("Query: ", code(JSON.stringify(query))),
-        "No rows found"
-      ),
-      "Copilot"
-    );
-
-  const tableCfg = config.tables.find((t) => t.table_name === table.name);
-  let viewRes = "";
-
-  if (result.length === 1) {
-    const view = View.findOne({ name: tableCfg.show_view });
-    if (view) {
-      viewRes = await view.run(
-        { [table.pk_name]: result[0][table.pk_name] },
-        { req }
-      );
-    } else viewRes = pre(JSON.stringify(result[0], null, 2));
-  } else {
-    const view = View.findOne({ name: tableCfg.list_view });
-    if (view) {
-      viewRes = await view.run(
-        { [table.pk_name]: { in: result.map((r) => r[table.pk_name]) } },
-        { req }
-      );
-    } else viewRes = pre(JSON.stringify(result, null, 2));
-  }
-  return wrapSegment(
-    wrapCard(
-      "Query " + table.name,
-      //div("Query: ", code(JSON.stringify(query))),
-      viewRes
-    ),
-    "Copilot"
-  );
-};
-
 const process_interaction = async (run, config, req, prevResponses = []) => {
   const action = await Trigger.findOne({ id: config.action_id });
   const complArgs = await getCompletionArguments(action.configuration);
@@ -528,7 +483,9 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
       if (tool) {
         if (tool.tool.renderToolCall) {
           const row = JSON.parse(tool_call.function.arguments);
-          const rendered = tool.tool.renderToolCall(row);
+          const rendered = await tool.tool.renderToolCall(row, {
+            req,
+          });
           if (rendered)
             responses.push(
               wrapSegment(
@@ -546,7 +503,9 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
           typeof result === "string"
         ) {
           if (tool.tool.renderToolResponse) {
-            const rendered = tool.tool.renderToolResponse(result);
+            const rendered = await tool.tool.renderToolResponse(result, {
+              req,
+            });
             if (rendered)
               responses.push(
                 wrapSegment(
