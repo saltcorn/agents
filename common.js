@@ -37,6 +37,25 @@ const find_tool = (name, config) => {
   }
 };
 
+
+const getCompletionArguments = async (config) => {
+  let tools = [];
+
+  let sysPrompts = [config.sys_prompt];
+
+  const skills = get_skill_instances(config);
+  for (const skill of skills) {
+    const sysPr = skill.systemPrompt();
+    if (sysPr) sysPrompts.push(sysPr);
+    const skillTools = skill.provideTools();
+    if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
+    else if (skillTools) tools.push(skillTools);
+  }
+  if (tools.length === 0) tools = undefined;
+  return { tools, systemPrompt: sysPrompts.join("\n\n") };
+};
+
+
 const getCompletion = async (language, prompt) => {
   return getState().functions.llm_generate.run(prompt, {
     systemPrompt: `You are a helpful code assistant. Your language of choice is ${language}. Do not include any explanation, just generate the code block itself.`,
@@ -69,4 +88,5 @@ module.exports = {
   getCompletion,
   find_tool,
   get_skill_instances,
+  getCompletionArguments
 };

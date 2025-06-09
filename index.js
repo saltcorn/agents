@@ -2,8 +2,12 @@ const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const { features } = require("@saltcorn/data/db/state");
-const { get_skills } = require("./common");
+const { get_skills, getCompletionArguments } = require("./common");
 const { applyAsync } = require("@saltcorn/data/utils");
+const WorkflowRun = require("@saltcorn/data/models/workflow_run");
+const { interpolate } = require("@saltcorn/data/utils");
+const { getState } = require("@saltcorn/data/db/state");
+
 module.exports = {
   sc_plugin_api_version: 1,
   dependencies: ["@saltcorn/large-language-model"],
@@ -30,10 +34,10 @@ module.exports = {
           ...(table
             ? [
                 {
-                  name: "prompt_field",
-                  label: "Prompt field",
+                  name: "prompt",
+                  label: "Prompt",
                   sublabel:
-                    "When triggered from table event or table view button",
+                    "When triggered from table event or table view button. Use handlebars <code>{{}}</code> to access table fields. Ignored if run in Agent Chat view.",
                   type: "String",
                   required: true,
                   attributes: { options: table.fields.map((f) => f.name) },
@@ -64,20 +68,34 @@ module.exports = {
           }),
         ];
       },
-      run: async ({
-        configuration: {
-          row_expr,
-          table_src,
-          table_dest,
-          pk_field,
-          delete_rows,
-          match_field_names,
-          where,
-        },
-        user,
-        run_id,
-        ...rest
-      }) => {},
+      run: async ({ configuration, user, row, trigger_id, ...rest }) => {
+        const userinput = interpolate(configuration.prompt, row, user);
+        const run = await WorkflowRun.create({
+          status: "Running",
+          started_by: user?.id,
+          trigger_id: trigger_id || undefined,
+          context: {
+            implemented_fcall_ids: [],
+            interactions: [{ role: "user", content: userinput }],
+            funcalls: {},
+          },
+        });
+        const complArgs = await getCompletionArguments(configuration);
+        const answer = await getState().functions.llm_generate.run(
+          "",
+          complArgs
+        );
+      },
     },
   },
 };
+
+/* 
+TODO
+
+-embedding retrieval
+-run as action
+-run tools in loop
+-view: set placeholder, labels
+
+*/
