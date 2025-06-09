@@ -3,8 +3,8 @@ const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
 
-class RAG {
-  static skill_name = "Retrieval-Augmented Generation";
+class RetrievalByEmbedding {
+  static skill_name = "Retrieval by embedding";
 
   constructor(cfg) {
     Object.assign(this, cfg);
@@ -106,4 +106,4 @@ class RAG {
   }
 }
 
-module.exports = RAG;
+module.exports = RetrievalByEmbedding;
