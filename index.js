@@ -95,7 +95,6 @@ TODO
 
 -embedding retrieval
 -run as action
--run tools in loop
 -view: set placeholder, labels
 
 */

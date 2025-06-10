@@ -32,7 +32,7 @@ class RetrievalByFullTextSearch {
           viewrow.viewtemplate !== "Edit" &&
           state_fields.every((sf) => !sf.required)
       );
-      list_view_opts[t.name] = lviews.map((v) => v.name);
+      list_view_opts[t.name] = ["", ...lviews.map((v) => v.name)];
     }
     return [
       {
@@ -116,8 +116,8 @@ class RetrievalByFullTextSearch {
       },
       function: {
         name: this.toolName,
-        description: `Search the ${this.table_name} database table ${
-          table.description ? `(${table.description})` : ""
+        description: `Search the ${this.table_name} database table${
+          table.description ? ` (${table.description})` : ""
         } by a search phrase matched against all fields in the table with full text search. The retrieved rows will be returned`,
         parameters: {
           type: "object",
