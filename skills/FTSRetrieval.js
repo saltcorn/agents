@@ -9,6 +9,10 @@ const db = require("@saltcorn/data/db");
 class RetrievalByFullTextSearch {
   static skill_name = "Retrieval by full-text search";
 
+  get skill_label() {
+    return `Search ${this.table_name}`
+  }
+
   constructor(cfg) {
     Object.assign(this, cfg);
   }

@@ -142,7 +142,8 @@ const run = async (
                     interactMarkups.push(
                       wrapSegment(
                         wrapCard(
-                          toolSkill.skill.constructor.skill_name,
+                          toolSkill.skill.skill_label ||
+                            toolSkill.skill.constructor.skill_name,
                           rendered
                         ),
                         "Copilot"
@@ -182,7 +183,9 @@ const run = async (
               interactMarkups.push(
                 wrapSegment(
                   wrapCard(
-                    toolSkill?.skill?.constructor.skill_name || interact.name,
+                    toolSkill?.skill?.skill_label ||
+                      toolSkill?.skill?.constructor.skill_name ||
+                      interact.name,
                     markupContent
                   ),
                   "Copilot"
@@ -463,7 +466,10 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
           if (rendered)
             responses.push(
               wrapSegment(
-                wrapCard(tool.skill.constructor.skill_name, rendered),
+                wrapCard(
+                  tool.skill.skill_label || tool.skill.constructor.skill_name,
+                  rendered
+                ),
                 "Copilot"
               )
             );
@@ -483,7 +489,10 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
             if (rendered)
               responses.push(
                 wrapSegment(
-                  wrapCard(tool.skill.constructor.skill_name, rendered),
+                  wrapCard(
+                    tool.skill.skill_label || tool.skill.constructor.skill_name,
+                    rendered
+                  ),
                   "Copilot"
                 )
               );
