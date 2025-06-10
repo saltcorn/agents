@@ -10,7 +10,7 @@ class RetrievalByFullTextSearch {
   static skill_name = "Retrieval by full-text search";
 
   get skill_label() {
-    return `Search ${this.table_name}`
+    return `Search ${this.table_name}`;
   }
 
   constructor(cfg) {
@@ -87,7 +87,7 @@ class RetrievalByFullTextSearch {
     const table = Table.findOne(this.table_name);
     return {
       type: "function",
-      async process({ phrase }) {
+      process: async ({ phrase }) => {
         const scState = getState();
         const language = scState.pg_ts_config;
         const use_websearch = scState.getConfig("search_use_websearch", false);
