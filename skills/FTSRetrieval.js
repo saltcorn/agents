@@ -59,12 +59,18 @@ class RetrievalByFullTextSearch {
         },
       },
       {
+        name: "hidden_fields",
+        label: "Hide fields",
+        type: "String",
+        sublabel: "Comma-separated list of fields to hide from the prompt",
+      },
+      /*{
         name: "contents_expr",
         label: "Contents string",
         type: "String",
         sublabel:
           "Use handlebars (<code>{{ }}</code>) to access fields in the retrieved rows",
-      },
+      },*/
     ];
   }
 
@@ -91,6 +97,16 @@ class RetrievalByFullTextSearch {
             schema: db.isSQLite ? undefined : db.getTenantSchema(),
           },
         });
+        if (this.hidden_fields) {
+          const hidden_fields = this.hidden_fields
+            .split(",")
+            .map((s) => s.trim());
+          rows.forEach((r) => {
+            hidden_fields.forEach((k) => {
+              delete r[k];
+            });
+          });
+        }
         if (rows.length) return { rows };
         else
           return {
