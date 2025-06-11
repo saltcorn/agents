@@ -97,6 +97,5 @@ TODO
 -promote triggers to skills (optional user confirm)
 -sql access
 -memory
--view settings: set placeholder, labels
 
 */

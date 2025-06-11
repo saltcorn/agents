@@ -76,6 +76,12 @@ const configuration_workflow = (req) =>
                 label: "Show previous runs",
                 type: "Bool",
               },
+              {
+                name: "placeholder",
+                label: "Placeholder",
+                type: "String",
+                default: "How can I help you?"
+              },
             ],
           });
         },
@@ -88,7 +94,7 @@ const get_state_fields = () => [];
 const run = async (
   table_id,
   viewname,
-  { action_id, show_prev_runs },
+  { action_id, show_prev_runs, placeholder },
   state,
   { res, req }
 ) => {
@@ -124,7 +130,7 @@ const run = async (
               interactMarkups.push(
                 div(
                   { class: "interaction-segment" },
-                  span({ class: "badge bg-secondary" }, "Copilot"),
+                  span({ class: "badge bg-secondary" }, action.name),
                   typeof interact.content === "string"
                     ? md.render(interact.content)
                     : interact.content
@@ -150,7 +156,7 @@ const run = async (
                             toolSkill.skill.constructor.skill_name,
                           rendered
                         ),
-                        "Copilot"
+                        action.name
                       )
                     );
                 }
@@ -160,7 +166,7 @@ const run = async (
             interactMarkups.push(
               div(
                 { class: "interaction-segment" },
-                span({ class: "badge bg-secondary" }, "Copilot"),
+                span({ class: "badge bg-secondary" }, action.name),
                 typeof interact.content === "string"
                   ? md.render(interact.content)
                   : interact.content
@@ -192,7 +198,7 @@ const run = async (
                       interact.name,
                     markupContent
                   ),
-                  "Copilot"
+                  action.name
                 )
               );
           }
@@ -224,7 +230,7 @@ const run = async (
         class: "form-control",
         name: "userinput",
         "data-fieldname": "userinput",
-        placeholder: "How can I help you?",
+        placeholder: placeholder || "How can I help you?",
         id: "inputuserinput",
         rows: "3",
         autofocus: true,
@@ -412,7 +418,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
   }
   const action = await Trigger.findOne({ id: config.action_id });
 
-  return await process_interaction(run, action.configuration, req);
+  return await process_interaction(run, action.configuration, req, action.name);
 };
 
 const delprevrun = async (table_id, viewname, config, body, { req, res }) => {

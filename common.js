@@ -120,7 +120,13 @@ const wrapCard = (title, ...inners) =>
     div({ class: "card-body" }, inners)
   );
 
-const process_interaction = async (run, config, req, prevResponses = []) => {
+const process_interaction = async (
+  run,
+  config,
+  req,
+  agent_label = "Copilot",
+  prevResponses = []
+) => {
   const complArgs = await getCompletionArguments(config);
   complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
@@ -144,7 +150,7 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
 
   if (typeof answer === "object" && answer.tool_calls) {
     if (answer.content)
-      responses.push(wrapSegment(md.render(answer.content), "Copilot"));
+      responses.push(wrapSegment(md.render(answer.content), agent_label));
     //const actions = [];
     let hasResult = false;
     for (const tool_call of answer.tool_calls) {
@@ -169,7 +175,7 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
                   tool.skill.skill_label || tool.skill.constructor.skill_name,
                   rendered
                 ),
-                "Copilot"
+                agent_label
               )
             );
         }
@@ -192,7 +198,7 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
                     tool.skill.skill_label || tool.skill.constructor.skill_name,
                     rendered
                   ),
-                  "Copilot"
+                  agent_label
                 )
               );
           }
@@ -214,11 +220,11 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
       }
     }
     if (hasResult)
-      return await process_interaction(run, config, req, [
+      return await process_interaction(run, config, req, agent_label, [
         ...prevResponses,
         ...responses,
       ]);
-  } else responses.push(wrapSegment(md.render(answer), "Copilot"));
+  } else responses.push(wrapSegment(md.render(answer), agent_label));
 
   return {
     json: {
