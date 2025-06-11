@@ -25,7 +25,11 @@ class RetrievalByEmbedding {
         table.name
       }${
         table.description ? ` (${table.description})` : ""
-      } for documents related to a search phrase or a question`;
+      } for documents related to a search phrase or a question.${
+        this.add_sys_prompt
+          ? ` Additional information for the ${this.toolName} tool: ${this.add_sys_prompt}`
+          : ""
+      }`;
     }
   }
 
@@ -80,6 +84,11 @@ class RetrievalByEmbedding {
         name: "limit",
         label: "Limit",
         sublabel: "Max number of rows to find",
+        type: "String",
+      },
+      {
+        name: "add_sys_prompt",
+        label: "Additional prompt",
         type: "String",
       },
     ];

@@ -23,7 +23,13 @@ class RetrievalByFullTextSearch {
 
   systemPrompt() {
     if (this.mode === "Tool")
-      return `Use the ${this.toolName} tool to search the ${this.table_name} database by a search phrase which will locate rows where any field match that query`;
+      return `Use the ${this.toolName} tool to search the ${
+        this.table_name
+      } database by a search phrase which will locate rows where any field match that query.${
+        this.add_sys_prompt
+          ? ` Additional information for the ${this.toolName} tool: ${this.add_sys_prompt}`
+          : ""
+      }`;
   }
 
   static async configFields() {
@@ -67,6 +73,11 @@ class RetrievalByFullTextSearch {
         label: "Hide fields",
         type: "String",
         sublabel: "Comma-separated list of fields to hide from the prompt",
+      },
+      {
+        name: "add_sys_prompt",
+        label: "Additional prompt",
+        type: "String",
       },
       /*{
         name: "contents_expr",
