@@ -33,6 +33,10 @@ const {
   incompleteCfgMsg,
   getCompletionArguments,
   find_tool,
+  addToContext,
+  wrapCard,
+  wrapSegment,
+  process_interaction,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -420,130 +424,6 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
   return;
 };
 
-const process_interaction = async (run, config, req, prevResponses = []) => {
-  const action = await Trigger.findOne({ id: config.action_id });
-  const complArgs = await getCompletionArguments(action.configuration);
-  complArgs.chat = run.context.interactions;
-  //complArgs.debugResult = true;
-  console.log("complArgs", JSON.stringify(complArgs, null, 2));
-
-  const answer = await getState().functions.llm_generate.run("", complArgs);
-  console.log("answer", answer);
-  await addToContext(run, {
-    interactions:
-      typeof answer === "object" && answer.tool_calls
-        ? [
-            {
-              role: "assistant",
-              tool_calls: answer.tool_calls,
-              content: answer.content,
-            },
-          ]
-        : [{ role: "assistant", content: answer }],
-  });
-  const responses = [];
-
-  if (typeof answer === "object" && answer.tool_calls) {
-    if (answer.content)
-      responses.push(wrapSegment(md.render(answer.content), "Copilot"));
-    //const actions = [];
-    let hasResult = false;
-    for (const tool_call of answer.tool_calls) {
-      console.log("call function", tool_call.function);
-
-      await addToContext(run, {
-        funcalls: { [tool_call.id]: tool_call.function },
-      });
-
-      const tool = find_tool(tool_call.function.name, action.configuration);
-
-      if (tool) {
-        if (tool.tool.renderToolCall) {
-          const row = JSON.parse(tool_call.function.arguments);
-          const rendered = await tool.tool.renderToolCall(row, {
-            req,
-          });
-          if (rendered)
-            responses.push(
-              wrapSegment(
-                wrapCard(
-                  tool.skill.skill_label || tool.skill.constructor.skill_name,
-                  rendered
-                ),
-                "Copilot"
-              )
-            );
-        }
-        hasResult = true;
-        const result = await tool.tool.process(
-          JSON.parse(tool_call.function.arguments)
-        );
-        if (
-          (typeof result === "object" && Object.keys(result || {}).length) ||
-          typeof result === "string"
-        ) {
-          if (tool.tool.renderToolResponse) {
-            const rendered = await tool.tool.renderToolResponse(result, {
-              req,
-            });
-            if (rendered)
-              responses.push(
-                wrapSegment(
-                  wrapCard(
-                    tool.skill.skill_label || tool.skill.constructor.skill_name,
-                    rendered
-                  ),
-                  "Copilot"
-                )
-              );
-          }
-          hasResult = true;
-        }
-        await addToContext(run, {
-          interactions: [
-            {
-              role: "tool",
-              tool_call_id: tool_call.id,
-              name: tool_call.function.name,
-              content:
-                result && typeof result !== "string"
-                  ? JSON.stringify(result)
-                  : result || "Action run",
-            },
-          ],
-        });
-      }
-    }
-    if (hasResult)
-      return await process_interaction(run, config, req, [
-        ...prevResponses,
-        ...responses,
-      ]);
-  } else responses.push(wrapSegment(md.render(answer), "Copilot"));
-
-  return {
-    json: {
-      success: "ok",
-      response: [...prevResponses, ...responses].join(""),
-      run_id: run.id,
-    },
-  };
-};
-
-const wrapSegment = (html, who) =>
-  '<div class="interaction-segment"><span class="badge bg-secondary">' +
-  who +
-  "</span>" +
-  html +
-  "</div>";
-
-const wrapCard = (title, ...inners) =>
-  span({ class: "badge bg-info ms-1" }, title) +
-  div(
-    { class: "card mb-3 bg-secondary-subtle" },
-    div({ class: "card-body" }, inners)
-  );
-
 const wrapAction = (
   inner_markup,
   viewname,
@@ -574,28 +454,6 @@ const wrapAction = (
           "Apply"
         ) + div({ id: "postexec-" + tool_call.id })
   );
-
-const addToContext = async (run, newCtx) => {
-  if (run.addToContext) return await run.addToContext(newCtx);
-  let changed = true;
-  Object.keys(newCtx).forEach((k) => {
-    if (Array.isArray(run.context[k])) {
-      if (!Array.isArray(newCtx[k]))
-        throw new Error("Must be array to append to array");
-      run.context[k].push(...newCtx[k]);
-      changed = true;
-    } else if (typeof run.context[k] === "object") {
-      if (typeof newCtx[k] !== "object")
-        throw new Error("Must be object to append to object");
-      Object.assign(run.context[k], newCtx[k]);
-      changed = true;
-    } else {
-      run.context[k] = newCtx[k];
-      changed = true;
-    }
-  });
-  if (changed) await run.update({ context: run.context });
-};
 
 module.exports = {
   name: "Agent Chat",
