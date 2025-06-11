@@ -94,7 +94,10 @@ module.exports = {
 TODO
 
 -embedding retrieval
--run as action
--view: set placeholder, labels
+-run as action with loop
+-promote triggers to skills
+-sql access
+-memory
+-view settings: set placeholder, labels
 
 */

@@ -2,8 +2,8 @@ const { getState } = require("@saltcorn/data/db/state");
 
 const get_skills = () => {
   return [
-    //require("./skills/EmbeddingRetrieval"),
     require("./skills/FTSRetrieval"),
+    require("./skills/EmbeddingRetrieval"),
     //require("./skills/AdaptiveFeedback"),
   ];
 };
@@ -37,7 +37,6 @@ const find_tool = (name, config) => {
   }
 };
 
-
 const getCompletionArguments = async (config) => {
   let tools = [];
 
@@ -54,7 +53,6 @@ const getCompletionArguments = async (config) => {
   if (tools.length === 0) tools = undefined;
   return { tools, systemPrompt: sysPrompts.join("\n\n") };
 };
-
 
 const getCompletion = async (language, prompt) => {
   return getState().functions.llm_generate.run(prompt, {
@@ -88,5 +86,5 @@ module.exports = {
   getCompletion,
   find_tool,
   get_skill_instances,
-  getCompletionArguments
+  getCompletionArguments,
 };

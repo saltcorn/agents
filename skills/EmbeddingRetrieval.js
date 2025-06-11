@@ -33,7 +33,6 @@ class RetrievalByEmbedding {
     const allTables = await Table.find();
     const tableOpts = [];
     const relation_opts = {};
-    const list_view_opts = {};
     for (const table of allTables) {
       table.fields
         .filter((f) => f.type?.name === "PGVector")
@@ -44,8 +43,6 @@ class RetrievalByEmbedding {
             .filter((f) => f.is_fkey)
             .map((f) => f.name);
           relation_opts[relNm] = ["", ...fkeys];
-          
-          list_view_opts[relNm] = []
         });
     }
     return [
@@ -73,20 +70,17 @@ class RetrievalByEmbedding {
         required: true,
         attributes: { calcOptions: ["vec_field", relation_opts] },
       },
-       {
-        name: "list_view",
-        label: "List view",
+      {
+        name: "hidden_fields",
+        label: "Hide fields",
         type: "String",
-        attributes: {
-          calcOptions: ["vec_field", list_view_opts],
-        },
+        sublabel: "Comma-separated list of fields to hide from the prompt",
       },
       {
-        name: "contents_expr",
-        label: "Contents string",
+        name: "limit",
+        label: "Limit",
+        sublabel: "Max number of rows to find",
         type: "String",
-        sublabel:
-          "Use handlebars (<code>{{ }}</code>) to access fields in the retrieved rows",
       },
     ];
   }
@@ -103,28 +97,51 @@ class RetrievalByEmbedding {
       : table0;
     return {
       type: "function",
-      process({ phrase_or_question }) {
-        return {
-          response: "There are no documents related to: " + phrase_or_question,
-        };
-      },
-      renderToolResponse: async ({ response, rows }, { req }) => {
-        if (rows) {
-          const view = View.findOne({ name: this.list_view });
-
-          if (view) {
-            const viewRes = await view.run(
-              {
-                [table_docs.pk_name]: {
-                  in: rows.map((r) => r[table_docs.pk_name]),
-                },
-              },
-              { req }
-            );
-            return viewRes;
-          } else return "";
+      process: async ({ phrase_or_question }) => {
+        const [table_name, field_name] = this.vec_field.split(".");
+        const table = Table.findOne({ name: table_name });
+        if (!table)
+          throw new Error(
+            `Table ${table_name} not found in vector_similarity_search action`
+          );
+        const embedF = getState().functions.llm_embedding;
+        const opts = {};
+        const qembed = await embedF.run(phrase_or_question, opts);
+        const selLimit = +(this.limit || 10);
+        const rows = await table.getRows(
+          {},
+          {
+            orderBy: {
+              operator: "nearL2",
+              field: field_name,
+              target: JSON.stringify(qembed),
+            },
+            limit: this.doc_relation ? 5 * selLimit : selLimit,
+          }
+        );
+        rows.forEach((r) => {
+          delete r[field_name];
+        });
+        if (!rows.length)
+          return {
+            response:
+              "There are no documents related to: " + phrase_or_question,
+          };
+        else if (!this.doc_relation) return { rows };
+        else {
+          const relField = table.getField(this.doc_relation);
+          const relTable = Table.findOne(relField.reftable_name);
+          const ids = [];
+          rows.forEach((vrow) => {
+            if (ids.length < selLimit) ids.push(vrow[this.doc_relation]);
+          });
+          const docsUnsorted = await relTable.getRows({ id: { in: ids } });
+          //ensure order
+          const docs = ids
+            .map((id) => docsUnsorted.find((d) => d.id == id))
+            .filter(Boolean);
+          return { rows: docs };
         }
-        return div({ class: "border border-success p-2 m-2" }, response);
       },
       function: {
         name: this.toolName,
