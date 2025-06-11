@@ -2,7 +2,11 @@ const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const { features } = require("@saltcorn/data/db/state");
-const { get_skills, getCompletionArguments } = require("./common");
+const {
+  get_skills,
+  getCompletionArguments,
+  process_interaction,
+} = require("./common");
 const { applyAsync } = require("@saltcorn/data/utils");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 const { interpolate } = require("@saltcorn/data/utils");
@@ -68,7 +72,7 @@ module.exports = {
           }),
         ];
       },
-      run: async ({ configuration, user, row, trigger_id, ...rest }) => {
+      run: async ({ configuration, user, row, trigger_id, req, ...rest }) => {
         const userinput = interpolate(configuration.prompt, row, user);
         const run = await WorkflowRun.create({
           status: "Running",
@@ -80,11 +84,7 @@ module.exports = {
             funcalls: {},
           },
         });
-        const complArgs = await getCompletionArguments(configuration);
-        const answer = await getState().functions.llm_generate.run(
-          "",
-          complArgs
-        );
+        return await process_interaction(run, configuration, req);
       },
     },
   },
@@ -94,7 +94,6 @@ module.exports = {
 TODO
 
 -embedding retrieval test
--run as action with loop
 -promote triggers to skills (optional user confirm)
 -sql access
 -memory

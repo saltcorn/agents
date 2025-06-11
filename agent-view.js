@@ -410,7 +410,9 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       interactions: [{ role: "user", content: userinput }],
     });
   }
-  return await process_interaction(run, config, req);
+  const action = await Trigger.findOne({ id: config.action_id });
+
+  return await process_interaction(run, action.configuration, req);
 };
 
 const delprevrun = async (table_id, viewname, config, body, { req, res }) => {

@@ -121,8 +121,7 @@ const wrapCard = (title, ...inners) =>
   );
 
 const process_interaction = async (run, config, req, prevResponses = []) => {
-  const action = await Trigger.findOne({ id: config.action_id });
-  const complArgs = await getCompletionArguments(action.configuration);
+  const complArgs = await getCompletionArguments(config);
   complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
   console.log("complArgs", JSON.stringify(complArgs, null, 2));
@@ -155,7 +154,7 @@ const process_interaction = async (run, config, req, prevResponses = []) => {
         funcalls: { [tool_call.id]: tool_call.function },
       });
 
-      const tool = find_tool(tool_call.function.name, action.configuration);
+      const tool = find_tool(tool_call.function.name, config);
 
       if (tool) {
         if (tool.tool.renderToolCall) {
@@ -241,5 +240,5 @@ module.exports = {
   addToContext,
   wrapCard,
   wrapSegment,
-  process_interaction
+  process_interaction,
 };
