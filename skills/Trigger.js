@@ -1,4 +1,4 @@
-const { div, pre } = require("@saltcorn/markup/tags");
+const { div, pre, a } = require("@saltcorn/markup/tags");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
@@ -40,11 +40,20 @@ class TriggerToSkill {
       {
         name: "trigger_name",
         label: "Action",
-        sublabel: "Only actions with a description can be enabled",
+        sublabel:
+          "Only actions with a description can be enabled. " +
+          a(
+            {
+              "data-dyn-href": `\`/actions/configure/\${trigger_name}\``,
+              target: "_blank",
+            },
+            "Configure"
+          ),
         type: "String",
         required: true,
         attributes: { options: actions.map((a) => a.name) },
       },
+      // TODO: confirm, show response, show argument
     ];
   }
 
