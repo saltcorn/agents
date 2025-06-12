@@ -82,6 +82,13 @@ const configuration_workflow = (req) =>
                 type: "String",
                 default: "How can I help you?",
               },
+              {
+                name: "explainer",
+                label: "Explainer",
+                type: "String",
+                sublabel:
+                  "Appears below the input box. Use for additional instructions.",
+              },
             ],
           });
         },
@@ -94,7 +101,7 @@ const get_state_fields = () => [];
 const run = async (
   table_id,
   viewname,
-  { action_id, show_prev_runs, placeholder },
+  { action_id, show_prev_runs, placeholder, explainer },
   state,
   { res, req }
 ) => {
@@ -238,7 +245,8 @@ const run = async (
       span(
         { class: "submit-button p-2", onclick: "$('form.copilot').submit()" },
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
-      )
+      ),
+      explainer && small({ class: "explainer" }, i(explainer))
     )
   );
 
@@ -310,6 +318,11 @@ const run = async (
               position: relative; 
               top: -1.8rem;
               left: 0.1rem;              
+            }
+              .copilot-entry .explainer {
+              position: relative; 
+              top: -1.2rem;    
+              display: block;                        
             }
             .copilot-entry {margin-bottom: -1.25rem; margin-top: 1rem;}
             p.prevrun_content {
