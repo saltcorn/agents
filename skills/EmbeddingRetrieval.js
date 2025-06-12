@@ -90,6 +90,7 @@ class RetrievalByEmbedding {
         name: "add_sys_prompt",
         label: "Additional prompt",
         type: "String",
+        fieldview: "textarea"
       },
     ];
   }

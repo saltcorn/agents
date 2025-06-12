@@ -93,8 +93,9 @@ module.exports = {
 /* 
 TODO
 
--embedding retrieval test
--promote triggers to skills (optional user confirm)
+-embedding retrieval list view
+-optional user confirm: action, insert
+-Preload data
 -sql access
 -memory
 

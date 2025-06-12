@@ -78,6 +78,7 @@ class TableToSkill {
         name: "add_sys_prompt",
         label: "Additional system prompt",
         type: "String",
+        fieldview: "textarea"
       },
     ];
   }

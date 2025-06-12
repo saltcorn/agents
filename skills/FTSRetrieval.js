@@ -26,6 +26,10 @@ class RetrievalByFullTextSearch {
       return `Use the ${this.toolName} tool to search the ${
         this.table_name
       } database by a search phrase which will locate rows where any field match that query.${
+        this.list_view
+          ? ` When the tool call returns rows, do not describe them or repeat the information to the user. The results are already displayed to the user automatically.`
+          : ""
+      }${
         this.add_sys_prompt
           ? ` Additional information for the ${this.toolName} tool: ${this.add_sys_prompt}`
           : ""
@@ -78,6 +82,7 @@ class RetrievalByFullTextSearch {
         name: "add_sys_prompt",
         label: "Additional prompt",
         type: "String",
+        fieldview: "textarea",
       },
       /*{
         name: "contents_expr",
