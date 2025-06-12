@@ -45,7 +45,7 @@ const configuration_workflow = (req) =>
   new Workflow({
     steps: [
       {
-        name: req.__("Agent action"),
+        name: "Agent action",
         form: async (context) => {
           const agent_actions = await Trigger.find({ action: "Agent" });
           return new Form({
@@ -68,7 +68,7 @@ const configuration_workflow = (req) =>
                       "data-dyn-href": `\`/actions/configure/\${action_id}\``,
                       target: "_blank",
                     },
-                    req.__("Configure")
+                    "Configure"
                   ),
               },
               {
@@ -80,7 +80,7 @@ const configuration_workflow = (req) =>
                 name: "placeholder",
                 label: "Placeholder",
                 type: "String",
-                default: "How can I help you?"
+                default: "How can I help you?",
               },
             ],
           });
