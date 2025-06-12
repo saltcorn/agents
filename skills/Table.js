@@ -42,7 +42,7 @@ class TableToSkill {
       {
         name: "table_name",
         label: "Table",
-        sublabel: "Which table to search",
+        sublabel: "Which table to link to the agent",
         type: "String",
         required: true,
         attributes: { options: allTables.map((t) => t.name) },
@@ -52,6 +52,12 @@ class TableToSkill {
         label: "Query",
         type: "Bool",
         sublabel: "Allow the agent to query from this table",
+      },
+      {
+        name: "insert",
+        label: "Insert",
+        type: "Bool",
+        sublabel: "Allow the agent to insert new rows into this table",
       },
       {
         name: "list_view",
@@ -66,6 +72,7 @@ class TableToSkill {
         label: "Hide fields",
         type: "String",
         sublabel: "Comma-separated list of fields to hide from the prompt",
+        showIf: { query: true },
       },
       {
         name: "add_sys_prompt",
@@ -79,10 +86,12 @@ class TableToSkill {
     const table = Table.findOne(this.table_name);
     const tools = [];
     let queryProperties = {};
+    let required = [];
 
     table.fields
       .filter((f) => !f.primary_key)
       .forEach((field) => {
+        if (field.required && !field.primary_key) required.push(field.name);
         queryProperties[field.name] = {
           description: field.label + " " + field.description || "",
           ...fieldProperties(field),
@@ -179,6 +188,48 @@ class TableToSkill {
                 ],
               },
             },
+          },
+        },
+      });
+
+    if (this.insert)
+      tools.push({
+        type: "function",
+        process: async (rows, { req }) => {
+          const ids = [];
+          if (Array.isArray(rows)) {
+            for (const row of rows)
+              ids.push(await table.insertRow(row, req?.user));
+          } else ids.push(await table.insertRow(rows, req?.user));
+          return { created_ids: ids };
+        },
+        /*renderToolCall({ phrase }, { req }) {
+        return div({ class: "border border-primary p-2 m-2" }, phrase);
+      },*/
+        renderToolResponse: async ({ created_ids }, { req }) => {
+          if (created_ids) {
+            const view = View.findOne({ name: this.list_view });
+
+            if (view) {
+              const viewRes = await view.run(
+                { [table.pk_name]: { in: created_ids } },
+                { req }
+              );
+              return viewRes;
+            } else return "";
+          }
+        },
+        function: {
+          name: `insert_${this.table_name}`,
+          description: `Insert rows into the  ${
+            this.table_name
+          } database table${
+            table.description ? ` (${table.description})` : ""
+          }`,
+          parameters: {
+            type: "object",
+            required,
+            properties: queryProperties,
           },
         },
       });
