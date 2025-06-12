@@ -10,6 +10,7 @@ const get_skills = () => {
     require("./skills/FTSRetrieval"),
     require("./skills/EmbeddingRetrieval"),
     require("./skills/Trigger"),
+    require("./skills/Table"),
     //require("./skills/AdaptiveFeedback"),
   ];
 };
