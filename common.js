@@ -9,6 +9,7 @@ const get_skills = () => {
   return [
     require("./skills/FTSRetrieval"),
     require("./skills/EmbeddingRetrieval"),
+    require("./skills/Trigger"),
     //require("./skills/AdaptiveFeedback"),
   ];
 };
@@ -181,7 +182,8 @@ const process_interaction = async (
         }
         hasResult = true;
         const result = await tool.tool.process(
-          JSON.parse(tool_call.function.arguments)
+          JSON.parse(tool_call.function.arguments),
+          { req }
         );
         if (
           (typeof result === "object" && Object.keys(result || {}).length) ||
