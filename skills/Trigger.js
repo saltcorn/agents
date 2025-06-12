@@ -22,7 +22,7 @@ class TriggerToSkill {
   systemPrompt() {
     const trigger = Trigger.findOne({ name: this.trigger_name });
 
-    return `${this.trigger_name}: ${trigger.description}`;
+    return `${this.trigger_name} tool: ${trigger.description}`;
   }
 
   static async configFields() {
