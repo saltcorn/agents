@@ -14,7 +14,7 @@ class RetrievalByEmbedding {
   }
 
   get toolName() {
-    return `search_${this.table_name.replaceAll(" ", "")}`;
+    return `search_${this.vec_field.split(".")[0].replaceAll(" ", "")}`;
   }
 
   systemPrompt() {
@@ -118,7 +118,7 @@ class RetrievalByEmbedding {
 
   provideTools() {
     if (this.mode !== "Tool") return [];
-    const table0 = Table.findOne(this.vec_field.split["."][0]);
+    const table0 = Table.findOne(this.vec_field.split(".")[0]);
     const table_docs = this.doc_relation
       ? Table.findOne(table0.getField(this.doc_relation).reftable_name)
       : table0;
@@ -190,7 +190,7 @@ class RetrievalByEmbedding {
       },
       function: {
         name: this.toolName,
-        description: `Search the ${table_docs.name``} archive${
+        description: `Search the ${table_docs.name} archive${
           table_docs.description ? ` (${table_docs.description})` : ""
         } for information related to a search phrase or a question. The relevant documents will be returned`,
         parameters: {
