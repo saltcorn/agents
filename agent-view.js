@@ -2,6 +2,7 @@ const Field = require("@saltcorn/data/models/field");
 const Table = require("@saltcorn/data/models/table");
 const Form = require("@saltcorn/data/models/form");
 const View = require("@saltcorn/data/models/view");
+const File = require("@saltcorn/data/models/file");
 const Trigger = require("@saltcorn/data/models/trigger");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const db = require("@saltcorn/data/db");
@@ -237,7 +238,7 @@ const run = async (
   }
   const input_form = form(
     {
-      onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', $(this).serialize(), processCopilotResponse);return false;`,
+      onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), processCopilotResponse);return false;`,
       class: "form-namespace copilot mt-2",
       method: "post",
     },
@@ -350,13 +351,15 @@ const run = async (
     text-overflow: ellipsis;}`
       ),
       script(`function processCopilotResponse(res) {
+        $("span.filename-label").text("");
+        $("input#attach_agent_image").val(null);
         $("#sendbuttonicon").attr("class","far fa-paper-plane");
         const $runidin= $("input[name=run_id")
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
           $runidin.val(res.run_id);
         const wrapSegment = (html, who) => '<div class="interaction-segment"><span class="badge bg-secondary">'+who+'</span>'+html+'</div>'
         $("#copilotinteractions").append(wrapSegment('<p>'+$("textarea[name=userinput]").val()+'</p>', "You"))
-        $("textarea[name=userinput]").val("")      
+        $("textarea[name=userinput]").val("")
 
         if(res.response)
             $("#copilotinteractions").append(res.response)
@@ -455,6 +458,37 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     run = await WorkflowRun.findOne({ id: +run_id });
     await addToContext(run, {
       interactions: [{ role: "user", content: userinput }],
+    });
+  }
+  if (req.files?.file) {
+    const file = await File.from_req_files(
+      req.files.file,
+      req.user ? req.user.id : null,
+      100
+      // file_field?.attributes?.folder
+    );
+    const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
+    let imageurl;
+    if (baseUrl && !baseUrl.includes("http://localhost:")) {
+      imageurl = `${baseUrl}/files/serve/${file.path_to_serve}`;
+    } else {
+      const b64 = await file.get_contents("base64");
+      imageurl = `data:${file.mimetype};base64,${b64}`;
+    }
+    await addToContext(run, {
+      interactions: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: imageurl,
+              },
+            },
+          ],
+        },
+      ],
     });
   }
   const action = await Trigger.findOne({ id: config.action_id });
