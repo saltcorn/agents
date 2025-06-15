@@ -114,8 +114,9 @@ const uploadForm = (viewname, req) =>
       type: "file",
       class: "d-none",
       accept: "image/*",
-      onchange: `agent_file_attach()`,
-    })
+      onchange: `agent_file_attach(event)`,
+    }),
+    span({ class: "ms-2 filename-label" })
   );
 
 const run = async (
@@ -311,7 +312,7 @@ const run = async (
   const main_chat = div(
     { class: "card" },
     div(
-      { class: "card-body" },    
+      { class: "card-body" },
       div({ id: "copilotinteractions" }, runInteractions),
       input_form,
       style(
@@ -360,20 +361,8 @@ const run = async (
         if(res.response)
             $("#copilotinteractions").append(res.response)
     }
-    function agent_file_attach() {
-        const data = new FormData();
-        data.append( 'file', $( '#attach_agent_image' )[0].files[0] );
-        data.append( '_csrf', _sc_globalCsrf );       
-        $.ajax({
-          url: '/view/${viewname}/attach_image',
-          data: data,
-          processData: false,
-          contentType: false,
-          type: 'POST',
-          success: function ( resp ) {
-              console.log(resp)
-          }
-        });
+    function agent_file_attach(e) {
+        $(".attach_agent_image_wrap span.filename-label").text(e.target.files[0].name)
     }
     function restore_old_button_elem(btn) {
         const oldText = $(btn).data("old-text");
