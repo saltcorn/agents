@@ -2,6 +2,7 @@ const Field = require("@saltcorn/data/models/field");
 const Table = require("@saltcorn/data/models/table");
 const Form = require("@saltcorn/data/models/form");
 const View = require("@saltcorn/data/models/view");
+const File = require("@saltcorn/data/models/file");
 const Trigger = require("@saltcorn/data/models/trigger");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const db = require("@saltcorn/data/db");
@@ -26,6 +27,7 @@ const {
   small,
   form,
   textarea,
+  label,
   a,
 } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
@@ -89,6 +91,19 @@ const configuration_workflow = (req) =>
                 sublabel:
                   "Appears below the input box. Use for additional instructions.",
               },
+              {
+                name: "image_upload",
+                label: "Upload images",
+                sublabel: "Allow the user to upload images",
+                type: "Bool",
+              },
+              {
+                name: "image_base64",
+                label: "base64 encode",
+                sublabel: "Use base64 encoding in the OpenAI API",
+                type: "Bool",
+                showIf: { image_upload: true },
+              },
             ],
           });
         },
@@ -98,10 +113,30 @@ const configuration_workflow = (req) =>
 
 const get_state_fields = () => [];
 
+const uploadForm = (viewname, req) =>
+  span(
+    {
+      class: "attach_agent_image_wrap",
+    },
+    label(
+      { class: "btn-link", for: "attach_agent_image" },
+      i({ class: "fas fa-paperclip" })
+    ),
+    input({
+      id: "attach_agent_image",
+      name: "file",
+      type: "file",
+      class: "d-none",
+      accept: "image/*",
+      onchange: `agent_file_attach(event)`,
+    }),
+    span({ class: "ms-2 filename-label" })
+  );
+
 const run = async (
   table_id,
   viewname,
-  { action_id, show_prev_runs, placeholder, explainer },
+  { action_id, show_prev_runs, placeholder, explainer, image_upload },
   state,
   { res, req }
 ) => {
@@ -122,13 +157,33 @@ const run = async (
     for (const interact of run.context.interactions) {
       switch (interact.role) {
         case "user":
-          interactMarkups.push(
-            div(
-              { class: "interaction-segment" },
-              span({ class: "badge bg-secondary" }, "You"),
-              md.render(interact.content)
-            )
-          );
+          console.log(interact.content);
+          if (interact.content?.[0]?.type === "image_url") {
+            const image_url = interact.content[0].image_url.url;
+            if (image_url.startsWith("data"))
+              interactMarkups.push(
+                div(
+                  { class: "interaction-segment" },
+                  span({ class: "badge bg-secondary" }, "You"),
+                  "File"
+                )
+              );
+            else
+              interactMarkups.push(
+                div(
+                  { class: "interaction-segment" },
+                  span({ class: "badge bg-secondary" }, "You"),
+                  a({ href: image_url, target: "_blank" }, "File")
+                )
+              );
+          } else
+            interactMarkups.push(
+              div(
+                { class: "interaction-segment" },
+                span({ class: "badge bg-secondary" }, "You"),
+                md.render(interact.content)
+              )
+            );
           break;
         case "assistant":
         case "system":
@@ -216,7 +271,7 @@ const run = async (
   }
   const input_form = form(
     {
-      onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', $(this).serialize(), processCopilotResponse);return false;`,
+      onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), processCopilotResponse);return false;`,
       class: "form-namespace copilot mt-2",
       method: "post",
     },
@@ -246,6 +301,7 @@ const run = async (
         { class: "submit-button p-2", onclick: "$('form.copilot').submit()" },
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
       ),
+      image_upload && uploadForm(viewname, req),
       explainer && small({ class: "explainer" }, i(explainer))
     )
   );
@@ -291,17 +347,6 @@ const run = async (
     { class: "card" },
     div(
       { class: "card-body" },
-      script({
-        src: `/static_assets/${db.connectObj.version_tag}/mermaid.min.js`,
-      }),
-      script(
-        { type: "module" },
-        `mermaid.initialize({securityLevel: 'loose'${
-          getState().getLightDarkMode(req.user) === "dark"
-            ? ",theme: 'dark',"
-            : ""
-        }});`
-      ),
       div({ id: "copilotinteractions" }, runInteractions),
       input_form,
       style(
@@ -313,11 +358,17 @@ const run = async (
             div.prevcopilotrun i.fa-trash-alt {display: none;}
             div.prevcopilotrun:hover i.fa-trash-alt {display: block;}
             .copilot-entry .submit-button:hover { cursor: pointer}
+            .copilot-entry span.attach_agent_image_wrap i:hover { cursor: pointer}
 
             .copilot-entry .submit-button {
               position: relative; 
               top: -1.8rem;
               left: 0.1rem;              
+            }
+              .copilot-entry span.attach_agent_image_wrap {
+              position: relative; 
+              top: -1.8rem;
+              left: 0.2rem;              
             }
               .copilot-entry .explainer {
               position: relative; 
@@ -333,16 +384,24 @@ const run = async (
     text-overflow: ellipsis;}`
       ),
       script(`function processCopilotResponse(res) {
+        const hadFile = $("input#attach_agent_image").val();
+        $("span.filename-label").text("");
+        $("input#attach_agent_image").val(null);
         $("#sendbuttonicon").attr("class","far fa-paper-plane");
         const $runidin= $("input[name=run_id")
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
           $runidin.val(res.run_id);
         const wrapSegment = (html, who) => '<div class="interaction-segment"><span class="badge bg-secondary">'+who+'</span>'+html+'</div>'
         $("#copilotinteractions").append(wrapSegment('<p>'+$("textarea[name=userinput]").val()+'</p>', "You"))
-        $("textarea[name=userinput]").val("")      
+        if(hadFile)
+          $("#copilotinteractions").append(wrapSegment('File', "You"))
+        $("textarea[name=userinput]").val("")
 
         if(res.response)
             $("#copilotinteractions").append(res.response)
+    }
+    function agent_file_attach(e) {
+        $(".attach_agent_image_wrap span.filename-label").text(e.target.files[0].name)
     }
     function restore_old_button_elem(btn) {
         const oldText = $(btn).data("old-text");
@@ -403,12 +462,6 @@ const run = async (
     : main_chat;
 };
 
-/*
-
-build a workflow that asks the user for their name and age
-
-*/
-
 const interact = async (table_id, viewname, config, body, { req, res }) => {
   const { userinput, run_id } = body;
   let run;
@@ -427,6 +480,41 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     run = await WorkflowRun.findOne({ id: +run_id });
     await addToContext(run, {
       interactions: [{ role: "user", content: userinput }],
+    });
+  }
+  if (config.image_upload && req.files?.file) {
+    const file = await File.from_req_files(
+      req.files.file,
+      req.user ? req.user.id : null,
+      100
+      // file_field?.attributes?.folder
+    );
+    const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
+    let imageurl;
+    if (
+      !config.image_base64 &&
+      baseUrl &&
+      !baseUrl.includes("http://localhost:")
+    ) {
+      imageurl = `${baseUrl}/files/serve/${file.path_to_serve}`;
+    } else {
+      const b64 = await file.get_contents("base64");
+      imageurl = `data:${file.mimetype};base64,${b64}`;
+    }
+    await addToContext(run, {
+      interactions: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: imageurl,
+              },
+            },
+          ],
+        },
+      ],
     });
   }
   const action = await Trigger.findOne({ id: config.action_id });
