@@ -37,17 +37,26 @@ class RetrievalByEmbedding {
     const allTables = await Table.find();
     const tableOpts = [];
     const relation_opts = {};
+    const list_view_opts = {};
     for (const table of allTables) {
-      table.fields
-        .filter((f) => f.type?.name === "PGVector")
-        .forEach((f) => {
-          const relNm = `${table.name}.${f.name}`;
-          tableOpts.push(relNm);
-          const fkeys = table.fields
-            .filter((f) => f.is_fkey)
-            .map((f) => f.name);
-          relation_opts[relNm] = ["", ...fkeys];
-        });
+      for (const f of table.fields) {
+        if (f.type?.name !== "PGVector") continue;
+        const relNm = `${table.name}.${f.name}`;
+        tableOpts.push(relNm);
+        list_view_opts[relNm] = [""];
+        const fkeys = table.fields.filter((f) => f.is_fkey).map((f) => f.name);
+        relation_opts[relNm] = ["", ...fkeys];
+        for (const fkeyField of table.fields.filter((f) => f.is_fkey)) {
+          const t = Table.findOne(fkeyField.reftable_name);
+          const lviews = await View.find_table_views_where(
+            t.id,
+            ({ state_fields, viewrow }) =>
+              viewrow.viewtemplate !== "Edit" &&
+              state_fields.every((sf) => !sf.required)
+          );
+          list_view_opts[relNm].push(...lviews.map((v) => v.name));
+        }
+      }
     }
     return [
       {
@@ -75,6 +84,14 @@ class RetrievalByEmbedding {
         attributes: { calcOptions: ["vec_field", relation_opts] },
       },
       {
+        name: "list_view",
+        label: "List view",
+        type: "String",
+        attributes: {
+          calcOptions: ["table_name", list_view_opts],
+        },
+      },
+      {
         name: "hidden_fields",
         label: "Hide fields",
         type: "String",
@@ -90,7 +107,7 @@ class RetrievalByEmbedding {
         name: "add_sys_prompt",
         label: "Additional prompt",
         type: "String",
-        fieldview: "textarea"
+        fieldview: "textarea",
       },
     ];
   }
@@ -152,6 +169,24 @@ class RetrievalByEmbedding {
             .filter(Boolean);
           return { rows: docs };
         }
+      },
+      renderToolResponse: async ({ response, rows }, { req }) => {
+        if (rows) {
+          const view = View.findOne({ name: this.list_view });
+
+          if (view) {
+            const viewRes = await view.run(
+              {
+                [table_docs.pk_name]: {
+                  in: rows.map((r) => r[table_docs.pk_name]),
+                },
+              },
+              { req }
+            );
+            return viewRes;
+          } else return "";
+        }
+        return div({ class: "border border-success p-2 m-2" }, response);
       },
       function: {
         name: this.toolName,
