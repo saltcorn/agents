@@ -97,6 +97,13 @@ const configuration_workflow = (req) =>
                 sublabel: "Allow the user to upload images",
                 type: "Bool",
               },
+              {
+                name: "image_base64",
+                label: "base64 encode",
+                sublabel: "Use base64 encoding in the OpenAI API",
+                type: "Bool",
+                showIf: { image_upload: true },
+              },
             ],
           });
         },
@@ -455,20 +462,6 @@ const run = async (
     : main_chat;
 };
 
-/*
-
-build a workflow that asks the user for their name and age
-
-*/
-
-const attach_image = async (table_id, viewname, config, body, { req, res }) => {
-  return {
-    json: {
-      success: "ok",
-    },
-  };
-};
-
 const interact = async (table_id, viewname, config, body, { req, res }) => {
   const { userinput, run_id } = body;
   let run;
@@ -498,7 +491,11 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     );
     const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
     let imageurl;
-    if (baseUrl && !baseUrl.includes("http://localhost:")) {
+    if (
+      !config.image_base64 &&
+      baseUrl &&
+      !baseUrl.includes("http://localhost:")
+    ) {
       imageurl = `${baseUrl}/files/serve/${file.path_to_serve}`;
     } else {
       const b64 = await file.get_contents("base64");
@@ -574,5 +571,5 @@ module.exports = {
   get_state_fields,
   tableless: true,
   run,
-  routes: { interact, delprevrun, attach_image },
+  routes: { interact, delprevrun },
 };
