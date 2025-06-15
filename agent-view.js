@@ -311,18 +311,7 @@ const run = async (
   const main_chat = div(
     { class: "card" },
     div(
-      { class: "card-body" },
-      script({
-        src: `/static_assets/${db.connectObj.version_tag}/mermaid.min.js`,
-      }),
-      script(
-        { type: "module" },
-        `mermaid.initialize({securityLevel: 'loose'${
-          getState().getLightDarkMode(req.user) === "dark"
-            ? ",theme: 'dark',"
-            : ""
-        }});`
-      ),
+      { class: "card-body" },    
       div({ id: "copilotinteractions" }, runInteractions),
       input_form,
       style(
