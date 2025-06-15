@@ -19,7 +19,7 @@ class RetrievalByEmbedding {
 
   systemPrompt() {
     if (this.mode === "Tool") {
-      const table = Table.findOne(this.vec_field.split["."][0]);
+      const table = Table.findOne(this.vec_field.split(".")[0]);
 
       return `Use the ${this.toolName} tool to search an archive named ${
         table.name
