@@ -102,19 +102,19 @@ const get_state_fields = () => [];
 const uploadForm = (viewname, req) =>
   span(
     {
-      class: "attach_agent_image"
+      class: "attach_agent_image_wrap",
     },
     label(
-      { class: "btn-link", for: "attach_agent_image_" + viewname },
+      { class: "btn-link", for: "attach_agent_image" },
       i({ class: "fas fa-paperclip" })
     ),
     input({
-      id: "attach_agent_image_" + viewname,
+      id: "attach_agent_image",
       name: "file",
       type: "file",
       class: "d-none",
-      accept: "text/csv,.csv",
-      onchange: `${viewname}_attach()`,
+      accept: "image/*",
+      onchange: `agent_file_attach()`,
     })
   );
 
@@ -334,14 +334,14 @@ const run = async (
             div.prevcopilotrun i.fa-trash-alt {display: none;}
             div.prevcopilotrun:hover i.fa-trash-alt {display: block;}
             .copilot-entry .submit-button:hover { cursor: pointer}
-            .copilot-entry .attach_agent_image i:hover { cursor: pointer}
+            .copilot-entry span.attach_agent_image_wrap i:hover { cursor: pointer}
 
             .copilot-entry .submit-button {
               position: relative; 
               top: -1.8rem;
               left: 0.1rem;              
             }
-              .copilot-entry .attach_agent_image {
+              .copilot-entry span.attach_agent_image_wrap {
               position: relative; 
               top: -1.8rem;
               left: 0.2rem;              
@@ -370,6 +370,21 @@ const run = async (
 
         if(res.response)
             $("#copilotinteractions").append(res.response)
+    }
+    function agent_file_attach() {
+        const data = new FormData();
+        data.append( 'file', $( '#attach_agent_image' )[0].files[0] );
+        data.append( '_csrf', _sc_globalCsrf );       
+        $.ajax({
+          url: '/view/${viewname}/attach_image',
+          data: data,
+          processData: false,
+          contentType: false,
+          type: 'POST',
+          success: function ( resp ) {
+              console.log(resp)
+          }
+        });
     }
     function restore_old_button_elem(btn) {
         const oldText = $(btn).data("old-text");
@@ -435,6 +450,14 @@ const run = async (
 build a workflow that asks the user for their name and age
 
 */
+
+const attach_image = async (table_id, viewname, config, body, { req, res }) => {
+  return {
+    json: {
+      success: "ok",
+    },
+  };
+};
 
 const interact = async (table_id, viewname, config, body, { req, res }) => {
   const { userinput, run_id } = body;
@@ -510,5 +533,5 @@ module.exports = {
   get_state_fields,
   tableless: true,
   run,
-  routes: { interact, delprevrun },
+  routes: { interact, delprevrun, attach_image },
 };
