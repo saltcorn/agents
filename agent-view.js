@@ -26,6 +26,7 @@ const {
   small,
   form,
   textarea,
+  label,
   a,
 } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
@@ -97,6 +98,25 @@ const configuration_workflow = (req) =>
   });
 
 const get_state_fields = () => [];
+
+const uploadForm = (viewname, req) =>
+  span(
+    {
+      class: "attach_agent_image"
+    },
+    label(
+      { class: "btn-link", for: "attach_agent_image_" + viewname },
+      i({ class: "fas fa-paperclip" })
+    ),
+    input({
+      id: "attach_agent_image_" + viewname,
+      name: "file",
+      type: "file",
+      class: "d-none",
+      accept: "text/csv,.csv",
+      onchange: `${viewname}_attach()`,
+    })
+  );
 
 const run = async (
   table_id,
@@ -246,6 +266,7 @@ const run = async (
         { class: "submit-button p-2", onclick: "$('form.copilot').submit()" },
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
       ),
+      uploadForm(viewname, req),
       explainer && small({ class: "explainer" }, i(explainer))
     )
   );
@@ -313,11 +334,17 @@ const run = async (
             div.prevcopilotrun i.fa-trash-alt {display: none;}
             div.prevcopilotrun:hover i.fa-trash-alt {display: block;}
             .copilot-entry .submit-button:hover { cursor: pointer}
+            .copilot-entry .attach_agent_image i:hover { cursor: pointer}
 
             .copilot-entry .submit-button {
               position: relative; 
               top: -1.8rem;
               left: 0.1rem;              
+            }
+              .copilot-entry .attach_agent_image {
+              position: relative; 
+              top: -1.8rem;
+              left: 0.2rem;              
             }
               .copilot-entry .explainer {
               position: relative; 
