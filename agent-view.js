@@ -377,6 +377,7 @@ const run = async (
     text-overflow: ellipsis;}`
       ),
       script(`function processCopilotResponse(res) {
+        const hadFile = $("input#attach_agent_image").val();
         $("span.filename-label").text("");
         $("input#attach_agent_image").val(null);
         $("#sendbuttonicon").attr("class","far fa-paper-plane");
@@ -385,6 +386,8 @@ const run = async (
           $runidin.val(res.run_id);
         const wrapSegment = (html, who) => '<div class="interaction-segment"><span class="badge bg-secondary">'+who+'</span>'+html+'</div>'
         $("#copilotinteractions").append(wrapSegment('<p>'+$("textarea[name=userinput]").val()+'</p>', "You"))
+        if(hadFile)
+          $("#copilotinteractions").append(wrapSegment('File', "You"))
         $("textarea[name=userinput]").val("")
 
         if(res.response)
