@@ -88,7 +88,7 @@ class RetrievalByEmbedding {
         label: "List view",
         type: "String",
         attributes: {
-          calcOptions: ["table_name", list_view_opts],
+          calcOptions: ["vec_field", list_view_opts],
         },
       },
       {
