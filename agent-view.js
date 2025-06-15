@@ -91,6 +91,12 @@ const configuration_workflow = (req) =>
                 sublabel:
                   "Appears below the input box. Use for additional instructions.",
               },
+              {
+                name: "image_upload",
+                label: "Upload images",
+                sublabel: "Allow the user to upload images",
+                type: "Bool",
+              },
             ],
           });
         },
@@ -123,7 +129,7 @@ const uploadForm = (viewname, req) =>
 const run = async (
   table_id,
   viewname,
-  { action_id, show_prev_runs, placeholder, explainer },
+  { action_id, show_prev_runs, placeholder, explainer, image_upload },
   state,
   { res, req }
 ) => {
@@ -268,7 +274,7 @@ const run = async (
         { class: "submit-button p-2", onclick: "$('form.copilot').submit()" },
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
       ),
-      uploadForm(viewname, req),
+      image_upload && uploadForm(viewname, req),
       explainer && small({ class: "explainer" }, i(explainer))
     )
   );
@@ -460,7 +466,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       interactions: [{ role: "user", content: userinput }],
     });
   }
-  if (req.files?.file) {
+  if (config.image_upload && req.files?.file) {
     const file = await File.from_req_files(
       req.files.file,
       req.user ? req.user.id : null,
