@@ -150,13 +150,33 @@ const run = async (
     for (const interact of run.context.interactions) {
       switch (interact.role) {
         case "user":
-          interactMarkups.push(
-            div(
-              { class: "interaction-segment" },
-              span({ class: "badge bg-secondary" }, "You"),
-              md.render(interact.content)
-            )
-          );
+          console.log(interact.content);
+          if (interact.content?.[0]?.type === "image_url") {
+            const image_url = interact.content[0].image_url.url;
+            if (image_url.startsWith("data"))
+              interactMarkups.push(
+                div(
+                  { class: "interaction-segment" },
+                  span({ class: "badge bg-secondary" }, "You"),
+                  "File"
+                )
+              );
+            else
+              interactMarkups.push(
+                div(
+                  { class: "interaction-segment" },
+                  span({ class: "badge bg-secondary" }, "You"),
+                  a({ href: image_url, target: "_blank" }, "File")
+                )
+              );
+          } else
+            interactMarkups.push(
+              div(
+                { class: "interaction-segment" },
+                span({ class: "badge bg-secondary" }, "You"),
+                md.render(interact.content)
+              )
+            );
           break;
         case "assistant":
         case "system":
