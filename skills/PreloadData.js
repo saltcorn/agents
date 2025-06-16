@@ -23,15 +23,22 @@ class PreloadData {
     const prompts = [];
     if (this.add_sys_prompt) prompts.push(this.add_sys_prompt);
     const table = Table.findOne(this.table_name);
-    const q = eval_expression(this.query, {}, user, "PreloadData query");
+    const q = eval_expression(
+      this.preload_query,
+      {},
+      user,
+      "PreloadData query"
+    );
 
     const rows = await table.getRows(q);
+    console.log("preload data rows", rows);
     if (this.contents_expr) {
-      for (const row in rows)
+      for (const row of rows)
         prompts.push(interpolate(this.contents_expr, row, user));
     } else {
-      for (const row in rows) {
-        this.hidden_fields.forEach((k) => {
+      const hidden_fields = this.hidden_fields.split(",").map((s) => s.trim());
+      for (const row of rows) {
+        hidden_fields.forEach((k) => {
           delete row[k];
         });
         prompts.push(JSON.stringify(row));
@@ -53,7 +60,7 @@ class PreloadData {
         attributes: { options: allTables.map((t) => t.name) },
       },
       {
-        name: "query",
+        name: "preload_query",
         label: "Query",
         type: "String",
         class: "validate-expression",

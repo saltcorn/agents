@@ -54,7 +54,7 @@ const getCompletionArguments = async (config, user) => {
   for (const skill of skills) {
     const sysPr = await skill.systemPrompt({ user });
     if (sysPr) sysPrompts.push(sysPr);
-    const skillTools = skill.provideTools();
+    const skillTools = skill.provideTools?.();
     if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
     else if (skillTools) tools.push(skillTools);
   }
