@@ -11,6 +11,7 @@ const get_skills = () => {
     require("./skills/EmbeddingRetrieval"),
     require("./skills/Trigger"),
     require("./skills/Table"),
+    require("./skills/PreloadData"),
     //require("./skills/AdaptiveFeedback"),
   ];
 };
@@ -44,14 +45,14 @@ const find_tool = (name, config) => {
   }
 };
 
-const getCompletionArguments = async (config) => {
+const getCompletionArguments = async (config, user) => {
   let tools = [];
 
   let sysPrompts = [config.sys_prompt];
 
   const skills = get_skill_instances(config);
   for (const skill of skills) {
-    const sysPr = skill.systemPrompt();
+    const sysPr = await skill.systemPrompt({ user });
     if (sysPr) sysPrompts.push(sysPr);
     const skillTools = skill.provideTools();
     if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
@@ -129,7 +130,7 @@ const process_interaction = async (
   agent_label = "Copilot",
   prevResponses = []
 ) => {
-  const complArgs = await getCompletionArguments(config);
+  const complArgs = await getCompletionArguments(config, req.user);
   complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
   console.log("complArgs", JSON.stringify(complArgs, null, 2));
