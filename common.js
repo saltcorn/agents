@@ -12,6 +12,7 @@ const get_skills = () => {
     require("./skills/Trigger"),
     require("./skills/Table"),
     require("./skills/PreloadData"),
+    require("./skills/GenerateImage"),
     //require("./skills/AdaptiveFeedback"),
   ];
 };
@@ -52,7 +53,7 @@ const getCompletionArguments = async (config, user) => {
 
   const skills = get_skill_instances(config);
   for (const skill of skills) {
-    const sysPr = await skill.systemPrompt({ user });
+    const sysPr = await skill.systemPrompt?.({ user });
     if (sysPr) sysPrompts.push(sysPr);
     const skillTools = skill.provideTools?.();
     if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
