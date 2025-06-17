@@ -35,7 +35,7 @@ const get_skill_instances = (config) => {
 const find_tool = (name, config) => {
   const skills = get_skill_instances(config);
   for (const skill of skills) {
-    const skillTools = skill.provideTools();
+    const skillTools = skill.provideTools?.();
     const tools = !skillTools
       ? []
       : Array.isArray(skillTools)
