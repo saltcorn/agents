@@ -46,6 +46,20 @@ const find_tool = (name, config) => {
   }
 };
 
+const find_image_tool = (config) => {
+  const skills = get_skill_instances(config);
+  for (const skill of skills) {
+    const skillTools = skill.provideTools?.();
+    const tools = !skillTools
+      ? []
+      : Array.isArray(skillTools)
+      ? skillTools
+      : [skillTools];
+    const found = tools.find((t) => t?.type === "image_generation");
+    if (found) return { tool: found, skill };
+  }
+};
+
 const getCompletionArguments = async (config, user) => {
   let tools = [];
 
@@ -151,7 +165,31 @@ const process_interaction = async (
         : [{ role: "assistant", content: answer }],
   });
   const responses = [];
+  if (typeof answer === "object" && answer.image_calls) {
+    for (const image_call of answer.image_calls) {
+      const tool = find_image_tool(config);
 
+      if (tool?.tool.process)
+        await tool.tool.process(JSON.parse(image_call), { req });
+      if (tool?.tool.renderToolResponse) {
+        const rendered = await tool.tool.renderToolResponse(image_call, {
+          req,
+        });
+        if (rendered)
+          responses.push(
+            wrapSegment(
+              wrapCard(
+                tool.skill.skill_label || tool.skill.constructor.skill_name,
+                rendered
+              ),
+              agent_label
+            )
+          );
+      }
+    }
+    if (answer.content && !answer.tool_calls)
+      responses.push(wrapSegment(md.render(answer.content), agent_label));
+  }
   if (typeof answer === "object" && answer.tool_calls) {
     if (answer.content)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
@@ -230,7 +268,8 @@ const process_interaction = async (
         ...prevResponses,
         ...responses,
       ]);
-  } else responses.push(wrapSegment(md.render(answer), agent_label));
+  } else if (typeof answer === "string")
+    responses.push(wrapSegment(md.render(answer), agent_label));
 
   return {
     json: {

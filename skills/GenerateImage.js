@@ -24,7 +24,14 @@ class GenerateImage {
   }
 
   provideTools() {
-    return { type: "image_generation", size: "1024x1024", quality: "low" };
+    return {
+      type: "image_generation",
+      size: "1024x1024",
+      quality: "low",
+      renderToolResponse: (v) => {        
+        return `<img src="data:image/${v.output_format};base64, ${v.result}" />`;
+      },
+    };
   }
 }
 
