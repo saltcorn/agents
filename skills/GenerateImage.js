@@ -24,7 +24,7 @@ class GenerateImage {
   }
 
   provideTools() {
-    return { type: "image_generation" };
+    return { type: "image_generation", size: "1024x1024", quality: "low" };
   }
 }
 
