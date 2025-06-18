@@ -79,8 +79,6 @@ class GenerateImage {
         }
       },
       renderToolResponse: (v) => {
-        console.log("redner imag", Object.keys(v));
-        
         const [ws, hs] = v.size.split("x");
         if (v.filename)
           return `<img height="${+hs / 4}" width="${

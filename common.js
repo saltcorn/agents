@@ -171,8 +171,6 @@ const process_interaction = async (
       let prcRes;
       if (tool?.tool.process)
         prcRes = await tool.tool.process(image_call, { req });
-      console.log({ prcRes });
-
       if (tool?.tool.renderToolResponse) {
         const rendered = await tool.tool.renderToolResponse(
           { ...image_call, ...(prcRes || {}) },
