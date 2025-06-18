@@ -152,25 +152,17 @@ const process_interaction = async (
 
   const answer = await getState().functions.llm_generate.run("", complArgs);
   console.log("answer", answer);
-  await addToContext(run, {
-    interactions:
-      typeof answer === "object" && answer.tool_calls
-        ? [
-            {
-              role: "assistant",
-              tool_calls: answer.tool_calls,
-              content: answer.content,
-            },
-          ]
-        : [{ role: "assistant", content: answer }],
-  });
+
   const responses = [];
   if (typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {
       const tool = find_image_tool(config);
       let prcRes;
-      if (tool?.tool.process)
+      if (tool?.tool.process) {
         prcRes = await tool.tool.process(image_call, { req });
+        if (prcRes?.result === null) delete image_call.result;
+        if (prcRes?.filename) image_call.filename = prcRes?.filename;
+      }
       if (tool?.tool.renderToolResponse) {
         const rendered = await tool.tool.renderToolResponse(
           { ...image_call, ...(prcRes || {}) },
@@ -193,6 +185,18 @@ const process_interaction = async (
     if (answer.content && !answer.tool_calls)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
   }
+  await addToContext(run, {
+    interactions:
+      typeof answer === "object" && answer.tool_calls
+        ? [
+            {
+              role: "assistant",
+              tool_calls: answer.tool_calls,
+              content: answer.content,
+            },
+          ]
+        : [{ role: "assistant", content: answer }],
+  });
   if (typeof answer === "object" && answer.tool_calls) {
     if (answer.content)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
