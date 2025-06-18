@@ -295,4 +295,5 @@ module.exports = {
   wrapCard,
   wrapSegment,
   process_interaction,
+  find_image_tool,
 };
