@@ -20,18 +20,50 @@ class GenerateImage {
   }
 
   static async configFields() {
-    return [];
+    return [
+      {
+        name: "quality",
+        label: "Quality",
+        type: "String",
+        required: true,
+        attributes: { options: ["auto", "low", "medium", "high"] },
+      },
+      {
+        name: "size",
+        label: "Size",
+        type: "String",
+        required: true,
+        attributes: {
+          options: ["auto", "1024x1024", "1536x1024", "1024x1536"],
+        },
+      },
+      {
+        name: "format",
+        label: "Format",
+        type: "String",
+        required: true,
+        attributes: { options: ["png", "jpeg", "webp"] },
+      },
+      {
+        name: "transparent",
+        label: "Transparent",
+        type: "Bool",
+      },
+    ];
   }
 
   provideTools() {
-    return {
+    const tool = {
       type: "image_generation",
-      size: "1024x1024",
-      quality: "low",
-      renderToolResponse: (v) => {        
-        return `<img src="data:image/${v.output_format};base64, ${v.result}" />`;
+      size: this.size,
+      quality: this.quality,
+      renderToolResponse: (v) => {
+        const [ws, hs] = this.size.split("x")
+        return `<img height="${+hs/4}" width="${+ws/4}" src="data:image/${v.output_format};base64, ${v.result}" />`;
       },
     };
+    if (this.transparent) tool.background = "transparent";
+    return tool;
   }
 }
 
