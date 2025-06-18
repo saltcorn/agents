@@ -75,7 +75,7 @@ class GenerateImage {
             req?.user?.id,
             100
           );
-          return { filename: file.path_to_serve };
+          return { filename: file.path_to_serve, result: null };
         }
       },
       renderToolResponse: (v) => {
