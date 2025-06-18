@@ -168,13 +168,18 @@ const process_interaction = async (
   if (typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {
       const tool = find_image_tool(config);
-
+      let prcRes;
       if (tool?.tool.process)
-        await tool.tool.process(JSON.parse(image_call), { req });
+        prcRes = await tool.tool.process(image_call, { req });
+      console.log({ prcRes });
+
       if (tool?.tool.renderToolResponse) {
-        const rendered = await tool.tool.renderToolResponse(image_call, {
-          req,
-        });
+        const rendered = await tool.tool.renderToolResponse(
+          { ...image_call, ...(prcRes || {}) },
+          {
+            req,
+          }
+        );
         if (rendered)
           responses.push(
             wrapSegment(

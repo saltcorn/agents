@@ -2,6 +2,7 @@ const { div, pre } = require("@saltcorn/markup/tags");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
+const File = require("@saltcorn/data/models/file");
 const View = require("@saltcorn/data/models/view");
 const { getState } = require("@saltcorn/data/db/state");
 const db = require("@saltcorn/data/db");
@@ -49,6 +50,13 @@ class GenerateImage {
         label: "Transparent",
         type: "Bool",
       },
+      {
+        name: "save_file",
+        label: "Save file",
+        type: "String",
+        required: true,
+        attributes: { options: ["Always", "Never", "Button"] },
+      },
     ];
   }
 
@@ -57,9 +65,31 @@ class GenerateImage {
       type: "image_generation",
       size: this.size,
       quality: this.quality,
+      process: async (v, { req }) => {
+        if (this.save_file === "Always") {
+          const buf = Buffer.from(v.result, "base64");
+          const file = await File.from_contents(
+            `genimg.${v.output_format}`,
+            `image/${v.output_format}`,
+            buf,
+            req?.user?.id,
+            100
+          );
+          return { filename: file.path_to_serve };
+        }
+      },
       renderToolResponse: (v) => {
-        const [ws, hs] = this.size.split("x")
-        return `<img height="${+hs/4}" width="${+ws/4}" src="data:image/${v.output_format};base64, ${v.result}" />`;
+        console.log("redner imag", Object.keys(v));
+        
+        const [ws, hs] = v.size.split("x");
+        if (v.filename)
+          return `<img height="${+hs / 4}" width="${
+            +ws / 4
+          }" src="/files/serve/${v.filename}" />`;
+        else
+          return `<img height="${+hs / 4}" width="${+ws / 4}" src="data:image/${
+            v.output_format
+          };base64, ${v.result}" />`;
       },
     };
     if (this.transparent) tool.background = "transparent";
