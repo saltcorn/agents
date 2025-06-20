@@ -56,6 +56,7 @@ class ModelContextProtocol {
       type: "mcp",
       server_label: this.server_label,
       server_url: this.server_url,
+      require_approval: "never",
     };
     if (this.header_key && this.header_value)
       tool.headers = { [this.header_key]: this.header_value };

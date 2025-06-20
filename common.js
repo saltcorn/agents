@@ -155,7 +155,7 @@ const process_interaction = async (
   console.log("answer", answer);
 
   const responses = [];
-  if (typeof answer === "object" && answer.image_calls) {
+  if (answer && typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {
       const tool = find_image_tool(config);
       let prcRes;
@@ -198,7 +198,7 @@ const process_interaction = async (
           ]
         : [{ role: "assistant", content: answer }],
   });
-  if (typeof answer === "object" && (answer.tool_calls || answer.mcp_calls)) {
+  if (answer && typeof answer === "object" && (answer.tool_calls || answer.mcp_calls)) {
     if (answer.content)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
     //const actions = [];
