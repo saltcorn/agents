@@ -31,7 +31,6 @@ class PreloadData {
     );
 
     const rows = await table.getRows(q);
-    console.log("preload data rows", rows);
     if (this.contents_expr) {
       for (const row of rows)
         prompts.push(interpolate(this.contents_expr, row, user));

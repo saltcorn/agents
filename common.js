@@ -12,6 +12,7 @@ const get_skills = () => {
     require("./skills/Trigger"),
     require("./skills/Table"),
     require("./skills/PreloadData"),
+    require("./skills/GenerateImage"),
     //require("./skills/AdaptiveFeedback"),
   ];
 };
@@ -34,13 +35,27 @@ const get_skill_instances = (config) => {
 const find_tool = (name, config) => {
   const skills = get_skill_instances(config);
   for (const skill of skills) {
-    const skillTools = skill.provideTools();
+    const skillTools = skill.provideTools?.();
     const tools = !skillTools
       ? []
       : Array.isArray(skillTools)
       ? skillTools
       : [skillTools];
     const found = tools.find((t) => t?.function.name === name);
+    if (found) return { tool: found, skill };
+  }
+};
+
+const find_image_tool = (config) => {
+  const skills = get_skill_instances(config);
+  for (const skill of skills) {
+    const skillTools = skill.provideTools?.();
+    const tools = !skillTools
+      ? []
+      : Array.isArray(skillTools)
+      ? skillTools
+      : [skillTools];
+    const found = tools.find((t) => t?.type === "image_generation");
     if (found) return { tool: found, skill };
   }
 };
@@ -52,7 +67,7 @@ const getCompletionArguments = async (config, user) => {
 
   const skills = get_skill_instances(config);
   for (const skill of skills) {
-    const sysPr = await skill.systemPrompt({ user });
+    const sysPr = await skill.systemPrompt?.({ user });
     if (sysPr) sysPrompts.push(sysPr);
     const skillTools = skill.provideTools?.();
     if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
@@ -133,10 +148,43 @@ const process_interaction = async (
   const complArgs = await getCompletionArguments(config, req.user);
   complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
-  console.log("complArgs", JSON.stringify(complArgs, null, 2));
+  //console.log("complArgs", JSON.stringify(complArgs, null, 2));
 
   const answer = await getState().functions.llm_generate.run("", complArgs);
-  console.log("answer", answer);
+  //console.log("answer", answer);
+
+  const responses = [];
+  if (typeof answer === "object" && answer.image_calls) {
+    for (const image_call of answer.image_calls) {
+      const tool = find_image_tool(config);
+      let prcRes;
+      if (tool?.tool.process) {
+        prcRes = await tool.tool.process(image_call, { req });
+        if (prcRes?.result === null) delete image_call.result;
+        if (prcRes?.filename) image_call.filename = prcRes?.filename;
+      }
+      if (tool?.tool.renderToolResponse) {
+        const rendered = await tool.tool.renderToolResponse(
+          { ...image_call, ...(prcRes || {}) },
+          {
+            req,
+          }
+        );
+        if (rendered)
+          responses.push(
+            wrapSegment(
+              wrapCard(
+                tool.skill.skill_label || tool.skill.constructor.skill_name,
+                rendered
+              ),
+              agent_label
+            )
+          );
+      }
+    }
+    if (answer.content && !answer.tool_calls)
+      responses.push(wrapSegment(md.render(answer.content), agent_label));
+  }
   await addToContext(run, {
     interactions:
       typeof answer === "object" && answer.tool_calls
@@ -149,8 +197,6 @@ const process_interaction = async (
           ]
         : [{ role: "assistant", content: answer }],
   });
-  const responses = [];
-
   if (typeof answer === "object" && answer.tool_calls) {
     if (answer.content)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
@@ -213,6 +259,7 @@ const process_interaction = async (
             {
               role: "tool",
               tool_call_id: tool_call.id,
+              call_id: tool_call.call_id,
               name: tool_call.function.name,
               content:
                 result && typeof result !== "string"
@@ -228,7 +275,8 @@ const process_interaction = async (
         ...prevResponses,
         ...responses,
       ]);
-  } else responses.push(wrapSegment(md.render(answer), agent_label));
+  } else if (typeof answer === "string")
+    responses.push(wrapSegment(md.render(answer), agent_label));
 
   return {
     json: {
@@ -251,4 +299,5 @@ module.exports = {
   wrapCard,
   wrapSegment,
   process_interaction,
+  find_image_tool,
 };
