@@ -148,10 +148,10 @@ const process_interaction = async (
   const complArgs = await getCompletionArguments(config, req.user);
   complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
-  console.log("complArgs", JSON.stringify(complArgs, null, 2));
+  //console.log("complArgs", JSON.stringify(complArgs, null, 2));
 
   const answer = await getState().functions.llm_generate.run("", complArgs);
-  console.log("answer", answer);
+  //console.log("answer", answer);
 
   const responses = [];
   if (typeof answer === "object" && answer.image_calls) {

@@ -55,7 +55,7 @@ class GenerateImage {
         label: "Save file",
         type: "String",
         required: true,
-        attributes: { options: ["Always", "Never", "Button"] },
+        attributes: { options: ["Always", "Never"] }, //, "Button"] },
       },
     ];
   }
