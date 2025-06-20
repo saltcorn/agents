@@ -13,6 +13,7 @@ const get_skills = () => {
     require("./skills/Table"),
     require("./skills/PreloadData"),
     require("./skills/GenerateImage"),
+    require("./skills/ModelContextProtocol"),
     //require("./skills/AdaptiveFeedback"),
   ];
 };
@@ -151,7 +152,7 @@ const process_interaction = async (
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
 
   const answer = await getState().functions.llm_generate.run("", complArgs);
-  //console.log("answer", answer);
+  console.log("answer", answer);
 
   const responses = [];
   if (typeof answer === "object" && answer.image_calls) {
@@ -197,12 +198,13 @@ const process_interaction = async (
           ]
         : [{ role: "assistant", content: answer }],
   });
-  if (typeof answer === "object" && answer.tool_calls) {
+  if (typeof answer === "object" && (answer.tool_calls || answer.mcp_calls)) {
     if (answer.content)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
     //const actions = [];
     let hasResult = false;
-    for (const tool_call of answer.tool_calls) {
+    if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
+    for (const tool_call of answer.tool_calls || []) {
       console.log("call function", tool_call.function);
 
       await addToContext(run, {
