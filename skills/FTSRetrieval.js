@@ -25,7 +25,7 @@ class RetrievalByFullTextSearch {
     if (this.mode === "Tool")
       return `Use the ${this.toolName} tool to search the ${
         this.table_name
-      } database by a search phrase which will locate rows where any field match that query.${
+      } database by a search phrase (using the syntax of web search engines) which will locate rows where any field match that query.${
         this.list_view
           ? ` When the tool call returns rows, do not describe them or repeat the information to the user. The results are already displayed to the user automatically.`
           : ""
@@ -161,7 +161,7 @@ class RetrievalByFullTextSearch {
           properties: {
             phrase: {
               type: "string",
-              description: "The phrase to search the table with",
+              description: "The phrase to search the table with. The search phrase is the synatx used by web search engines: use double quotes for exact match, unquoted text for words in any order, dash (minus sign) to exclude a word. Do not use SQL or any other formal query language.",
             },
           },
         },

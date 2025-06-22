@@ -21,9 +21,11 @@ class TableToSkill {
   systemPrompt() {
     return `Use the query_${this.table_name} tool to search the ${
       this.table_name
-    } database by a search phrase which will locate rows where any field match that query.${
-      this.add_sys_prompt ? ` ${this.add_sys_prompt}` : ""
-    }`;
+    } database by specific fields or a search phrase which will locate rows where any field match that query.${
+      this.list_view
+        ? ` When the tool call returns rows, do not describe them or repeat the information to the user. The results are already displayed to the user automatically.`
+        : ""
+    }${this.add_sys_prompt ? ` ${this.add_sys_prompt}` : ""}`;
   }
 
   static async configFields() {
@@ -78,7 +80,7 @@ class TableToSkill {
         name: "add_sys_prompt",
         label: "Additional system prompt",
         type: "String",
-        fieldview: "textarea"
+        fieldview: "textarea",
       },
     ];
   }
@@ -173,11 +175,12 @@ class TableToSkill {
                   {
                     type: "object",
                     description:
-                      "Search the table by a phrase matched against any string field",
+                      "Search the table by a phrase matched against any string field, using the syntax of web search engines",
                     properties: {
                       full_text_search: {
                         type: "string",
-                        description: "A phrase to search the table with",
+                        description:
+                          "A phrase to search the table with. The search phrase is the synatx used by web search engines: use double quotes for exact match, unquoted text for words in any order, dash (minus sign) to exclude a word. Do not use SQL or any other formal query language.",
                       },
                     },
                   },
