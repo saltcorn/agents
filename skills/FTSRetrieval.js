@@ -5,6 +5,7 @@ const Table = require("@saltcorn/data/models/table");
 const View = require("@saltcorn/data/models/view");
 const { getState } = require("@saltcorn/data/db/state");
 const db = require("@saltcorn/data/db");
+const { interpolate } = require("@saltcorn/data/utils");
 
 class RetrievalByFullTextSearch {
   static skill_name = "Retrieval by full-text search";
@@ -84,13 +85,14 @@ class RetrievalByFullTextSearch {
         type: "String",
         fieldview: "textarea",
       },
-      /*{
-        name: "contents_expr",
-        label: "Contents string",
+      {
+        name: "doc_format",
+        label: "Document format",
         type: "String",
+        fieldview: "textarea",
         sublabel:
-          "Use handlebars (<code>{{ }}</code>) to access fields in the retrieved rows",
-      },*/
+          "Format of text to send to LLM, use <code>{{ }}</code> to access variables in the document table. If not set, document will be sent as JSON",
+      },
     ];
   }
 
@@ -103,7 +105,7 @@ class RetrievalByFullTextSearch {
     const table = Table.findOne(this.table_name);
     return {
       type: "function",
-      process: async ({ phrase }) => {
+      process: async ({ phrase }, { req }) => {
         const scState = getState();
         const language = scState.pg_ts_config;
         const use_websearch = scState.getConfig("search_use_websearch", false);
@@ -127,16 +129,23 @@ class RetrievalByFullTextSearch {
             });
           });
         }
-        if (rows.length) return { rows };
+        if (rows.length)
+          if (!this.doc_format) return { rows };
+          else {
+            const responseText = rows
+              .map((row) => interpolate(this.doc_format, row, req.user))
+              .join("\n");
+            return { rows, responseText };
+          }
         else
           return {
-            response: "There are no rows related to: " + phrase,
+            responseText: "There are no rows related to: " + phrase,
           };
       },
       /*renderToolCall({ phrase }, { req }) {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
       },*/
-      renderToolResponse: async ({ response, rows }, { req }) => {
+      renderToolResponse: async ({ responseText, rows }, { req }) => {
         if (rows) {
           const view = View.findOne({ name: this.list_view });
 
@@ -148,7 +157,7 @@ class RetrievalByFullTextSearch {
             return viewRes;
           } else return "";
         }
-        return div({ class: "border border-success p-2 m-2" }, response);
+        return div({ class: "border border-success p-2 m-2" }, responseText);
       },
       function: {
         name: this.toolName,
@@ -161,7 +170,8 @@ class RetrievalByFullTextSearch {
           properties: {
             phrase: {
               type: "string",
-              description: "The phrase to search the table with. The search phrase is the synatx used by web search engines: use double quotes for exact match, unquoted text for words in any order, dash (minus sign) to exclude a word. Do not use SQL or any other formal query language.",
+              description:
+                "The phrase to search the table with. The search phrase is the synatx used by web search engines: use double quotes for exact match, unquoted text for words in any order, dash (minus sign) to exclude a word. Do not use SQL or any other formal query language.",
             },
           },
         },
