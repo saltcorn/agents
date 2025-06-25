@@ -5,6 +5,7 @@ const Table = require("@saltcorn/data/models/table");
 const View = require("@saltcorn/data/models/view");
 const { getState } = require("@saltcorn/data/db/state");
 const db = require("@saltcorn/data/db");
+const { interpolate } = require("@saltcorn/data/utils");
 
 class RetrievalByEmbedding {
   static skill_name = "Retrieval by embedding";
@@ -109,6 +110,14 @@ class RetrievalByEmbedding {
         type: "String",
         fieldview: "textarea",
       },
+      {
+        name: "doc_format",
+        label: "Document format",
+        type: "String",
+        fieldview: "textarea",
+        sublabel:
+          "Format of text to send to LLM, use <code>{{ }}</code> to access variables in the document table. If not set, document will be sent as JSON",
+      },
     ];
   }
 
@@ -124,7 +133,7 @@ class RetrievalByEmbedding {
       : table0;
     return {
       type: "function",
-      process: async ({ phrase_or_question }) => {
+      process: async ({ phrase_or_question }, { req }) => {
         const [table_name, field_name] = this.vec_field.split(".");
         const table = Table.findOne({ name: table_name });
         if (!table)
@@ -149,12 +158,20 @@ class RetrievalByEmbedding {
         rows.forEach((r) => {
           delete r[field_name];
         });
+
+        const set_doc_format = (rows) => {
+          if (!this.doc_format) return { rows };
+          const responseText = rows
+            .map((row) => interpolate(this.doc_format, row, req.user))
+            .join("\n");
+          return { rows, responseText };
+        };
         if (!rows.length)
           return {
-            response:
+            responseText:
               "There are no documents related to: " + phrase_or_question,
           };
-        else if (!this.doc_relation) return { rows };
+        else if (!this.doc_relation) return set_doc_format(rows);
         else {
           const relField = table.getField(this.doc_relation);
           const relTable = Table.findOne(relField.reftable_name);
@@ -167,10 +184,10 @@ class RetrievalByEmbedding {
           const docs = ids
             .map((id) => docsUnsorted.find((d) => d.id == id))
             .filter(Boolean);
-          return { rows: docs };
+          return set_doc_format(docs);
         }
       },
-      renderToolResponse: async ({ response, rows }, { req }) => {
+      renderToolResponse: async ({ responseText, rows }, { req }) => {
         if (rows) {
           const view = View.findOne({ name: this.list_view });
 
@@ -186,7 +203,7 @@ class RetrievalByEmbedding {
             return viewRes;
           } else return "";
         }
-        return div({ class: "border border-success p-2 m-2" }, response);
+        return div(responseText);
       },
       function: {
         name: this.toolName,

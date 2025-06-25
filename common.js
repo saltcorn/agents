@@ -139,6 +139,23 @@ const wrapCard = (title, ...inners) =>
     div({ class: "card-body" }, inners)
   );
 
+const only_response_text_if_present = (interact) => {
+  if (
+    interact.role === "tool" &&
+    interact.call_id &&
+    interact.content?.[0] === "{"
+  ) {
+    try {
+      const result = JSON.parse(interact.content);
+      if (result.responseText)
+        return { ...interact, content: result.responseText };
+    } catch {
+      //ignore, not json content
+    }
+  }
+  return interact;
+};
+
 const process_interaction = async (
   run,
   config,
@@ -147,7 +164,7 @@ const process_interaction = async (
   prevResponses = []
 ) => {
   const complArgs = await getCompletionArguments(config, req.user);
-  complArgs.chat = run.context.interactions;
+  complArgs.chat = run.context.interactions.map(only_response_text_if_present);
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
 
@@ -198,7 +215,11 @@ const process_interaction = async (
           ]
         : [{ role: "assistant", content: answer }],
   });
-  if (answer && typeof answer === "object" && (answer.tool_calls || answer.mcp_calls)) {
+  if (
+    answer &&
+    typeof answer === "object" &&
+    (answer.tool_calls || answer.mcp_calls)
+  ) {
     if (answer.content)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
     //const actions = [];
