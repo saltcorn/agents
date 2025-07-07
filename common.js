@@ -42,7 +42,7 @@ const find_tool = (name, config) => {
       : Array.isArray(skillTools)
       ? skillTools
       : [skillTools];
-    const found = tools.find((t) => t?.function.name === name);
+    const found = tools.find((t) => t?.function?.name === name);
     if (found) return { tool: found, skill };
   }
 };
@@ -232,7 +232,7 @@ const process_interaction = async (
         funcalls: { [tool_call.id]: tool_call.function },
       });
 
-      const tool = find_tool(tool_call.function.name, config);
+      const tool = find_tool(tool_call.function?.name, config);
 
       if (tool) {
         if (tool.tool.renderToolCall) {

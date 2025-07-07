@@ -190,7 +190,7 @@ const run = async (
 
           for (const tool_call of interact.tool_calls || []) {
             const toolSkill = find_tool(
-              tool_call.function.name,
+              tool_call.function?.name,
               action.configuration
             );
             if (toolSkill) {
