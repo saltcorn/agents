@@ -156,6 +156,8 @@ const only_response_text_if_present = (interact) => {
   return interact;
 };
 
+const is_debug_mode = (config, user) => user?.role_id === 1;
+
 const process_interaction = async (
   run,
   config,
@@ -167,10 +169,14 @@ const process_interaction = async (
   complArgs.chat = run.context.interactions.map(only_response_text_if_present);
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
-
+  const debugMode = is_debug_mode(config, req.user);
+  const debugCollector = {};
+  if (debugMode) complArgs.debugCollector = debugCollector;
   const answer = await getState().functions.llm_generate.run("", complArgs);
-  console.log("answer", answer);
-
+  if (debugMode)
+    await addToContext(run, {
+      api_interactions: [debugCollector],
+    });
   const responses = [];
   if (answer && typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {
@@ -323,4 +329,5 @@ module.exports = {
   wrapSegment,
   process_interaction,
   find_image_tool,
+  is_debug_mode,
 };
