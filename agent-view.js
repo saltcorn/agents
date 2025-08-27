@@ -40,6 +40,7 @@ const {
   wrapSegment,
   process_interaction,
   find_image_tool,
+  is_debug_mode,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -187,7 +188,6 @@ const run = async (
           break;
         case "assistant":
         case "system":
-
           for (const tool_call of interact.tool_calls || []) {
             const toolSkill = find_tool(
               tool_call.function?.name,
@@ -214,7 +214,6 @@ const run = async (
             }
           }
           for (const image_call of interact.content?.image_calls || []) {
-
             const toolSkill = find_image_tool(action.configuration);
             if (toolSkill) {
               if (toolSkill.tool.renderToolResponse) {
@@ -285,6 +284,7 @@ const run = async (
     }
     runInteractions = interactMarkups.join("");
   }
+  const debugMode = is_debug_mode(action.configuration, req.user);
   const input_form = form(
     {
       onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), processCopilotResponse);return false;`,
@@ -318,6 +318,8 @@ const run = async (
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
       ),
       image_upload && uploadForm(viewname, req),
+      debugMode &&
+        i({ onclick: "press_debug_button()", class: "debugicon far fa-user" }),
       explainer && small({ class: "explainer" }, i(explainer))
     )
   );
@@ -381,6 +383,11 @@ const run = async (
               top: -1.8rem;
               left: 0.1rem;              
             }
+            .copilot-entry .debugicon {
+              position: relative; 
+              top: -1.8rem;
+              left: 0.1rem;              
+            }
               .copilot-entry span.attach_agent_image_wrap {
               position: relative; 
               top: -1.8rem;
@@ -424,6 +431,12 @@ const run = async (
         btn.html(oldText);
         btn.css({ width: "" }).prop("disabled", false);
         btn.removeData("old-text");
+    }
+    function press_agent_debug_button() {
+        view_post('${viewname}', 'debug_info', {run_id:runid}, show_agent_debug_info)
+    }
+    function show_agent_debug_info(info) {
+       console.log(info)
     }
     function delprevrun(e, runid) {
         e.preventDefault();
@@ -549,6 +562,21 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
   return;
 };
 
+const debug_info = async (table_id, viewname, config, body, { req, res }) => {
+  const { run_id } = body;
+  let run;
+
+  run = await WorkflowRun.findOne({ id: +run_id });
+  if (req.user?.role_id === 1)
+    return {
+      json: {
+        success: "ok",
+        context: run.context,
+      },
+    };
+
+  return;
+};
 const wrapAction = (
   inner_markup,
   viewname,
@@ -585,7 +613,8 @@ module.exports = {
   configuration_workflow,
   display_state_form: false,
   get_state_fields,
-  tableless: true,
+  //tableless: true,
+  table_optional: true,
   run,
-  routes: { interact, delprevrun },
+  routes: { interact, delprevrun, debug_info },
 };
