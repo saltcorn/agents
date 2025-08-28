@@ -319,7 +319,7 @@ const run = async (
       ),
       image_upload && uploadForm(viewname, req),
       debugMode &&
-        i({ onclick: "press_debug_button()", class: "debugicon far fa-user" }),
+        i({ onclick: "press_agent_debug_button()", class: "debugicon fas fa-bug" }),
       explainer && small({ class: "explainer" }, i(explainer))
     )
   );
@@ -433,6 +433,9 @@ const run = async (
         btn.removeData("old-text");
     }
     function press_agent_debug_button() {
+        const $runidin= $("input[name=run_id")
+        const runid = $runidin.val()
+        if(runid)
         view_post('${viewname}', 'debug_info', {run_id:runid}, show_agent_debug_info)
     }
     function show_agent_debug_info(info) {
@@ -564,14 +567,19 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
 
 const debug_info = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id } = body;
-  let run;
+  const action = await Trigger.findOne({ id: config.action_id });
 
-  run = await WorkflowRun.findOne({ id: +run_id });
-  if (req.user?.role_id === 1)
+  const run = await WorkflowRun.findOne({ id: +run_id });
+  const complArgs = await getCompletionArguments(
+    action.configuration,
+    req.user
+  );
+  if (run && req.user?.role_id === 1)
     return {
       json: {
         success: "ok",
         context: run.context,
+        systemPrompt: complArgs.systemPrompt,
       },
     };
 
