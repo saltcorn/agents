@@ -74,6 +74,7 @@ class PreloadData {
         name: "contents_expr",
         label: "Contents string",
         type: "String",
+        fieldview: "textarea",
         sublabel:
           "Use handlebars (<code>{{ }}</code>) to access fields in each retrieved row",
       },
