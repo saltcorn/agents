@@ -1,6 +1,7 @@
 const { getState } = require("@saltcorn/data/db/state");
 const { div, span } = require("@saltcorn/markup/tags");
 const Trigger = require("@saltcorn/data/models/trigger");
+const { interpolate } = require("@saltcorn/data/utils");
 
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -78,10 +79,12 @@ const find_image_tool = (config) => {
   }
 };
 
-const getCompletionArguments = async (config, user) => {
+const getCompletionArguments = async (config, user, triggering_row) => {
   let tools = [];
 
-  let sysPrompts = [config.sys_prompt];
+  let sysPrompts = [
+    interpolate(config.sys_prompt, triggering_row || {}, user, "System prompt"),
+  ];
 
   const skills = get_skill_instances(config);
   for (const skill of skills) {
@@ -180,9 +183,14 @@ const process_interaction = async (
   config,
   req,
   agent_label = "Copilot",
-  prevResponses = []
+  prevResponses = [],
+  triggering_row = {}
 ) => {
-  const complArgs = await getCompletionArguments(config, req.user);
+  const complArgs = await getCompletionArguments(
+    config,
+    req.user,
+    triggering_row
+  );
   complArgs.chat = run.context.interactions.map(only_response_text_if_present);
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
@@ -317,10 +325,14 @@ const process_interaction = async (
       }
     }
     if (hasResult)
-      return await process_interaction(run, config, req, agent_label, [
-        ...prevResponses,
-        ...responses,
-      ]);
+      return await process_interaction(
+        run,
+        config,
+        req,
+        agent_label,
+        [...prevResponses, ...responses],
+        triggering_row
+      );
   } else if (typeof answer === "string")
     responses.push(wrapSegment(md.render(answer), agent_label));
 

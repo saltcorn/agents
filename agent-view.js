@@ -114,7 +114,16 @@ const configuration_workflow = (req) =>
     ],
   });
 
-const get_state_fields = () => [];
+const get_state_fields = async (table_id) =>
+  table_id
+    ? [
+        {
+          name: "id",
+          type: "Integer",
+          primary_key: true,
+        },
+      ]
+    : [];
 
 const uploadForm = (viewname, req) =>
   span(
@@ -154,6 +163,14 @@ const run = async (
   const cfgMsg = incompleteCfgMsg();
   if (cfgMsg) return cfgMsg;
   let runInteractions = "";
+  let triggering_row_id;
+  if (table_id) {
+    const table = Table.findOne(table_id);
+    const pk = table?.pk_name;
+    if (table && state[pk])
+      //triggering_row = await table.getRow({ [pk]: state[pk] });
+      triggering_row_id = state[pk];
+  }
   if (state.run_id) {
     const run = prevRuns.find((r) => r.id == state.run_id);
     const interactMarkups = [];
@@ -302,6 +319,12 @@ const run = async (
       class: "form-control  ",
       name: "run_id",
       value: state.run_id ? +state.run_id : undefined,
+    }),
+    input({
+      type: "hidden",
+      class: "form-control  ",
+      name: "triggering_row_id",
+      value: triggering_row_id || "",
     }),
     div(
       { class: "copilot-entry" },
@@ -507,8 +530,14 @@ const run = async (
 };
 
 const interact = async (table_id, viewname, config, body, { req, res }) => {
-  const { userinput, run_id } = body;
+  const { userinput, run_id, triggering_row_id } = body;
   let run;
+  let triggering_row;
+  if (table_id && triggering_row_id) {
+    const table = Table.findOne(table_id);
+    const pk = table?.pk_name;
+    if (table) triggering_row = await table.getRow({ [pk]: triggering_row_id });
+  }
   if (!run_id || run_id === "undefined")
     run = await WorkflowRun.create({
       status: "Running",
@@ -518,6 +547,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
         implemented_fcall_ids: [],
         interactions: [{ role: "user", content: userinput }],
         funcalls: {},
+        triggering_row_id,
       },
     });
   else {
@@ -563,7 +593,14 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
   }
   const action = await Trigger.findOne({ id: config.action_id });
 
-  return await process_interaction(run, action.configuration, req, action.name);
+  return await process_interaction(
+    run,
+    action.configuration,
+    req,
+    action.name,
+    [],
+    triggering_row
+  );
 };
 
 const delprevrun = async (table_id, viewname, config, body, { req, res }) => {

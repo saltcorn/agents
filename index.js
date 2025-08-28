@@ -51,7 +51,8 @@ module.exports = {
           {
             name: "sys_prompt",
             label: "System prompt",
-            sublabel: "Additional information for the system prompt",
+            sublabel:
+              "Additional information for the system prompt. Use interpolations <code>{{ }}</code> to access triggering row variables or user",
             type: "String",
             fieldview: "textarea",
           },
@@ -84,7 +85,14 @@ module.exports = {
             funcalls: {},
           },
         });
-        return await process_interaction(run, configuration, req);
+        return await process_interaction(
+          run,
+          configuration,
+          req,
+          undefined,
+          [],
+          row
+        );
       },
     },
   },
