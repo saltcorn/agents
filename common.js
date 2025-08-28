@@ -5,7 +5,23 @@ const Trigger = require("@saltcorn/data/models/trigger");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
 
+const nubBy = (f, xs) => {
+  const vs = new Set();
+  return xs.filter((x) => {
+    const y = f(x);
+    if (vs.has(y)) return false;
+    vs.add(y);
+    return true;
+  });
+};
+
 const get_skills = () => {
+  const state = getState();
+  const exchange_skills = nubBy(
+    (c) => c.constructor.name,
+    state.exchange?.agent_skills || []
+  );
+
   return [
     require("./skills/FTSRetrieval"),
     require("./skills/EmbeddingRetrieval"),
@@ -15,6 +31,7 @@ const get_skills = () => {
     require("./skills/GenerateImage"),
     require("./skills/ModelContextProtocol"),
     //require("./skills/AdaptiveFeedback"),
+    ...exchange_skills,
   ];
 };
 
