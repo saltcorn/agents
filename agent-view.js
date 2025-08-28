@@ -17,6 +17,7 @@ const {
   code,
   input,
   h4,
+  h3,
   style,
   h5,
   button,
@@ -319,7 +320,10 @@ const run = async (
       ),
       image_upload && uploadForm(viewname, req),
       debugMode &&
-        i({ onclick: "press_agent_debug_button()", class: "debugicon fas fa-bug" }),
+        i({
+          onclick: "press_agent_debug_button()",
+          class: "debugicon fas fa-bug",
+        }),
       explainer && small({ class: "explainer" }, i(explainer))
     )
   );
@@ -386,7 +390,8 @@ const run = async (
             .copilot-entry .debugicon {
               position: relative; 
               top: -1.8rem;
-              left: 0.1rem;              
+              left: 0.1rem;
+              cursor: pointer;
             }
               .copilot-entry span.attach_agent_image_wrap {
               position: relative; 
@@ -440,6 +445,13 @@ const run = async (
     }
     function show_agent_debug_info(info) {
        console.log(info)
+      ensure_modal_exists_and_closed();
+      $("#scmodal .modal-body").html(info.debug_html);
+      $("#scmodal .modal-title").html(decodeURIComponent("Agent session information"));
+      $(".modal-dialog").css("min-width", "80%");
+      new bootstrap.Modal($("#scmodal"), {
+        focus: false,
+      }).show();      
     }
     function delprevrun(e, runid) {
         e.preventDefault();
@@ -574,12 +586,18 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     action.configuration,
     req.user
   );
+  const debug_html = div(
+    div(h4("System prompt"), pre(complArgs.systemPrompt)),
+    div(
+      h4("API interactions"),
+      pre(JSON.stringify(run.context.api_interactions, null, 2))
+    )
+  );
   if (run && req.user?.role_id === 1)
     return {
       json: {
         success: "ok",
-        context: run.context,
-        systemPrompt: complArgs.systemPrompt,
+        debug_html,
       },
     };
 
