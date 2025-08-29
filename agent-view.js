@@ -464,10 +464,9 @@ const run = async (
         const $runidin= $("input[name=run_id")
         const runid = $runidin.val()
         if(runid)
-        view_post('${viewname}', 'debug_info', {run_id:runid}, show_agent_debug_info)
+        view_post('${viewname}', 'debug_info', {run_id:runid, triggering_row_id:$("input[name=triggering_row_id").val()}, show_agent_debug_info)
     }
     function show_agent_debug_info(info) {
-       console.log(info)
       ensure_modal_exists_and_closed();
       $("#scmodal .modal-body").html(info.debug_html);
       $("#scmodal .modal-title").html(decodeURIComponent("Agent session information"));
@@ -615,13 +614,19 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
 };
 
 const debug_info = async (table_id, viewname, config, body, { req, res }) => {
-  const { run_id } = body;
+  const { run_id, triggering_row_id } = body;
   const action = await Trigger.findOne({ id: config.action_id });
-
+  let triggering_row;
+  if (table_id && triggering_row_id) {
+    const table = Table.findOne(table_id);
+    const pk = table?.pk_name;
+    if (table) triggering_row = await table.getRow({ [pk]: triggering_row_id });
+  }
   const run = await WorkflowRun.findOne({ id: +run_id });
   const complArgs = await getCompletionArguments(
     action.configuration,
-    req.user
+    req.user,
+    triggering_row
   );
   const debug_html = div(
     div(h4("System prompt"), pre(complArgs.systemPrompt)),
