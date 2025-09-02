@@ -79,6 +79,16 @@ const find_image_tool = (config) => {
   }
 };
 
+const get_initial_interactions = async (config, user, triggering_row) => {
+  const interacts = [];
+  const skills = get_skill_instances(config);
+  for (const skill of skills) {
+    const its = await skill.initialInteractions?.({ user, triggering_row });
+    if (its) interacts.push(...its);
+  }
+  return interacts;
+};
+
 const getCompletionArguments = async (config, user, triggering_row) => {
   let tools = [];
 
@@ -359,4 +369,5 @@ module.exports = {
   process_interaction,
   find_image_tool,
   is_debug_mode,
+  get_initial_interactions,
 };

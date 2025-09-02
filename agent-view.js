@@ -42,6 +42,7 @@ const {
   process_interaction,
   find_image_tool,
   is_debug_mode,
+  get_initial_interactions,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -582,6 +583,8 @@ const run = async (
 
 const interact = async (table_id, viewname, config, body, { req, res }) => {
   const { userinput, run_id, triggering_row_id } = body;
+  const action = await Trigger.findOne({ id: config.action_id });
+
   let run;
   let triggering_row;
   if (table_id && triggering_row_id) {
@@ -589,19 +592,24 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     const pk = table?.pk_name;
     if (table) triggering_row = await table.getRow({ [pk]: triggering_row_id });
   }
-  if (!run_id || run_id === "undefined")
+  if (!run_id || run_id === "undefined") {
+    const ini_interacts = await get_initial_interactions(
+      action.configuration,
+      req.user,
+      triggering_row
+    );
     run = await WorkflowRun.create({
       status: "Running",
       started_by: req.user?.id,
       trigger_id: config.action_id,
       context: {
         implemented_fcall_ids: [],
-        interactions: [{ role: "user", content: userinput }],
+        interactions: [...ini_interacts, { role: "user", content: userinput }],
         funcalls: {},
         triggering_row_id,
       },
     });
-  else {
+  } else {
     run = await WorkflowRun.findOne({ id: +run_id });
     await addToContext(run, {
       interactions: [{ role: "user", content: userinput }],
@@ -642,7 +650,6 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       ],
     });
   }
-  const action = await Trigger.findOne({ id: config.action_id });
 
   return await process_interaction(
     run,
