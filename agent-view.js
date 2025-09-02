@@ -171,6 +171,7 @@ const run = async (
       //triggering_row = await table.getRow({ [pk]: state[pk] });
       triggering_row_id = state[pk];
   }
+  const initial_q = state._q;
   if (state.run_id) {
     const run = prevRuns.find((r) => r.id == state.run_id);
     const interactMarkups = [];
@@ -328,15 +329,18 @@ const run = async (
     }),
     div(
       { class: "copilot-entry" },
-      textarea({
-        class: "form-control",
-        name: "userinput",
-        "data-fieldname": "userinput",
-        placeholder: placeholder || "How can I help you?",
-        id: "inputuserinput",
-        rows: "3",
-        autofocus: true,
-      }),
+      textarea(
+        {
+          class: "form-control",
+          name: "userinput",
+          "data-fieldname": "userinput",
+          placeholder: placeholder || "How can I help you?",
+          id: "inputuserinput",
+          rows: "3",
+          autofocus: true,
+        },
+        initial_q
+      ),
       span(
         { class: "submit-button p-2", onclick: "$('form.copilot').submit()" },
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
@@ -434,7 +438,8 @@ const run = async (
     display: block;
     text-overflow: ellipsis;}`
       ),
-      script(`function processCopilotResponse(res) {
+      script(
+        `function processCopilotResponse(res) {
         const hadFile = $("input#attach_agent_image").val();
         $("span.filename-label").text("");
         $("input#attach_agent_image").val(null);
@@ -506,8 +511,9 @@ const run = async (
     document.getElementById("inputuserinput").addEventListener("keydown", submitOnEnter);
     function spin_send_button() {
       $("#sendbuttonicon").attr("class","fas fa-spinner fa-spin");
-    }
-`)
+    };`,
+        initial_q && domReady("$('form.copilot').submit()")
+      )
     )
   );
   return show_prev_runs
