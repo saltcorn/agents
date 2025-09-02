@@ -360,7 +360,7 @@ const run = async (
       {
         class: "d-flex justify-content-between align-middle mb-2",
       },
-      h5("Sessions"),
+      h5(req.__("Sessions")),
 
       button(
         {
