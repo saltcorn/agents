@@ -171,7 +171,7 @@ const run = async (
       //triggering_row = await table.getRow({ [pk]: state[pk] });
       triggering_row_id = state[pk];
   }
-  const initial_q = state._q;
+  const initial_q = state.run_id ? undefined: state._q;
   if (state.run_id) {
     const run = prevRuns.find((r) => r.id == state.run_id);
     const interactMarkups = [];
