@@ -370,4 +370,5 @@ module.exports = {
   find_image_tool,
   is_debug_mode,
   get_initial_interactions,
+  nubBy,
 };

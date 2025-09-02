@@ -6,6 +6,7 @@ const View = require("@saltcorn/data/models/view");
 const { getState } = require("@saltcorn/data/db/state");
 const db = require("@saltcorn/data/db");
 const { interpolate } = require("@saltcorn/data/utils");
+const { nubBy } = require("../common");
 
 class RetrievalByFullTextSearch {
   static skill_name = "Retrieval by full-text search";
@@ -105,30 +106,45 @@ class RetrievalByFullTextSearch {
     const table = Table.findOne(this.table_name);
     return {
       type: "function",
-      process: async ({ phrase }, { req }) => {
+      process: async (arg, { req }) => {
         const scState = getState();
         const language = scState.pg_ts_config;
         const use_websearch = scState.getConfig("search_use_websearch", false);
-        const rows = await table.getRows({
-          _fts: {
-            fields: table.fields,
-            searchTerm: phrase,
-            language,
-            use_websearch,
-            table: table.name,
-            schema: db.isSQLite ? undefined : db.getTenantSchema(),
-          },
-        });
-        if (this.hidden_fields) {
-          const hidden_fields = this.hidden_fields
-            .split(",")
-            .map((s) => s.trim());
-          rows.forEach((r) => {
-            hidden_fields.forEach((k) => {
-              delete r[k];
-            });
+        let rows = [];
+        const phrases =
+          arg.query?.phrases ||
+          arg.phrases ||
+          (arg.phrase
+            ? [arg.phrase]
+            : arg.query?.phrase
+            ? [arg.query?.phrase]
+            : []);
+        for (const phrase of phrases) {
+          const my_rows = await table.getRows({
+            _fts: {
+              fields: table.fields,
+              searchTerm: phrase,
+              language,
+              use_websearch,
+              table: table.name,
+              schema: db.isSQLite ? undefined : db.getTenantSchema(),
+            },
           });
+          if (this.hidden_fields) {
+            const hidden_fields = this.hidden_fields
+              .split(",")
+              .map((s) => s.trim());
+            my_rows.forEach((r) => {
+              hidden_fields.forEach((k) => {
+                delete r[k];
+              });
+            });
+          }
+          rows.push(...my_rows);
         }
+        const pk = table.pk_name;
+        rows = nubBy((r) => r[pk], rows);
+
         if (rows.length)
           if (!this.doc_format) return { rows };
           else {
@@ -139,7 +155,8 @@ class RetrievalByFullTextSearch {
           }
         else
           return {
-            responseText: "There are no rows related to: " + phrase,
+            responseText:
+              "There are no rows related to: " + phrases.join(" or "),
           };
       },
       /*renderToolCall({ phrase }, { req }) {
@@ -163,15 +180,41 @@ class RetrievalByFullTextSearch {
         name: this.toolName,
         description: `Search the ${this.table_name} database table${
           table.description ? ` (${table.description})` : ""
-        } by a search phrase matched against all fields in the table with full text search. The retrieved rows will be returned`,
+        } by one or several search phrase or multiple search phrases matched against all fields in the table with full text search. The retrieved rows will be returned. If you want to search for documents matching any of several phrases, call this tool once with the phrases argument and give all the phrases you want to search for in one tool call.`,
         parameters: {
           type: "object",
-          required: ["phrase"],
+          required: ["query"],
           properties: {
-            phrase: {
-              type: "string",
-              description:
-                "The phrase to search the table with. The search phrase is the synatx used by web search engines: use double quotes for exact match, unquoted text for words in any order, dash (minus sign) to exclude a word. Do not use SQL or any other formal query language.",
+            query: {
+              anyOf: [
+                {
+                  type: "object",
+                  required: ["phrase"],
+                  properties: {
+                    phrase: {
+                      type: "string",
+                      description:
+                        "The phrase to search the table with. The search phrase is the synatx used by web search engines: use double quotes for exact match, unquoted text for words in any order, dash (minus sign) to exclude a word. Do not use SQL or any other formal query language.",
+                    },
+                  },
+                },
+                {
+                  type: "object",
+                  required: ["phrases"],
+                  description:
+                    "Search the table by any of a number of phrases. This will return any document that matches one or the other of the phrases",
+                  properties: {
+                    phrases: {
+                      type: "array",
+                      description:
+                        "A phrase to search the table with. The search phrase is the synatx used by web search engines: use double quotes for exact match, unquoted text for words in any order, dash (minus sign) to exclude a word. Do not use SQL or any other formal query language.",
+                      items: {
+                        type: "string",
+                      },
+                    },
+                  },
+                },
+              ],
             },
           },
         },
