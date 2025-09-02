@@ -49,7 +49,7 @@ class PreloadData {
       return this._stashed_initial_interactions;
     if (this.data_source === "Code") {
       const result = await this.run_the_code({ user, triggering_row });
-      return result?.initialInteractions;
+      return result?.interactions;
     }
   }
 
@@ -58,8 +58,8 @@ class PreloadData {
     if (this.data_source === "Code") {
       const result = await this.run_the_code({ user, triggering_row });
       if (typeof result === "string") return result;
-      if (result?.initialInteractions)
-        this._stashed_initial_interactions = result?.initialInteractions;
+      if (result?.interactions)
+        this._stashed_initial_interactions = result?.interactions;
       if (result?.systemPrompt) return result.systemPrompt;
     } else {
       if (this.add_sys_prompt) prompts.push(this.add_sys_prompt);
@@ -109,7 +109,7 @@ class PreloadData {
         showIf: { data_source: "Code" },
         class: "validate-statements",
         sublabel:
-          "Return string or object <code>{systemPrompt: string, initialInteractions: Interaction[]}</code>",
+          "Return string or object <code>{systemPrompt: string, interactions: Interaction[]}</code>",
         validator(s) {
           try {
             let AsyncFunction = Object.getPrototypeOf(
