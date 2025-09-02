@@ -171,7 +171,7 @@ const run = async (
       //triggering_row = await table.getRow({ [pk]: state[pk] });
       triggering_row_id = state[pk];
   }
-  const initial_q = state.run_id ? undefined: state._q;
+  const initial_q = state.run_id ? undefined : state._q;
   if (state.run_id) {
     const run = prevRuns.find((r) => r.id == state.run_id);
     const interactMarkups = [];
@@ -360,8 +360,14 @@ const run = async (
       {
         class: "d-flex justify-content-between align-middle mb-2",
       },
-      h5(req.__("Sessions")),
-
+      div(
+        { class: "d-flex" },
+        i({
+          class: "fas fa-caret-down me-1",
+          onclick: "close_session_list()",
+        }),
+        h5(req.__("Sessions"))
+      ),
       button(
         {
           type: "button",
@@ -396,6 +402,14 @@ const run = async (
     { class: "card" },
     div(
       { class: "card-body" },
+      div(
+        { class: "open-prev-runs", style: { display: "none" } },
+        i({
+          class: "fas fa-caret-right me-1",
+          onclick: "open_session_list()",
+        }),
+        req.__("Sessions")
+      ),
       div({ id: "copilotinteractions" }, runInteractions),
       input_form,
       style(
@@ -420,6 +434,10 @@ const run = async (
               left: 0.1rem;
               cursor: pointer;
             }
+              .session-open-sessions {
+              cursor: pointer;
+
+              }
               .copilot-entry span.attach_agent_image_wrap {
               position: relative; 
               top: -1.8rem;
@@ -439,7 +457,16 @@ const run = async (
     text-overflow: ellipsis;}`
       ),
       script(
-        `function processCopilotResponse(res) {
+        `
+        function close_session_list() {
+          $("div.prev-runs-list").hide().parents(".col-3").removeClass("col-3").addClass("was-col-3")
+          $("div.open-prev-runs").show()
+        }
+        function open_session_list() {
+          $("div.prev-runs-list").show().parents(".was-col-3").removeClass("was-col-3").addClass("col-3")
+          $("div.open-prev-runs").hide()
+        }
+        function processCopilotResponse(res) {
         const hadFile = $("input#attach_agent_image").val();
         $("span.filename-label").text("");
         $("input#attach_agent_image").val(null);
@@ -523,6 +550,7 @@ const run = async (
         besides: [
           {
             type: "container",
+            customClass: "prev-runs-list",
             contents: prev_runs_side_bar,
           },
           {
