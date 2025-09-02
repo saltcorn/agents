@@ -22,29 +22,44 @@ class PreloadData {
     Object.assign(this, cfg);
   }
 
+  async run_the_code({ user, triggering_row }) {
+    const sysState = getState();
+    const f = vm.runInNewContext(`async () => {${this.code}\n}`, {
+      Table,
+      row: triggering_row,
+      context: triggering_row,
+      user,
+      User,
+      File,
+      Buffer,
+      Trigger,
+      setTimeout,
+      interpolate,
+      require,
+      getConfig: (k) =>
+        sysState.isFixedConfig(k) ? undefined : sysState.getConfig(k),
+      ...(triggering_row || {}),
+      ...sysState.eval_context,
+    });
+    return await f();
+  }
+
+  async initialInteractions({ user, triggering_row }) {
+    if (this._stashed_initial_interactions)
+      return this._stashed_initial_interactions;
+    if (this.data_source === "Code") {
+      const result = await this.run_the_code({ user, triggering_row });
+      return result?.initialInteractions;
+    }
+  }
+
   async systemPrompt({ user, triggering_row }) {
     const prompts = [];
     if (this.data_source === "Code") {
-      const sysState = getState();
-      const f = vm.runInNewContext(`async () => {${this.code}\n}`, {
-        Table,
-        row: triggering_row,
-        context: triggering_row,
-        user,
-        User,
-        File,
-        Buffer,
-        Trigger,
-        setTimeout,
-        interpolate,
-        require,
-        getConfig: (k) =>
-          sysState.isFixedConfig(k) ? undefined : sysState.getConfig(k),
-        ...(triggering_row || {}),
-        ...sysState.eval_context,
-      });
-      const result = await f();
+      const result = await this.run_the_code({ user, triggering_row });
       if (typeof result === "string") return result;
+      if (result?.initialInteractions)
+        this._stashed_initial_interactions = result?.initialInteractions;
       if (result?.systemPrompt) return result.systemPrompt;
     } else {
       if (this.add_sys_prompt) prompts.push(this.add_sys_prompt);
@@ -93,7 +108,8 @@ class PreloadData {
         attributes: { mode: "application/javascript" },
         showIf: { data_source: "Code" },
         class: "validate-statements",
-        sublabel: "Return string or object <code>{systemPrompt: string}</code>",
+        sublabel:
+          "Return string or object <code>{systemPrompt: string, initialInteractions: Interaction[]}</code>",
         validator(s) {
           try {
             let AsyncFunction = Object.getPrototypeOf(
