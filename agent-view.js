@@ -82,6 +82,11 @@ const configuration_workflow = (req) =>
                 type: "Bool",
               },
               {
+                name: "prev_runs_closed",
+                label: "Initially closed",
+                type: "Bool",
+              },
+              {
                 name: "placeholder",
                 label: "Placeholder",
                 type: "String",
@@ -148,7 +153,14 @@ const uploadForm = (viewname, req) =>
 const run = async (
   table_id,
   viewname,
-  { action_id, show_prev_runs, placeholder, explainer, image_upload },
+  {
+    action_id,
+    show_prev_runs,
+    prev_runs_closed,
+    placeholder,
+    explainer,
+    image_upload,
+  },
   state,
   { res, req }
 ) => {
@@ -363,7 +375,7 @@ const run = async (
       div(
         { class: "d-flex" },
         i({
-          class: "fas fa-caret-down me-1",
+          class: "fas fa-caret-down me-1 session-open-sessions",
           onclick: "close_session_list()",
         }),
         h5(req.__("Sessions"))
@@ -403,10 +415,13 @@ const run = async (
     div(
       { class: "card-body" },
       div(
-        { class: "open-prev-runs", style: { display: "none" } },
+        {
+          class: "open-prev-runs",
+          style: prev_runs_closed ? {} : { display: "none" },
+          onclick: "open_session_list()",
+        },
         i({
           class: "fas fa-caret-right me-1",
-          onclick: "open_session_list()",
         }),
         req.__("Sessions")
       ),
@@ -434,9 +449,8 @@ const run = async (
               left: 0.1rem;
               cursor: pointer;
             }
-              .session-open-sessions {
+              .session-open-sessions, .open-prev-runs {
               cursor: pointer;
-
               }
               .copilot-entry span.attach_agent_image_wrap {
               position: relative; 
@@ -448,6 +462,9 @@ const run = async (
               top: -1.2rem;    
               display: block;                        
             }
+              .col-0 {
+              width: 0%
+              }
             .copilot-entry {margin-bottom: -1.25rem; margin-top: 1rem;}
             p.prevrun_content {
                white-space: nowrap;
@@ -459,11 +476,11 @@ const run = async (
       script(
         `
         function close_session_list() {
-          $("div.prev-runs-list").hide().parents(".col-3").removeClass("col-3").addClass("was-col-3")
+          $("div.prev-runs-list").hide().parents(".col-3").removeClass("col-3").addClass("was-col-3").parent().children(".col-9").removeClass("col-9").addClass("col-12")
           $("div.open-prev-runs").show()
         }
         function open_session_list() {
-          $("div.prev-runs-list").show().parents(".was-col-3").removeClass("was-col-3").addClass("col-3")
+          $("div.prev-runs-list").show().parents(".was-col-3").removeClass(["was-col-3","col-0","d-none"]).addClass("col-3").parent().children(".col-12").removeClass("col-12").addClass("col-9")
           $("div.open-prev-runs").hide()
         }
         function processCopilotResponse(res) {
@@ -545,7 +562,8 @@ const run = async (
   );
   return show_prev_runs
     ? {
-        widths: [3, 9],
+        widths: prev_runs_closed ? [0, 12] : [3, 9],
+        colClasses: prev_runs_closed ? ["was-col-3 d-none"] : undefined,
         gx: 3,
         besides: [
           {
