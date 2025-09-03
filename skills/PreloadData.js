@@ -2,6 +2,7 @@ const { div, pre } = require("@saltcorn/markup/tags");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
+const File = require("@saltcorn/data/models/file");
 const Trigger = require("@saltcorn/data/models/trigger");
 const User = require("@saltcorn/data/models/user");
 const View = require("@saltcorn/data/models/view");
