@@ -105,13 +105,9 @@ const getCompletionArguments = async (config, user, triggering_row) => {
     else if (skillTools) tools.push(skillTools);
   }
   if (tools.length === 0) tools = undefined;
-  return { tools, systemPrompt: sysPrompts.join("\n\n") };
-};
-
-const getCompletion = async (language, prompt) => {
-  return getState().functions.llm_generate.run(prompt, {
-    systemPrompt: `You are a helpful code assistant. Your language of choice is ${language}. Do not include any explanation, just generate the code block itself.`,
-  });
+  const complArgs = { tools, systemPrompt: sysPrompts.join("\n\n") };
+  if (config.model) complArgs.model = config.model;
+  return complArgs;
 };
 
 const incompleteCfgMsg = () => {
@@ -359,7 +355,6 @@ module.exports = {
   get_skills,
   get_skill_class,
   incompleteCfgMsg,
-  getCompletion,
   find_tool,
   get_skill_instances,
   getCompletionArguments,

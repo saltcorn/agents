@@ -56,7 +56,12 @@ module.exports = {
             type: "String",
             fieldview: "textarea",
           },
-
+          {
+            name: "model",
+            label: "Model",
+            sublabel: "Override default model name",
+            type: "String",
+          },
           new FieldRepeat({
             name: "skills",
             label: "Skills",
