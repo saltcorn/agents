@@ -11,6 +11,7 @@ const db = require("@saltcorn/data/db");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
 const vm = require("vm");
+const fetch = require("node-fetch");
 
 class PreloadData {
   static skill_name = "Preload Data";
@@ -36,6 +37,7 @@ class PreloadData {
       Trigger,
       setTimeout,
       interpolate,
+      fetch,
       require,
       getConfig: (k) =>
         sysState.isFixedConfig(k) ? undefined : sysState.getConfig(k),
