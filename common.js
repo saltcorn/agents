@@ -208,12 +208,15 @@ const process_interaction = async (
   if (debugMode) complArgs.debugCollector = debugCollector;
   if (stream && sysState.getConfig("enable_dynamic_updates") && req.user) {
     complArgs.stream = (response) => {
-
-      if (response.choices[0].delta?.content)
+      const content =
+        response.choices[0].content || response.choices[0].delta?.content;
+      if (content)
         sysState?.emitDynamicUpdate(
           db.getTenantSchema(),
           {
-            eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(response.choices[0].delta?.content)})`,
+            eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(
+              content
+            )})`,
           },
           [req.user.id]
         );
