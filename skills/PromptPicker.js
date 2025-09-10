@@ -3,6 +3,7 @@ const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const { select, option } = require("@saltcorn/markup/tags");
 const { eval_expression } = require("@saltcorn/data/models/expression");
+const { validID } = require("@saltcorn/markup/layout_utils");
 
 class PromptPicker {
   static skill_name = "Prompt picker";
@@ -11,9 +12,17 @@ class PromptPicker {
   }
   constructor(cfg) {
     Object.assign(this, cfg);
+    this.options = eval_expression(
+      this.options_obj,
+      {},
+      null,
+      "Prompt picker options"
+    );
+    this.formname = validID("pp" + Object.keys(this.options));
   }
   static async configFields() {
     return [
+      { name: "placeholder", label: "Placeholder", type: "String" },
       {
         name: "options_obj",
         label: "System prompt contents",
@@ -25,16 +34,17 @@ class PromptPicker {
     ];
   }
   async formWidget({ user, klass }) {
-    const options = eval_expression(
-      this.options_obj,
-      {},
-      user,
-      "Prompt picker options"
-    );
     return select(
-      { class: ["form-select form-select-sm w-unset", klass] },
-      Object.keys(options).map((o) => option(o))
+      {
+        class: ["form-select form-select-sm w-unset", klass],
+        name: this.formname,
+      },
+      this.placeholder && option({ disabled: true }, this.placeholder),
+      Object.keys(this.options).map((o) => option(o))
     );
+  }
+  systemPrompt(body) {
+    if (body[this.formname]) return this.options[body[this.formname]];
   }
 }
 

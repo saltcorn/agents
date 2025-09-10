@@ -91,7 +91,12 @@ const get_initial_interactions = async (config, user, triggering_row) => {
   return interacts;
 };
 
-const getCompletionArguments = async (config, user, triggering_row) => {
+const getCompletionArguments = async (
+  config,
+  user,
+  triggering_row,
+  formbody
+) => {
   let tools = [];
 
   let sysPrompts = [
@@ -100,7 +105,11 @@ const getCompletionArguments = async (config, user, triggering_row) => {
 
   const skills = get_skill_instances(config);
   for (const skill of skills) {
-    const sysPr = await skill.systemPrompt?.({ user, triggering_row });
+    const sysPr = await skill.systemPrompt?.({
+      ...(formbody || {}),
+      user,
+      triggering_row,
+    });
     if (sysPr) sysPrompts.push(sysPr);
     const skillTools = skill.provideTools?.();
     if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
@@ -199,7 +208,8 @@ const process_interaction = async (
   const complArgs = await getCompletionArguments(
     config,
     req.user,
-    triggering_row
+    triggering_row,
+    req.body
   );
   complArgs.chat = run.context.interactions.map(only_response_text_if_present);
   //complArgs.debugResult = true;
@@ -224,6 +234,8 @@ const process_interaction = async (
     };
   }
   const answer = await sysState.functions.llm_generate.run("", complArgs);
+
+  //console.log({answer});
 
   if (debugMode)
     await addToContext(run, {
