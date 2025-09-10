@@ -69,7 +69,7 @@ class PreloadData {
       const table = Table.findOne(this.table_name);
       const q = eval_expression(
         this.preload_query,
-        {},
+        triggering_row || {},
         user,
         "PreloadData query"
       );
