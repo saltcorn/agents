@@ -708,13 +708,22 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     if (table) triggering_row = await table.getRow({ [pk]: triggering_row_id });
   }
   const run = await WorkflowRun.findOne({ id: +run_id });
-  const complArgs = await getCompletionArguments(
-    action.configuration,
-    req.user,
-    triggering_row
-  );
+  let sysPrompt = "";
+  if (
+    run.context.api_interactions?.[0].request?.messages?.[0]?.role === "system"
+  ) {
+    sysPrompt =
+      run.context.api_interactions?.[0].request?.messages?.[0].content;
+  } else {
+    const complArgs = await getCompletionArguments(
+      action.configuration,
+      req.user,
+      triggering_row
+    );
+    sysPrompt = complArgs.systemPrompt;
+  }
   const debug_html = div(
-    div(h4("System prompt"), pre(complArgs.systemPrompt)),
+    div(h4("System prompt"), pre(sysPrompt)),
     div(
       h4("API interactions"),
       pre(JSON.stringify(run.context.api_interactions, null, 2))
