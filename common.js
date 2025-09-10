@@ -283,7 +283,7 @@ const process_interaction = async (
     let hasResult = false;
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
     for (const tool_call of answer.tool_calls || []) {
-      console.log("call function", tool_call.function);
+      console.log("call function", tool_call.function?.name);
 
       await addToContext(run, {
         funcalls: { [tool_call.id]: tool_call.function },
@@ -292,6 +292,24 @@ const process_interaction = async (
       const tool = find_tool(tool_call.function?.name, config);
 
       if (tool) {
+        if (
+          stream &&
+          sysState.getConfig("enable_dynamic_updates") &&
+          req.user
+        ) {
+          let content =
+            "Using skill: " + tool.skill.skill_label ||
+            tool.skill.constructor.skill_name;
+          sysState?.emitDynamicUpdate(
+            db.getTenantSchema(),
+            {
+              eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(
+                content
+              )})`,
+            },
+            [req.user.id]
+          );
+        }
         if (tool.tool.renderToolCall) {
           const row = JSON.parse(tool_call.function.arguments);
           const rendered = await tool.tool.renderToolCall(row, {
