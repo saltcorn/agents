@@ -228,6 +228,7 @@ const process_interaction = async (
             eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(
               content
             )})`,
+            page_load_tag: req.body.page_load_tag,
           },
           [req.user.id]
         );
@@ -319,6 +320,7 @@ const process_interaction = async (
               eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(
                 content
               )})`,
+              page_load_tag: req.body.page_load_tag,
             },
             [req.user.id]
           );

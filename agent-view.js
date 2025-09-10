@@ -346,9 +346,13 @@ const run = async (
     }),
     input({
       type: "hidden",
-      class: "form-control  ",
       name: "run_id",
       value: state.run_id ? +state.run_id : undefined,
+    }),
+    input({
+      type: "hidden",
+      name: "page_load_tag",
+      value: "",
     }),
     input({
       type: "hidden",
@@ -500,15 +504,15 @@ const run = async (
       ),
       script(
         `
-        function close_session_list() {
-          $("div.prev-runs-list").hide().parents(".col-3").removeClass("col-3").addClass("was-col-3").parent().children(".col-9").removeClass("col-9").addClass("col-12")
-          $("div.open-prev-runs").show()
-        }
-        function open_session_list() {
-          $("div.prev-runs-list").show().parents(".was-col-3").removeClass(["was-col-3","col-0","d-none"]).addClass("col-3").parent().children(".col-12").removeClass("col-12").addClass("col-9")
-          $("div.open-prev-runs").hide()
-        }
-        function processCopilotResponse(res) {
+    function close_session_list() {
+      $("div.prev-runs-list").hide().parents(".col-3").removeClass("col-3").addClass("was-col-3").parent().children(".col-9").removeClass("col-9").addClass("col-12")
+      $("div.open-prev-runs").show()
+    }
+    function open_session_list() {
+      $("div.prev-runs-list").show().parents(".was-col-3").removeClass(["was-col-3","col-0","d-none"]).addClass("col-3").parent().children(".col-12").removeClass("col-12").addClass("col-9")
+      $("div.open-prev-runs").hide()
+    }
+    function processCopilotResponse(res) {
         const hadFile = $("input#attach_agent_image").val();
         $("span.filename-label").text("");
         $("input#attach_agent_image").val(null);
@@ -582,6 +586,10 @@ const run = async (
     function spin_send_button() {
       $("#sendbuttonicon").attr("class","fas fa-spinner fa-spin");
     };`,
+        stream &&
+          domReady(
+            `$('form.agent-view input[name=page_load_tag]').val(window._sc_pageloadtag)`
+          ),
         initial_q && domReady("$('form.copilot').submit()")
       )
     )
