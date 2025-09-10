@@ -93,6 +93,7 @@ const configuration_workflow = (req) =>
                 name: "stream",
                 label: "Stream response",
                 type: "Bool",
+                sublabel: "Requires dynamic update (Event settings)",
               },
               {
                 name: "placeholder",
