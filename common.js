@@ -207,7 +207,7 @@ const process_interaction = async (
   const debugCollector = {};
   if (debugMode) complArgs.debugCollector = debugCollector;
   if (stream && sysState.getConfig("enable_dynamic_updates") && req.user) {
-    complArgs.stream = (response) => {
+    complArgs.streamCallback = (response) => {
       const content =
         response.choices[0].content || response.choices[0].delta?.content;
       if (content)
