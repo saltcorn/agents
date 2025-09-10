@@ -24,15 +24,15 @@ class PromptPicker {
       },
     ];
   }
-  async formWidget({ user, triggering_row, klass }) {
+  async formWidget({ user, klass }) {
     const options = eval_expression(
       this.options_obj,
-      triggering_row || {},
+      {},
       user,
       "Prompt picker options"
     );
     return select(
-      { class: ["form-select w-unset", klass] },
+      { class: ["form-select form-select-sm w-unset", klass] },
       Object.keys(options).map((o) => option(o))
     );
   }

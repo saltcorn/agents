@@ -43,6 +43,7 @@ const {
   find_image_tool,
   is_debug_mode,
   get_initial_interactions,
+  get_skill_instances,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -323,6 +324,14 @@ const run = async (
     }
     runInteractions = interactMarkups.join("");
   }
+  const skill_form_widgets = [];
+  for (const skill of get_skill_instances(action.configuration)) {
+    if (skill.formWidget)
+      skill_form_widgets.push(
+        await skill.formWidget({ user: req.user, klass: "skill-form-widget" })
+      );
+  }
+
   const debugMode = is_debug_mode(action.configuration, req.user);
   const input_form = form(
     {
@@ -371,6 +380,7 @@ const run = async (
           onclick: "press_agent_debug_button()",
           class: "debugicon fas fa-bug",
         }),
+      skill_form_widgets,
       explainer && small({ class: "explainer" }, i(explainer))
     ),
     stream && div({ class: "next_response_scratch" })
@@ -457,6 +467,12 @@ const run = async (
               top: -1.8rem;
               left: 0.1rem;
               cursor: pointer;
+            }
+            .copilot-entry .skill-form-widget {
+              position: relative; 
+              top: -2rem;
+              left: 0.4rem;
+              display: inline;
             }
               .session-open-sessions, .open-prev-runs {
               cursor: pointer;
