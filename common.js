@@ -2,6 +2,7 @@ const { getState } = require("@saltcorn/data/db/state");
 const { div, span } = require("@saltcorn/markup/tags");
 const Trigger = require("@saltcorn/data/models/trigger");
 const { interpolate } = require("@saltcorn/data/utils");
+const db = require("@saltcorn/data/db");
 
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -190,8 +191,10 @@ const process_interaction = async (
   req,
   agent_label = "Copilot",
   prevResponses = [],
-  triggering_row = {}
+  triggering_row = {},
+  stream = false
 ) => {
+  const sysState = getState();
   const complArgs = await getCompletionArguments(
     config,
     req.user,
@@ -203,7 +206,21 @@ const process_interaction = async (
   const debugMode = is_debug_mode(config, req.user);
   const debugCollector = {};
   if (debugMode) complArgs.debugCollector = debugCollector;
-  const answer = await getState().functions.llm_generate.run("", complArgs);
+  if (stream && sysState.getConfig("enable_dynamic_updates") && req.user) {
+    complArgs.stream = (response) => {
+
+      if (response.choices[0].delta?.content)
+        sysState?.emitDynamicUpdate(
+          db.getTenantSchema(),
+          {
+            eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(response.choices[0].delta?.content)})`,
+          },
+          [req.user.id]
+        );
+    };
+  }
+  const answer = await sysState.functions.llm_generate.run("", complArgs);
+
   if (debugMode)
     await addToContext(run, {
       api_interactions: [debugCollector],
@@ -337,7 +354,8 @@ const process_interaction = async (
         req,
         agent_label,
         [...prevResponses, ...responses],
-        triggering_row
+        triggering_row,
+        stream
       );
   } else if (typeof answer === "string")
     responses.push(wrapSegment(md.render(answer), agent_label));

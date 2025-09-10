@@ -86,6 +86,12 @@ const configuration_workflow = (req) =>
                 name: "prev_runs_closed",
                 label: "Initially closed",
                 type: "Bool",
+                showIf: { show_prev_runs: true },
+              },
+              {
+                name: "stream",
+                label: "Stream response",
+                type: "Bool",
               },
               {
                 name: "placeholder",
@@ -161,6 +167,7 @@ const run = async (
     placeholder,
     explainer,
     image_upload,
+    stream,
   },
   state,
   { res, req }
@@ -320,7 +327,7 @@ const run = async (
   const input_form = form(
     {
       onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), processCopilotResponse);return false;`,
-      class: "form-namespace copilot mt-2",
+      class: ["form-namespace copilot mt-2 agent-view"],
       method: "post",
     },
     input({
@@ -365,7 +372,8 @@ const run = async (
           class: "debugicon fas fa-bug",
         }),
       explainer && small({ class: "explainer" }, i(explainer))
-    )
+    ),
+    stream && div({ class: "next_response_scratch" })
   );
 
   const prev_runs_side_bar = div(
@@ -497,6 +505,7 @@ const run = async (
         if(hadFile)
           $("#copilotinteractions").append(wrapSegment('File', "You"))
         $("textarea[name=userinput]").val("")
+        $('form.agent-view div.next_response_scratch').html("")
 
         if(res.response)
             $("#copilotinteractions").append(res.response)
@@ -657,7 +666,8 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     req,
     action.name,
     [],
-    triggering_row
+    triggering_row,
+    config.stream
   );
 };
 
