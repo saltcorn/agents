@@ -93,7 +93,6 @@ const configuration_workflow = (req) =>
                 name: "stream",
                 label: "Stream response",
                 type: "Bool",
-                sublabel: "Requires dynamic update (Event settings)",
               },
               {
                 name: "placeholder",
@@ -158,6 +157,29 @@ const uploadForm = (viewname, req) =>
     }),
     span({ class: "ms-2 filename-label" })
   );
+
+const realTimeCollabScript = (viewname) => {
+  const view = View.findOne({ name: viewname });
+  return (
+    script({
+      src: `/static_assets/${db.connectObj.version_tag}/socket.io.min.js`,
+    }) +
+    script(
+      domReady(`
+  const collabCfg = {
+    events: {
+      ['${view.getRealTimeEventName("STREAM_CHUNK")}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
+        $('form.agent-view div.next_response_scratch').append(JSON.stringify(
+          data.content
+        ));
+      }
+    }
+  };
+  init_collab_room('${viewname}', collabCfg);
+`),
+    )
+  );
+};
 
 const run = async (
   table_id,
@@ -388,7 +410,8 @@ const run = async (
       skill_form_widgets,
       explainer && small({ class: "explainer" }, i(explainer))
     ),
-    stream && div({ class: "next_response_scratch" })
+    stream &&
+      realTimeCollabScript(viewname) + div({ class: "next_response_scratch" }),
   );
 
   const prev_runs_side_bar = div(
@@ -692,7 +715,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     action.name,
     [],
     triggering_row,
-    config.stream
+    config,
   );
 };
 

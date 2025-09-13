@@ -1,6 +1,7 @@
 const { getState } = require("@saltcorn/data/db/state");
 const { div, span } = require("@saltcorn/markup/tags");
 const Trigger = require("@saltcorn/data/models/trigger");
+const View = require("@saltcorn/data/models/view");
 const { interpolate } = require("@saltcorn/data/utils");
 const db = require("@saltcorn/data/db");
 
@@ -202,8 +203,9 @@ const process_interaction = async (
   agent_label = "Copilot",
   prevResponses = [],
   triggering_row = {},
-  stream = false
+  agentsViewCfg = { stream: false },
 ) => {
+  const { stream, viewname } = agentsViewCfg;
   const sysState = getState();
   const complArgs = await getCompletionArguments(
     config,
@@ -217,21 +219,17 @@ const process_interaction = async (
   const debugMode = is_debug_mode(config, req.user);
   const debugCollector = {};
   if (debugMode) complArgs.debugCollector = debugCollector;
-  if (stream && sysState.getConfig("enable_dynamic_updates") && req.user) {
+  if (stream && viewname) {
     complArgs.streamCallback = (response) => {
       const content =
         response.choices[0].content || response.choices[0].delta?.content;
-      if (content)
-        sysState?.emitDynamicUpdate(
-          db.getTenantSchema(),
-          {
-            eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(
-              content
-            )})`,
-            page_load_tag: req.body.page_load_tag,
-          },
-          [req.user.id]
-        );
+      if (content) {
+        const view = View.findOne({ name: viewname });
+        const pageLoadTag = req.body.page_load_tag;
+        view.emitRealTimeEvent(`STREAM_CHUNK?page_load_tag=${pageLoadTag}`, {
+          content,
+        });
+      }
     };
   }
   const answer = await sysState.functions.llm_generate.run("", complArgs);
@@ -306,24 +304,15 @@ const process_interaction = async (
       const tool = find_tool(tool_call.function?.name, config);
 
       if (tool) {
-        if (
-          stream &&
-          sysState.getConfig("enable_dynamic_updates") &&
-          req.user
-        ) {
+        if (stream && viewname) {
           let content =
             "Using skill: " + tool.skill.skill_label ||
             tool.skill.constructor.skill_name;
-          sysState?.emitDynamicUpdate(
-            db.getTenantSchema(),
-            {
-              eval_js: `$('form.agent-view div.next_response_scratch').append(${JSON.stringify(
-                content
-              )})`,
-              page_load_tag: req.body.page_load_tag,
-            },
-            [req.user.id]
-          );
+          const view = View.findOne({ name: viewname });
+          const pageLoadTag = req.body.page_load_tag;
+          view.emitRealTimeEvent(`STREAM_CHUNK?page_load_tag=${pageLoadTag}`, {
+            content,
+          });
         }
         if (tool.tool.renderToolCall) {
           const row = JSON.parse(tool_call.function.arguments);
@@ -391,7 +380,7 @@ const process_interaction = async (
         agent_label,
         [...prevResponses, ...responses],
         triggering_row,
-        stream
+        agentsViewCfg,
       );
   } else if (typeof answer === "string")
     responses.push(wrapSegment(md.render(answer), agent_label));
