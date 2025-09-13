@@ -160,12 +160,9 @@ const uploadForm = (viewname, req) =>
 
 const realTimeCollabScript = (viewname) => {
   const view = View.findOne({ name: viewname });
-  return (
-    script({
-      src: `/static_assets/${db.connectObj.version_tag}/socket.io.min.js`,
-    }) +
-    script(
-      domReady(`
+  return script(
+    domReady(`
+  ensure_script_loaded("/static_assets/${db.connectObj.version_tag}/socket.io.min.js")
   const collabCfg = {
     events: {
       ['${view.getRealTimeEventName("STREAM_CHUNK")}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
@@ -175,9 +172,9 @@ const realTimeCollabScript = (viewname) => {
       }
     }
   };
-  init_collab_room('${viewname}', collabCfg);
-`),
-    )
+  setTimeout(() => {
+    init_collab_room('${viewname}', collabCfg);
+  });`),
   );
 };
 
