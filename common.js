@@ -272,18 +272,23 @@ const process_interaction = async (
     if (answer.content && !answer.tool_calls)
       responses.push(wrapSegment(md.render(answer.content), agent_label));
   }
-  await addToContext(run, {
-    interactions:
-      typeof answer === "object" && answer.tool_calls
-        ? [
-            {
-              role: "assistant",
-              tool_calls: answer.tool_calls,
-              content: answer.content,
-            },
-          ]
-        : [{ role: "assistant", content: answer }],
-  });
+  if (answer.ai_sdk)
+    await addToContext(run, {
+      interactions: answer.messages,
+    });
+  else
+    await addToContext(run, {
+      interactions:
+        typeof answer === "object" && answer.tool_calls
+          ? [
+              {
+                role: "assistant",
+                tool_calls: answer.tool_calls,
+                content: answer.content,
+              },
+            ]
+          : [{ role: "assistant", content: answer }],
+    });
   if (
     answer &&
     typeof answer === "object" &&
@@ -295,13 +300,23 @@ const process_interaction = async (
     let hasResult = false;
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
     for (const tool_call of answer.tool_calls || []) {
-      console.log("call function", tool_call.function?.name);
+      console.log(
+        "call function",
+        tool_call.toolName || tool_call.function?.name
+      );
 
       await addToContext(run, {
-        funcalls: { [tool_call.id]: tool_call.function },
+        funcalls: {
+          [tool_call.id || tool_call.toolCallId]: answer.ai_sdk
+            ? tool_call
+            : tool_call.function,
+        },
       });
 
-      const tool = find_tool(tool_call.function?.name, config);
+      const tool = find_tool(
+        tool_call.toolName || tool_call.function?.name,
+        config
+      );
 
       if (tool) {
         if (stream && viewname) {
@@ -315,7 +330,9 @@ const process_interaction = async (
           });
         }
         if (tool.tool.renderToolCall) {
-          const row = JSON.parse(tool_call.function.arguments);
+          const row = answer.ai_sdk
+            ? tool_call.input
+            : JSON.parse(tool_call.function.arguments);
           const rendered = await tool.tool.renderToolCall(row, {
             req,
           });
@@ -332,7 +349,9 @@ const process_interaction = async (
         }
         hasResult = true;
         const result = await tool.tool.process(
-          JSON.parse(tool_call.function.arguments),
+          answer.ai_sdk
+            ? tool_call.input
+            : JSON.parse(tool_call.function.arguments),
           { req }
         );
         if (
@@ -356,20 +375,46 @@ const process_interaction = async (
           }
           hasResult = true;
         }
-        await addToContext(run, {
-          interactions: [
-            {
-              role: "tool",
-              tool_call_id: tool_call.id,
-              call_id: tool_call.call_id,
-              name: tool_call.function.name,
-              content:
-                result && typeof result !== "string"
-                  ? JSON.stringify(result)
-                  : result || "Action run",
-            },
-          ],
-        });
+        if (answer.ai_sdk)
+          await addToContext(run, {
+            interactions: [
+              {
+                role: "tool",
+                content: [
+                  {
+                    type: "tool-result",
+                    toolCallId: tool_call.toolCallId,
+                    toolName: tool_call.toolName,
+                    output:
+                      !result || typeof result === "string"
+                        ? {
+                            type: "text",
+                            value: result || "Action run",
+                          }
+                        : {
+                            type: "json",
+                            value: JSON.parse(JSON.stringify(result)),
+                          },
+                  },
+                ],
+              },
+            ],
+          });
+        else
+          await addToContext(run, {
+            interactions: [
+              {
+                role: "tool",
+                tool_call_id: tool_call.toolCallId || tool_call.id,
+                call_id: tool_call.call_id,
+                name: tool_call.toolName || tool_call.function.name,
+                content:
+                  result && typeof result !== "string"
+                    ? JSON.stringify(result)
+                    : result || "Action run",
+              },
+            ],
+          });
       }
     }
     if (hasResult)
