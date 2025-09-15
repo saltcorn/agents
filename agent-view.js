@@ -176,9 +176,13 @@ const realTimeCollabScript = (viewname) => {
       }
     }
   };
-  setTimeout(() => {
-    init_collab_room('${viewname}', collabCfg);
-  });`)
+  let retries = 0
+  function init_it() {
+    if(window.io) init_collab_room('${viewname}', collabCfg);
+    else setTimeout(init_it, retries * 100);
+    retries+=1;
+  }
+  init_it();`)
   );
 };
 
