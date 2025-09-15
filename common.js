@@ -203,7 +203,7 @@ const process_interaction = async (
   agent_label = "Copilot",
   prevResponses = [],
   triggering_row = {},
-  agentsViewCfg = { stream: false },
+  agentsViewCfg = { stream: false }
 ) => {
   const { stream, viewname } = agentsViewCfg;
   const sysState = getState();
@@ -222,7 +222,9 @@ const process_interaction = async (
   if (stream && viewname) {
     complArgs.streamCallback = (response) => {
       const content =
-        response.choices[0].content || response.choices[0].delta?.content;
+        typeof response === "string"
+          ? response
+          : response.choices[0].content || response.choices[0].delta?.content;
       if (content) {
         const view = View.findOne({ name: viewname });
         const pageLoadTag = req.body.page_load_tag;
@@ -425,7 +427,7 @@ const process_interaction = async (
         agent_label,
         [...prevResponses, ...responses],
         triggering_row,
-        agentsViewCfg,
+        agentsViewCfg
       );
   } else if (typeof answer === "string")
     responses.push(wrapSegment(md.render(answer), agent_label));

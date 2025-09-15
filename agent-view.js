@@ -162,19 +162,23 @@ const realTimeCollabScript = (viewname) => {
   const view = View.findOne({ name: viewname });
   return script(
     domReady(`
-  ensure_script_loaded("/static_assets/${db.connectObj.version_tag}/socket.io.min.js")
+  ensure_script_loaded("/static_assets/${
+    db.connectObj.version_tag
+  }/socket.io.min.js")
   const collabCfg = {
     events: {
-      ['${view.getRealTimeEventName("STREAM_CHUNK")}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
-        $('form.agent-view div.next_response_scratch').append(JSON.stringify(
+      ['${view.getRealTimeEventName(
+        "STREAM_CHUNK"
+      )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
+        $('form.agent-view div.next_response_scratch').append(
           data.content
-        ));
+        );
       }
     }
   };
   setTimeout(() => {
     init_collab_room('${viewname}', collabCfg);
-  });`),
+  });`)
   );
 };
 
@@ -408,7 +412,7 @@ const run = async (
       explainer && small({ class: "explainer" }, i(explainer))
     ),
     stream &&
-      realTimeCollabScript(viewname) + div({ class: "next_response_scratch" }),
+      realTimeCollabScript(viewname) + div({ class: "next_response_scratch" })
   );
 
   const prev_runs_side_bar = div(
@@ -712,7 +716,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     action.name,
     [],
     triggering_row,
-    config,
+    config
   );
 };
 
