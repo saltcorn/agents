@@ -220,13 +220,13 @@ const process_interaction = async (
   const debugCollector = {};
   if (debugMode) complArgs.debugCollector = debugCollector;
   if (stream && viewname) {
+    const view = View.findOne({ name: viewname });
     complArgs.streamCallback = (response) => {
       const content =
         typeof response === "string"
           ? response
           : response.choices[0].content || response.choices[0].delta?.content;
       if (content) {
-        const view = View.findOne({ name: viewname });
         const pageLoadTag = req.body.page_load_tag;
         view.emitRealTimeEvent(`STREAM_CHUNK?page_load_tag=${pageLoadTag}`, {
           content,
