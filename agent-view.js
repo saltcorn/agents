@@ -162,27 +162,38 @@ const realTimeCollabScript = (viewname) => {
   const view = View.findOne({ name: viewname });
   return script(
     domReady(`
-  ensure_script_loaded("/static_assets/${
-    db.connectObj.version_tag
-  }/socket.io.min.js")
-  const collabCfg = {
-    events: {
-      ['${view.getRealTimeEventName(
-        "STREAM_CHUNK"
-      )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
-        $('form.agent-view div.next_response_scratch').append(
-          data.content
-        );
+  const callback = () => {
+    const collabCfg = {
+      events: {
+        ['${view.getRealTimeEventName(
+          "STREAM_CHUNK"
+        )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
+          $('form.agent-view div.next_response_scratch').append(
+            data.content
+          );
+        }
       }
+    };
+    let retries = 0
+    function init_it() {
+      if(window.io) init_collab_room('${viewname}', collabCfg);
+      else setTimeout(init_it, retries * 100);
+      retries+=1;
     }
+    init_it();
   };
-  let retries = 0
-  function init_it() {
-    if(window.io) init_collab_room('${viewname}', collabCfg);
-    else setTimeout(init_it, retries * 100);
-    retries+=1;
+
+  if (ensure_script_loaded.length >= 2) {
+    ensure_script_loaded("/static_assets/${
+      db.connectObj.version_tag
+    }/socket.io.min.js", callback);
   }
-  init_it();`)
+  else {
+    ensure_script_loaded("/static_assets/${
+    db.connectObj.version_tag
+      }/socket.io.min.js");
+    callback();
+  }`)
   );
 };
 
