@@ -121,11 +121,11 @@ module.exports = {
           {
             user: opts?.user,
             body: {},
-            disable_markdown: opts?.disable_markdown_render
+            disable_markdown: opts?.disable_markdown_render,
           },
           null
         );
-        return result.json.response;
+        return { text: result.json.response };
       },
       isAsync: true,
       description: "Run an agent on a prompt",
