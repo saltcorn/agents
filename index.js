@@ -121,7 +121,7 @@ module.exports = {
           {
             user: opts?.user,
             body: {},
-            disable_markdown: opts?.disable_markdown_render,
+            disable_markdown_render: opts?.disable_markdown_render,
           },
           null
         );
