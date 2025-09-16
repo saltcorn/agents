@@ -105,16 +105,20 @@ module.exports = {
     agent_generate: {
       run: async (agent_name, prompt, opts = {}) => {
         const action = await Trigger.findOne({ name: agent_name });
-        const run = await WorkflowRun.create({
-          status: "Running",
-          started_by: opts.user?.id,
-          trigger_id: action.id,
-          context: {
-            implemented_fcall_ids: [],
-            interactions: [{ role: "user", content: prompt }],
-            funcalls: {},
-          },
-        });
+        let run;
+
+        if (opts.run_id) run = await WorkflowRun.findOne({ id: +opts.run_id });
+        else
+          run = await WorkflowRun.create({
+            status: "Running",
+            started_by: opts.user?.id,
+            trigger_id: action.id,
+            context: {
+              implemented_fcall_ids: [],
+              interactions: [{ role: "user", content: prompt }],
+              funcalls: {},
+            },
+          });
         const result = await process_interaction(
           run,
           action.configuration,
@@ -125,7 +129,7 @@ module.exports = {
           },
           null
         );
-        return { text: result.json.response };
+        return { text: result.json.response, run_id: run.id };
       },
       isAsync: true,
       description: "Run an agent on a prompt",
