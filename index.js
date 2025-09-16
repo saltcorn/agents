@@ -1,7 +1,7 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
-const { features } = require("@saltcorn/data/db/state");
+const Trigger = require("@saltcorn/data/models/trigger");
 const {
   get_skills,
   getCompletionArguments,
@@ -99,6 +99,40 @@ module.exports = {
           row
         );
       },
+    },
+  },
+  functions: {
+    agent_generate: {
+      run: async (agent_name, prompt, opts = {}) => {
+        const action = await Trigger.findOne({ name: agent_name });
+        const run = await WorkflowRun.create({
+          status: "Running",
+          started_by: opts.user?.id,
+          trigger_id: action.id,
+          context: {
+            implemented_fcall_ids: [],
+            interactions: [{ role: "user", content: prompt }],
+            funcalls: {},
+          },
+        });
+        const result = await process_interaction(
+          run,
+          action.configuration,
+          {
+            user: opts?.user,
+            body: {},
+            disable_markdown: opts?.disable_markdown_render
+          },
+          null
+        );
+        return result.json.response;
+      },
+      isAsync: true,
+      description: "Run an agent on a prompt",
+      arguments: [
+        { name: "agent_name", type: "String" },
+        { name: "prompt", type: "String" },
+      ],
     },
   },
 };

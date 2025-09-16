@@ -164,11 +164,13 @@ const addToContext = async (run, newCtx) => {
 };
 
 const wrapSegment = (html, who) =>
-  '<div class="interaction-segment"><span class="badge bg-secondary">' +
-  who +
-  "</span>" +
-  html +
-  "</div>";
+  who === null
+    ? html
+    : '<div class="interaction-segment"><span class="badge bg-secondary">' +
+      who +
+      "</span>" +
+      html +
+      "</div>";
 
 const wrapCard = (title, ...inners) =>
   span({ class: "badge bg-info ms-1" }, title) +
@@ -272,7 +274,11 @@ const process_interaction = async (
       }
     }
     if (answer.content && !answer.tool_calls)
-      responses.push(wrapSegment(md.render(answer.content), agent_label));
+      responses.push(
+        req.disable_markdown_render
+          ? answer
+          : wrapSegment(md.render(answer.content), agent_label)
+      );
   }
   if (answer.ai_sdk)
     await addToContext(run, {
@@ -297,7 +303,11 @@ const process_interaction = async (
     (answer.tool_calls || answer.mcp_calls)
   ) {
     if (answer.content)
-      responses.push(wrapSegment(md.render(answer.content), agent_label));
+      responses.push(
+        req.disable_markdown_render
+          ? answer
+          : wrapSegment(md.render(answer.content), agent_label)
+      );
     //const actions = [];
     let hasResult = false;
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
@@ -430,7 +440,11 @@ const process_interaction = async (
         agentsViewCfg
       );
   } else if (typeof answer === "string")
-    responses.push(wrapSegment(md.render(answer), agent_label));
+    responses.push(
+      req.disable_markdown_render
+        ? answer
+        : wrapSegment(md.render(answer), agent_label)
+    );
 
   return {
     json: {
