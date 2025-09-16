@@ -106,18 +106,25 @@ module.exports = {
       run: async (agent_name, prompt, opts = {}) => {
         const action = await Trigger.findOne({ name: agent_name });
         let run;
-
-        if (opts.run_id) run = await WorkflowRun.findOne({ id: +opts.run_id });
+        let context = {
+          implemented_fcall_ids: [],
+          interactions: [
+            ...(opts.interactions || []),
+            { role: "user", content: prompt },
+          ],
+          funcalls: {},
+        };
+        if (opts.run_id === null || (!opts.run_id && opts.run === null))
+          run = { context };
+        else if (opts.run) run = opts.run;
+        else if (opts.run_id)
+          run = await WorkflowRun.findOne({ id: +opts.run_id });
         else
           run = await WorkflowRun.create({
             status: "Running",
             started_by: opts.user?.id,
             trigger_id: action.id,
-            context: {
-              implemented_fcall_ids: [],
-              interactions: [{ role: "user", content: prompt }],
-              funcalls: {},
-            },
+            context,
           });
         const result = await process_interaction(
           run,
@@ -125,11 +132,18 @@ module.exports = {
           {
             user: opts?.user,
             body: {},
-            disable_markdown_render: opts?.disable_markdown_render,
+            disable_markdown_render:
+              typeof opts.disable_markdown_render !== "undefined"
+                ? opts.disable_markdown_render
+                : !opts?.render_markdown,
           },
           null
         );
-        return { text: result.json.response, run_id: run.id };
+        return {
+          text: result.json.response,
+          run,
+          ...(run.id ? { run_id: run.id } : {}),
+        };
       },
       isAsync: true,
       description: "Run an agent on a prompt",

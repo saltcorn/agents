@@ -142,6 +142,7 @@ const incompleteCfgMsg = () => {
 };
 
 const addToContext = async (run, newCtx) => {
+  if (!run) return;
   if (run.addToContext) return await run.addToContext(newCtx);
   let changed = true;
   Object.keys(newCtx).forEach((k) => {
@@ -160,7 +161,7 @@ const addToContext = async (run, newCtx) => {
       changed = true;
     }
   });
-  if (changed) await run.update({ context: run.context });
+  if (changed && run.update) await run.update({ context: run.context });
 };
 
 const wrapSegment = (html, who) =>
@@ -450,7 +451,7 @@ const process_interaction = async (
     json: {
       success: "ok",
       response: [...prevResponses, ...responses].join(""),
-      run_id: run.id,
+      run_id: run?.id,
     },
   };
 };
