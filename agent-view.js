@@ -162,14 +162,17 @@ const realTimeCollabScript = (viewname) => {
   const view = View.findOne({ name: viewname });
   return script(
     domReady(`
+      const md = markdownit()
+      window['stream scratch ${viewname}'] = []
   const callback = () => {
     const collabCfg = {
       events: {
         ['${view.getRealTimeEventName(
           "STREAM_CHUNK"
         )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
-          $('form.agent-view div.next_response_scratch').append(
-            data.content
+          window['stream scratch ${viewname}'].push(data.content)
+          $('form.agent-view div.next_response_scratch').html(
+            md.render(window['stream scratch ${viewname}'].join(""))
           );
         }
       }
@@ -189,6 +192,7 @@ const realTimeCollabScript = (viewname) => {
     }/socket.io.min.js", callback);
   }
   else {
+    //legacy
     ensure_script_loaded("/static_assets/${
     db.connectObj.version_tag
       }/socket.io.min.js");
@@ -566,7 +570,7 @@ const run = async (
           $("#copilotinteractions").append(wrapSegment('File', "You"))
         $("textarea[name=userinput]").val("")
         $('form.agent-view div.next_response_scratch').html("")
-
+        window['stream scratch ${viewname}'] = []
         if(res.response)
             $("#copilotinteractions").append(res.response)
     }
