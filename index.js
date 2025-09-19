@@ -16,6 +16,15 @@ module.exports = {
   sc_plugin_api_version: 1,
   dependencies: ["@saltcorn/large-language-model"],
   viewtemplates: [require("./agent-view")],
+  plugin_name: "agents",
+  headers: [
+    {
+      script: `/plugins/public/agents@${
+        require("./package.json").version
+      }/markdown-it.min.js`,
+      onlyViews: ["Agent Chat"],
+    },
+  ],
   actions: {
     Agent: {
       disableInBuilder: true,
