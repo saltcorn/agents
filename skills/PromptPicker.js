@@ -4,6 +4,7 @@ const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const { select, option } = require("@saltcorn/markup/tags");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { validID } = require("@saltcorn/markup/layout_utils");
+const { features } = require("@saltcorn/data/db/state");
 
 class PromptPicker {
   static skill_name = "Prompt picker";
@@ -12,25 +13,48 @@ class PromptPicker {
   }
   constructor(cfg) {
     Object.assign(this, cfg);
-    this.options = eval_expression(
-      this.options_obj,
-      {},
-      null,
-      "Prompt picker options"
-    );
+    if (this.options_array) {
+      this.options = {};
+      this.options_array.forEach((o) => {
+        this.options[o.promptpicker_label] = o.promptpicker_sysprompt;
+      });
+    } else if (this.options_obj)
+      this.options = eval_expression(
+        this.options_obj,
+        {},
+        null,
+        "Prompt picker options"
+      );
     this.formname = validID("pp" + Object.keys(this.options));
   }
   static async configFields() {
     return [
       { name: "placeholder", label: "Placeholder", type: "String" },
-      {
-        name: "options_obj",
-        label: "System prompt contents",
-        sublabel: `JavaScript object where the keys are the options and values are added to system prompt. Example:<br><code>{"Pirate":"Speak like a pirate", "Pop star":"Speak like a pop star"}</code>`,
-        type: "String",
-        fieldview: "textarea",
-        required: true,
-      },
+      features.nested_fieldrepeats
+        ? new FieldRepeat({
+            name: "options_array",
+            fields: [
+              {
+                name: "promptpicker_label",
+                label: "Label",
+                type: "String",
+              },
+              {
+                name: "promptpicker_sysprompt",
+                label: "System prompt",
+                type: "String",
+                fieldview: "textarea",
+              },
+            ],
+          })
+        : {
+            name: "options_obj",
+            label: "System prompt contents",
+            sublabel: `JavaScript object where the keys are the options and values are added to system prompt. Example:<br><code>{"Pirate":"Speak like a pirate", "Pop star":"Speak like a pop star"}</code>`,
+            type: "String",
+            fieldview: "textarea",
+            required: true,
+          },
     ];
   }
   async formWidget({ user, klass }) {
