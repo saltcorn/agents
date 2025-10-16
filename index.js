@@ -2,6 +2,7 @@ const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Trigger = require("@saltcorn/data/models/trigger");
+const Table = require("@saltcorn/data/models/table");
 const {
   get_skills,
   getCompletionArguments,
@@ -43,6 +44,12 @@ module.exports = {
             }
           }
         }
+        const tables_with_json_field = (await Table.find({})).filter(
+          (table) =>
+            !table.external &&
+            !table.provider_name &&
+            table.fields.some((f) => f.type?.name === "JSON")
+        );
         return [
           ...(table
             ? [

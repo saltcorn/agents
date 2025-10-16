@@ -34,6 +34,7 @@ const get_skills = () => {
     require("./skills/GenerateImage"),
     require("./skills/ModelContextProtocol"),
     require("./skills/PromptPicker"),
+    require("./skills/RunJsCode"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
