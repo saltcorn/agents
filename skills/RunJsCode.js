@@ -3,6 +3,7 @@ const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
 const User = require("@saltcorn/data/models/user");
+const File = require("@saltcorn/data/models/file");
 const View = require("@saltcorn/data/models/view");
 const Trigger = require("@saltcorn/data/models/trigger");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
