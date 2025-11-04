@@ -321,18 +321,21 @@ const run = async (
               }
             }
           }
-
-          interactMarkups.push(
-            div(
-              { class: "interaction-segment" },
-              span({ class: "badge bg-secondary" }, action.name),
-              typeof interact.content === "string"
-                ? md.render(interact.content)
-                : typeof interact.content?.content === "string"
-                ? md.render(interact.content.content)
-                : interact.content
-            )
-          );
+          if (
+            typeof interact.content === "string" ||
+            typeof interact.content?.content === "string"
+          )
+            interactMarkups.push(
+              div(
+                { class: "interaction-segment" },
+                span({ class: "badge bg-secondary" }, action.name),
+                typeof interact.content === "string"
+                  ? md.render(interact.content)
+                  : typeof interact.content?.content === "string"
+                  ? md.render(interact.content.content)
+                  : interact.content
+              )
+            );
           break;
         case "tool":
           if (interact.content !== "Action run") {
