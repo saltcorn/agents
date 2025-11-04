@@ -130,6 +130,12 @@ class RunJsCodeSkill {
         ],
       }),
       {
+        name: "display_result",
+        label: "Display result",
+        type: "Bool",
+        sublabel: "Show the value returned in JSON format",
+      },
+      {
         name: "add_sys_prompt",
         label: "Additional prompt",
         type: "String",
@@ -154,12 +160,14 @@ class RunJsCodeSkill {
       /*renderToolCall({ phrase }, { req }) {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
       },*/
-      renderToolResponse: async (response, { req }) => {
-        return div(
-          { class: "border border-success p-2 m-2" },
-          typeof response === "string" ? response : JSON.stringify(response)
-        );
-      },
+      renderToolResponse: this.display_result
+        ? async (response, { req }) => {
+            return div(
+              { class: "border border-success p-2 m-2" },
+              typeof response === "string" ? response : JSON.stringify(response)
+            );
+          }
+        : undefined,
       function: {
         name: this.tool_name,
         description: this.tool_description,
