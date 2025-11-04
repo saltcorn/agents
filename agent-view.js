@@ -194,8 +194,8 @@ const realTimeCollabScript = (viewname) => {
   else {
     //legacy
     ensure_script_loaded("/static_assets/${
-    db.connectObj.version_tag
-      }/socket.io.min.js");
+      db.connectObj.version_tag
+    }/socket.io.min.js");
     callback();
   }`)
   );
