@@ -12,6 +12,9 @@ const db = require("@saltcorn/data/db");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate, sleep } = require("@saltcorn/data/utils");
 const { features } = require("@saltcorn/data/db/state");
+const { button } = require("@saltcorn/markup/tags");
+const { validID } = require("@saltcorn/markup/layout_utils");
+
 const vm = require("vm");
 
 //const { fieldProperties } = require("./helpers");
@@ -25,6 +28,8 @@ class RunJsCodeSkill {
 
   constructor(cfg) {
     Object.assign(this, cfg);
+    if (this.mode === "Button")
+      this.skillid = `jsbtn${validID(this.button_label || "jscodebtn")}`;
   }
 
   async runCode({ row, user, req }) {
@@ -89,15 +94,30 @@ class RunJsCodeSkill {
   static async configFields() {
     return [
       {
+        name: "mode",
+        label: "Mode",
+        type: "String",
+        required: true,
+        attributes: { options: ["Tool", "Button"] },
+      },
+      {
+        name: "button_label",
+        label: "Button label",
+        type: "String",
+        showIf: { mode: "Button" },
+      },
+      {
         name: "tool_name",
         label: "Tool name",
         type: "String",
         class: "validate-identifier",
+        showIf: { mode: "Tool" },
       },
       {
         name: "tool_description",
         label: "Tool description",
         type: "String",
+        showIf: { mode: "Tool" },
       },
 
       {
@@ -106,9 +126,14 @@ class RunJsCodeSkill {
         input_type: "code",
         attributes: { mode: "text/javascript" },
       },
-      { input_type: "section_header", label: "Tool parameters" },
+      {
+        input_type: "section_header",
+        label: "Tool parameters",
+        showIf: { mode: "Tool" },
+      },
       new FieldRepeat({
         name: "toolargs",
+        showIf: { mode: "Tool" },
         fields: [
           {
             name: "name",
@@ -134,17 +159,32 @@ class RunJsCodeSkill {
         label: "Display result",
         type: "Bool",
         sublabel: "Show the value returned in JSON format",
+        showIf: { mode: "Tool" },
       },
       {
         name: "add_sys_prompt",
         label: "Additional prompt",
         type: "String",
         fieldview: "textarea",
+        showIf: { mode: "Tool" },
       },
     ];
   }
 
+  async formWidget({ klass, viewname }) {
+    if (this.mode === "Button")
+      return button(
+        {
+          type: "button",
+          class: ["btn btn-outline-secondary btn-sm btn-xs", klass],
+          onclick: `view_post('${viewname}', 'skillroute', {skillid: '${this.skillid}'});`,
+        },
+        this.button_label
+      );
+  }
+
   provideTools = () => {
+    if (this.mode === "Button") return;
     let properties = {};
     (this.toolargs || []).forEach((arg) => {
       properties[arg.name] = {

@@ -374,7 +374,11 @@ const run = async (
   for (const skill of get_skill_instances(action.configuration)) {
     if (skill.formWidget)
       skill_form_widgets.push(
-        await skill.formWidget({ user: req.user, klass: "skill-form-widget" })
+        await skill.formWidget({
+          user: req.user,
+          viewname,
+          klass: "skill-form-widget",
+        })
       );
   }
 
