@@ -93,7 +93,7 @@ class RunJsCodeSkill {
   }
 
   async skillRoute({ run, triggering_row, req }) {
-    return await this.runCode({ row: triggering_row, run, user: req.user.req });
+    return await this.runCode({ row: triggering_row, run, user: req.user });
   }
 
   static async configFields() {
