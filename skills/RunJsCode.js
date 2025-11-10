@@ -32,7 +32,7 @@ class RunJsCodeSkill {
       this.skillid = `jsbtn${validID(this.button_label || "jscodebtn")}`;
   }
 
-  async runCode({ row, user, req }) {
+  async runCode({ row, user, req, ...rest }) {
     const sysState = getState();
 
     const f = vm.runInNewContext(`async () => {${this.js_code}\n}`, {
@@ -83,12 +83,17 @@ class RunJsCodeSkill {
       request_ip: req?.ip,
       ...(row || {}),
       ...sysState.eval_context,
+      ...rest,
     });
     return await f();
   }
 
   async systemPrompt({ triggering_row, user }) {
     return this.add_sys_prompt || "";
+  }
+
+  async skillRoute({ run, triggering_row, req }) {
+    return await this.runCode({ row: triggering_row, run, user: req.user.req });
   }
 
   static async configFields() {
@@ -177,7 +182,7 @@ class RunJsCodeSkill {
         {
           type: "button",
           class: ["btn btn-outline-secondary btn-sm btn-xs", klass],
-          onclick: `view_post('${viewname}', 'skillroute', {skillid: '${this.skillid}'});`,
+          onclick: `view_post('${viewname}', 'skillroute', {skillid: '${this.skillid}', run_id: get_run_id(this)});`,
         },
         this.button_label
       );
