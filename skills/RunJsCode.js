@@ -12,6 +12,9 @@ const db = require("@saltcorn/data/db");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate, sleep } = require("@saltcorn/data/utils");
 const { features } = require("@saltcorn/data/db/state");
+const { button } = require("@saltcorn/markup/tags");
+const { validID } = require("@saltcorn/markup/layout_utils");
+
 const vm = require("vm");
 
 //const { fieldProperties } = require("./helpers");
@@ -25,9 +28,11 @@ class RunJsCodeSkill {
 
   constructor(cfg) {
     Object.assign(this, cfg);
+    if (this.mode === "Button")
+      this.skillid = `jsbtn${validID(this.button_label || "jscodebtn")}`;
   }
 
-  async runCode({ row, user, req }) {
+  async runCode({ row, user, req, ...rest }) {
     const sysState = getState();
 
     const f = vm.runInNewContext(`async () => {${this.js_code}\n}`, {
@@ -78,6 +83,7 @@ class RunJsCodeSkill {
       request_ip: req?.ip,
       ...(row || {}),
       ...sysState.eval_context,
+      ...rest,
     });
     return await f();
   }
@@ -86,18 +92,37 @@ class RunJsCodeSkill {
     return this.add_sys_prompt || "";
   }
 
+  async skillRoute({ run, triggering_row, req }) {
+    return await this.runCode({ row: triggering_row, run, user: req.user.req });
+  }
+
   static async configFields() {
     return [
+      {
+        name: "mode",
+        label: "Mode",
+        type: "String",
+        required: true,
+        attributes: { options: ["Tool", "Button"] },
+      },
+      {
+        name: "button_label",
+        label: "Button label",
+        type: "String",
+        showIf: { mode: "Button" },
+      },
       {
         name: "tool_name",
         label: "Tool name",
         type: "String",
         class: "validate-identifier",
+        showIf: { mode: "Tool" },
       },
       {
         name: "tool_description",
         label: "Tool description",
         type: "String",
+        showIf: { mode: "Tool" },
       },
 
       {
@@ -106,9 +131,14 @@ class RunJsCodeSkill {
         input_type: "code",
         attributes: { mode: "text/javascript" },
       },
-      { input_type: "section_header", label: "Tool parameters" },
+      {
+        input_type: "section_header",
+        label: "Tool parameters",
+        showIf: { mode: "Tool" },
+      },
       new FieldRepeat({
         name: "toolargs",
+        showIf: { mode: "Tool" },
         fields: [
           {
             name: "name",
@@ -134,17 +164,32 @@ class RunJsCodeSkill {
         label: "Display result",
         type: "Bool",
         sublabel: "Show the value returned in JSON format",
+        showIf: { mode: "Tool" },
       },
       {
         name: "add_sys_prompt",
         label: "Additional prompt",
         type: "String",
         fieldview: "textarea",
+        showIf: { mode: "Tool" },
       },
     ];
   }
 
+  async formWidget({ klass, viewname }) {
+    if (this.mode === "Button")
+      return button(
+        {
+          type: "button",
+          class: ["btn btn-outline-secondary btn-sm btn-xs", klass],
+          onclick: `view_post('${viewname}', 'skillroute', {skillid: '${this.skillid}', run_id: get_run_id(this)});`,
+        },
+        this.button_label
+      );
+  }
+
   provideTools = () => {
+    if (this.mode === "Button") return;
     let properties = {};
     (this.toolargs || []).forEach((arg) => {
       properties[arg.name] = {

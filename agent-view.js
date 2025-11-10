@@ -374,7 +374,11 @@ const run = async (
   for (const skill of get_skill_instances(action.configuration)) {
     if (skill.formWidget)
       skill_form_widgets.push(
-        await skill.formWidget({ user: req.user, klass: "skill-form-widget" })
+        await skill.formWidget({
+          user: req.user,
+          viewname,
+          klass: "skill-form-widget",
+        })
       );
   }
 
@@ -558,6 +562,9 @@ const run = async (
     function open_session_list() {
       $("div.prev-runs-list").show().parents(".was-col-3").removeClass(["was-col-3","col-0","d-none"]).addClass("col-3").parent().children(".col-12").removeClass("col-12").addClass("col-9")
       $("div.open-prev-runs").hide()
+    }
+    function get_run_id(elem) {
+        return $("input[name=run_id").val()
     }
     function processCopilotResponse(res) {
         const hadFile = $("input#attach_agent_image").val();
@@ -794,6 +801,36 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
 
   return;
 };
+
+const skillroute = async (table_id, viewname, config, body, { req, res }) => {
+  const { run_id, triggering_row_id, skillid } = body;
+  const action = await Trigger.findOne({ id: config.action_id });
+  let triggering_row;
+  if (table_id && triggering_row_id) {
+    const table = Table.findOne(table_id);
+    const pk = table?.pk_name;
+    if (table) triggering_row = await table.getRow({ [pk]: triggering_row_id });
+  }
+  const run = await WorkflowRun.findOne({ id: +run_id });
+  if (!run) return;
+
+  const instances = get_skill_instances(action.configuration);
+  const instance = instances.find((i) => i.skillid === skillid);
+
+  if (!instance?.skillRoute) return;
+  const resp = await instance.skillRoute({
+    triggering_row,
+    run,
+    req,
+    user: req.user,
+  });
+  return {
+    json: {
+      success: "ok",
+      ...resp,
+    },
+  };
+};
 const wrapAction = (
   inner_markup,
   viewname,
@@ -833,5 +870,5 @@ module.exports = {
   //tableless: true,
   table_optional: true,
   run,
-  routes: { interact, delprevrun, debug_info },
+  routes: { interact, delprevrun, debug_info, skillroute },
 };
