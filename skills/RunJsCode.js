@@ -181,7 +181,7 @@ class RunJsCodeSkill {
       return button(
         {
           type: "button",
-          class: ["btn btn-outline-secondary btn-sm btn-xs", klass],
+          class: ["btn btn-outline-secondary btn-sm me-1", klass],
           onclick: `view_post('${viewname}', 'skillroute', {skillid: '${this.skillid}', run_id: get_run_id(this)});`,
         },
         this.button_label
