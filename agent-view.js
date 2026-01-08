@@ -113,6 +113,12 @@ const configuration_workflow = (req) =>
                 sublabel: "Allow the user to upload images",
                 type: "Bool",
               },
+              /*{
+                name: "audio_recorder",
+                label: "Audio recorder",
+                sublabel: "Allow the user to record audio for input",
+                type: "Bool",
+              },*/
               {
                 name: "image_base64",
                 label: "base64 encode",
@@ -212,6 +218,7 @@ const run = async (
     explainer,
     image_upload,
     stream,
+    audio_recorder,
   },
   state,
   { res, req }
@@ -435,6 +442,11 @@ const run = async (
           class: "debugicon fas fa-bug",
         }),
       skill_form_widgets,
+      audio_recorder &&
+        span(
+          { id: "audioinputicon", class: "", onclick: "" },
+          i({ class: "fas fa-microphone" })
+        ),
       explainer && small({ class: "explainer" }, i(explainer))
     ),
     stream &&
@@ -516,6 +528,13 @@ const run = async (
               position: relative; 
               top: -1.8rem;
               left: 0.1rem;              
+            }
+            .copilot-entry #audioinputicon {
+              position: relative; 
+              top: -1.8rem;
+              right: 0.7rem;
+              cursor: pointer;
+              float: right;
             }
             .copilot-entry .debugicon {
               position: relative; 
