@@ -75,7 +75,7 @@ const configuration_workflow = (req) =>
                       "data-dyn-href": `\`/actions/configure/\${action_id}\``,
                       target: "_blank",
                     },
-                    "Configure"
+                    "Configure",
                   ),
               },
               {
@@ -151,7 +151,7 @@ const uploadForm = (viewname, req) =>
     },
     label(
       { class: "btn-link", for: "attach_agent_image" },
-      i({ class: "fas fa-paperclip" })
+      i({ class: "fas fa-paperclip" }),
     ),
     input({
       id: "attach_agent_image",
@@ -161,7 +161,7 @@ const uploadForm = (viewname, req) =>
       accept: "image/*",
       onchange: `agent_file_attach(event)`,
     }),
-    span({ class: "ms-2 filename-label" })
+    span({ class: "ms-2 filename-label" }),
   );
 
 const realTimeCollabScript = (viewname) => {
@@ -174,7 +174,7 @@ const realTimeCollabScript = (viewname) => {
     const collabCfg = {
       events: {
         ['${view.getRealTimeEventName(
-          "STREAM_CHUNK"
+          "STREAM_CHUNK",
         )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
           window['stream scratch ${viewname}'].push(data.content)
           $('form.agent-view div.next_response_scratch').html(
@@ -203,7 +203,7 @@ const realTimeCollabScript = (viewname) => {
       db.connectObj.version_tag
     }/socket.io.min.js");
     callback();
-  }`)
+  }`),
   );
 };
 
@@ -221,13 +221,13 @@ const run = async (
     audio_recorder,
   },
   state,
-  { res, req }
+  { res, req },
 ) => {
   const action = await Trigger.findOne({ id: action_id });
   const prevRuns = (
     await WorkflowRun.find(
       { trigger_id: action.id, started_by: req.user?.id },
-      { orderBy: "started_at", orderDesc: true, limit: 30 }
+      { orderBy: "started_at", orderDesc: true, limit: 30 },
     )
   ).filter((r) => r.context.interactions);
 
@@ -256,24 +256,24 @@ const run = async (
                 div(
                   { class: "interaction-segment" },
                   span({ class: "badge bg-secondary" }, "You"),
-                  "File"
-                )
+                  "File",
+                ),
               );
             else
               interactMarkups.push(
                 div(
                   { class: "interaction-segment" },
                   span({ class: "badge bg-secondary" }, "You"),
-                  a({ href: image_url, target: "_blank" }, "File")
-                )
+                  a({ href: image_url, target: "_blank" }, "File"),
+                ),
               );
           } else
             interactMarkups.push(
               div(
                 { class: "interaction-segment" },
                 span({ class: "badge bg-secondary" }, "You"),
-                md.render(interact.content)
-              )
+                md.render(interact.content),
+              ),
             );
           break;
         case "assistant":
@@ -281,7 +281,7 @@ const run = async (
           for (const tool_call of interact.tool_calls || []) {
             const toolSkill = find_tool(
               tool_call.function?.name,
-              action.configuration
+              action.configuration,
             );
             if (toolSkill) {
               const row = JSON.parse(tool_call.function.arguments);
@@ -295,10 +295,10 @@ const run = async (
                       wrapCard(
                         toolSkill.skill.skill_label ||
                           toolSkill.skill.constructor.skill_name,
-                        rendered
+                        rendered,
                       ),
-                      action.name
-                    )
+                      action.name,
+                    ),
                   );
               }
             }
@@ -311,7 +311,7 @@ const run = async (
                   image_call,
                   {
                     req,
-                  }
+                  },
                 );
 
                 if (rendered)
@@ -320,10 +320,10 @@ const run = async (
                       wrapCard(
                         toolSkill.skill.skill_label ||
                           toolSkill.skill.constructor.skill_name,
-                        rendered
+                        rendered,
                       ),
-                      action.name
-                    )
+                      action.name,
+                    ),
                   );
               }
             }
@@ -339,9 +339,9 @@ const run = async (
                 typeof interact.content === "string"
                   ? md.render(interact.content)
                   : typeof interact.content?.content === "string"
-                  ? md.render(interact.content.content)
-                  : interact.content
-              )
+                    ? md.render(interact.content.content)
+                    : interact.content,
+              ),
             );
           break;
         case "tool":
@@ -354,7 +354,7 @@ const run = async (
                   JSON.parse(interact.content),
                   {
                     req,
-                  }
+                  },
                 );
             } catch {
               markupContent = pre(interact.content);
@@ -366,10 +366,10 @@ const run = async (
                     toolSkill?.skill?.skill_label ||
                       toolSkill?.skill?.constructor.skill_name ||
                       interact.name,
-                    markupContent
+                    markupContent,
                   ),
-                  action.name
-                )
+                  action.name,
+                ),
               );
           }
           break;
@@ -385,7 +385,7 @@ const run = async (
           user: req.user,
           viewname,
           klass: "skill-form-widget",
-        })
+        }),
       );
   }
 
@@ -429,11 +429,11 @@ const run = async (
           rows: "3",
           autofocus: true,
         },
-        initial_q
+        initial_q,
       ),
       span(
         { class: "submit-button p-2", onclick: "$('form.copilot').submit()" },
-        i({ id: "sendbuttonicon", class: "far fa-paper-plane" })
+        i({ id: "sendbuttonicon", class: "far fa-paper-plane" }),
       ),
       image_upload && uploadForm(viewname, req),
       debugMode &&
@@ -445,12 +445,12 @@ const run = async (
       audio_recorder &&
         span(
           { id: "audioinputicon", class: "", onclick: "" },
-          i({ class: "fas fa-microphone" })
+          i({ class: "fas fa-microphone" }),
         ),
-      explainer && small({ class: "explainer" }, i(explainer))
+      explainer && small({ class: "explainer" }, i(explainer)),
     ),
     stream &&
-      realTimeCollabScript(viewname) + div({ class: "next_response_scratch" })
+      realTimeCollabScript(viewname) + div({ class: "next_response_scratch" }),
   );
 
   const prev_runs_side_bar = div(
@@ -464,7 +464,7 @@ const run = async (
           class: "fas fa-caret-down me-1 session-open-sessions",
           onclick: "close_session_list()",
         }),
-        h5(req.__("Sessions"))
+        h5(req.__("Sessions")),
       ),
       button(
         {
@@ -474,8 +474,8 @@ const run = async (
           onclick: "unset_state_field('run_id')",
           title: "New session",
         },
-        i({ class: "fas fa-redo fa-sm" })
-      )
+        i({ class: "fas fa-redo fa-sm" }),
+      ),
     ),
     prevRuns.map((run) =>
       div(
@@ -489,12 +489,12 @@ const run = async (
           i({
             class: "far fa-trash-alt",
             onclick: `delprevrun(event, ${run.id})`,
-          })
+          }),
         ),
 
-        p({ class: "prevrun_content" }, run.context.interactions[0]?.content)
-      )
-    )
+        p({ class: "prevrun_content" }, run.context.interactions[0]?.content),
+      ),
+    ),
   );
   const main_chat = div(
     { class: "card" },
@@ -509,7 +509,7 @@ const run = async (
         i({
           class: "fas fa-caret-right me-1",
         }),
-        req.__("Sessions")
+        req.__("Sessions"),
       ),
       div({ id: "copilotinteractions" }, runInteractions),
       input_form,
@@ -570,7 +570,7 @@ const run = async (
     overflow: hidden;
     margin-bottom: 0px;
     display: block;
-    text-overflow: ellipsis;}`
+    text-overflow: ellipsis;}`,
       ),
       script(
         `
@@ -661,29 +661,22 @@ const run = async (
     };`,
         stream &&
           domReady(
-            `$('form.agent-view input[name=page_load_tag]').val(window._sc_pageloadtag)`
+            `$('form.agent-view input[name=page_load_tag]').val(window._sc_pageloadtag)`,
           ),
-        initial_q && domReady("$('form.copilot').submit()")
-      )
-    )
+        initial_q && domReady("$('form.copilot').submit()"),
+      ),
+    ),
   );
+
   return show_prev_runs
-    ? {
-        widths: prev_runs_closed ? [0, 12] : [3, 9],
-        colClasses: prev_runs_closed ? ["was-col-3 d-none"] : undefined,
-        gx: 3,
-        besides: [
-          {
-            type: "container",
-            customClass: "prev-runs-list",
-            contents: prev_runs_side_bar,
-          },
-          {
-            type: "container",
-            contents: main_chat,
-          },
-        ],
-      }
+    ? div(
+        { class: "row gx-3" },
+        div(
+          { class: prev_runs_closed ? "was-col-3 d-none" : "col-3" },
+          div({ class: "prev-runs-list" }, prev_runs_side_bar),
+        ),
+        div({ class: prev_runs_closed ? "col-12" : "col-9" }, div(main_chat)),
+      )
     : main_chat;
 };
 
@@ -702,7 +695,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     const ini_interacts = await get_initial_interactions(
       action.configuration,
       req.user,
-      triggering_row
+      triggering_row,
     );
     run = await WorkflowRun.create({
       status: "Running",
@@ -725,7 +718,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     const file = await File.from_req_files(
       req.files.file,
       req.user ? req.user.id : null,
-      100
+      100,
       // file_field?.attributes?.folder
     );
     const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
@@ -764,7 +757,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     action.name,
     [],
     triggering_row,
-    config
+    config,
   );
 };
 
@@ -799,7 +792,7 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     const complArgs = await getCompletionArguments(
       action.configuration,
       req.user,
-      triggering_row
+      triggering_row,
     );
     sysPrompt = complArgs.systemPrompt;
   }
@@ -807,8 +800,8 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     div(h4("System prompt"), pre(sysPrompt)),
     div(
       h4("API interactions"),
-      pre(JSON.stringify(run.context.api_interactions, null, 2))
-    )
+      pre(JSON.stringify(run.context.api_interactions, null, 2)),
+    ),
   );
   if (run && req.user?.role_id === 1)
     return {
@@ -856,7 +849,7 @@ const wrapAction = (
   tool_call,
   actionClass,
   implemented,
-  run
+  run,
 ) =>
   wrapCard(
     actionClass.title,
@@ -868,7 +861,7 @@ const wrapAction = (
             disabled: true,
           },
           i({ class: "fas fa-check me-1" }),
-          "Applied"
+          "Applied",
         )
       : button(
           {
@@ -877,8 +870,8 @@ const wrapAction = (
             class: "btn btn-primary d-block mt-3 float-end",
             onclick: `press_store_button(this, true);view_post('${viewname}', 'execute', {fcall_id: '${tool_call.id}', run_id: ${run.id}}, processExecuteResponse)`,
           },
-          "Apply"
-        ) + div({ id: "postexec-" + tool_call.id })
+          "Apply",
+        ) + div({ id: "postexec-" + tool_call.id }),
   );
 
 module.exports = {
