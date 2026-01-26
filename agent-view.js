@@ -164,21 +164,21 @@ const uploadForm = (viewname, req) =>
     span({ class: "ms-2 filename-label" }),
   );
 
-const realTimeCollabScript = (viewname) => {
+const realTimeCollabScript = (viewname, rndid) => {
   const view = View.findOne({ name: viewname });
   return script(
     domReady(`
       const md = markdownit()
-      window['stream scratch ${viewname}'] = []
+      window['stream scratch ${viewname} ${rndid}'] = []
   const callback = () => {
     const collabCfg = {
       events: {
         ['${view.getRealTimeEventName(
           "STREAM_CHUNK",
         )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
-          window['stream scratch ${viewname}'].push(data.content)
+          window['stream scratch ${viewname} ${rndid}'].push(data.content)
           $('form.agent-view div.next_response_scratch').html(
-            md.render(window['stream scratch ${viewname}'].join(""))
+            md.render(window['stream scratch ${viewname} ${rndid}'].join(""))
           );
         }
       }
@@ -390,6 +390,7 @@ const run = async (
   }
 
   const debugMode = is_debug_mode(action.configuration, req.user);
+  const rndid = Math.floor(Math.random() * 16777215).toString(16);
   const input_form = form(
     {
       onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), processCopilotResponse);return false;`,
@@ -450,7 +451,8 @@ const run = async (
       explainer && small({ class: "explainer" }, i(explainer)),
     ),
     stream &&
-      realTimeCollabScript(viewname) + div({ class: "next_response_scratch" }),
+      realTimeCollabScript(viewname, rndid) +
+        div({ class: "next_response_scratch" }),
   );
 
   const prev_runs_side_bar = div(
@@ -599,7 +601,7 @@ const run = async (
           $("#copilotinteractions").append(wrapSegment('File', "You"))
         $("textarea[name=userinput]").val("")
         $('form.agent-view div.next_response_scratch').html("")
-        window['stream scratch ${viewname}'] = []
+        window['stream scratch ${viewname} ${rndid}'] = []
         if(res.response)
             $("#copilotinteractions").append(res.response)
     }
