@@ -15,6 +15,12 @@
   "author": "Tom Nielsen",
   "license": "MIT",
   "repository": "github:saltcorn/agents",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "scripts": {
+    "test": "jest tests --runInBand"
+  },
   "eslintConfig": {
     "extends": "eslint:recommended",
     "parserOptions": {
