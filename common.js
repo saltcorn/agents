@@ -22,7 +22,7 @@ const get_skills = () => {
   const state = getState();
   const exchange_skills = nubBy(
     (c) => c.constructor.name,
-    state.exchange?.agent_skills || []
+    state.exchange?.agent_skills || [],
   );
 
   return [
@@ -62,8 +62,8 @@ const find_tool = (name, config) => {
     const tools = !skillTools
       ? []
       : Array.isArray(skillTools)
-      ? skillTools
-      : [skillTools];
+        ? skillTools
+        : [skillTools];
     const found = tools.find((t) => t?.function?.name === name);
     if (found) return { tool: found, skill };
   }
@@ -76,8 +76,8 @@ const find_image_tool = (config) => {
     const tools = !skillTools
       ? []
       : Array.isArray(skillTools)
-      ? skillTools
-      : [skillTools];
+        ? skillTools
+        : [skillTools];
     const found = tools.find((t) => t?.type === "image_generation");
     if (found) return { tool: found, skill };
   }
@@ -97,7 +97,7 @@ const getCompletionArguments = async (
   config,
   user,
   triggering_row,
-  formbody
+  formbody,
 ) => {
   let tools = [];
 
@@ -131,11 +131,11 @@ const incompleteCfgMsg = () => {
     !plugin_cfgs["large-language-model"]
   ) {
     const modName = Object.keys(plugin_cfgs).find((m) =>
-      m.includes("large-language-model")
+      m.includes("large-language-model"),
     );
     if (modName)
       return `LLM module not configured. Please configure <a href="/plugins/configure/${encodeURIComponent(
-        modName
+        modName,
       )}">here<a> before using copilot.`;
     else
       return `LLM module not configured. Please install and configure <a href="/plugins">here<a> before using copilot.`;
@@ -178,7 +178,7 @@ const wrapCard = (title, ...inners) =>
   span({ class: "badge bg-info ms-1" }, title) +
   div(
     { class: "card mb-3 bg-secondary-subtle" },
-    div({ class: "card-body" }, inners)
+    div({ class: "card-body" }, inners),
   );
 
 const only_response_text_if_present = (interact) => {
@@ -207,7 +207,7 @@ const process_interaction = async (
   agent_label = "Copilot",
   prevResponses = [],
   triggering_row = {},
-  agentsViewCfg = { stream: false }
+  agentsViewCfg = { stream: false },
 ) => {
   const { stream, viewname } = agentsViewCfg;
   const sysState = getState();
@@ -215,7 +215,7 @@ const process_interaction = async (
     config,
     req.user,
     triggering_row,
-    req.body
+    req.body,
   );
   complArgs.chat = run.context.interactions.map(only_response_text_if_present);
   //complArgs.debugResult = true;
@@ -261,17 +261,17 @@ const process_interaction = async (
           { ...image_call, ...(prcRes || {}) },
           {
             req,
-          }
+          },
         );
         if (rendered)
           responses.push(
             wrapSegment(
               wrapCard(
                 tool.skill.skill_label || tool.skill.constructor.skill_name,
-                rendered
+                rendered,
               ),
-              agent_label
-            )
+              agent_label,
+            ),
           );
       }
     }
@@ -279,7 +279,7 @@ const process_interaction = async (
       responses.push(
         req.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(answer.content), agent_label)
+          : wrapSegment(md.render(answer.content), agent_label),
       );
   }
   if (answer.ai_sdk)
@@ -308,7 +308,7 @@ const process_interaction = async (
       responses.push(
         req.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(answer.content), agent_label)
+          : wrapSegment(md.render(answer.content), agent_label),
       );
     //const actions = [];
     let hasResult = false;
@@ -316,7 +316,7 @@ const process_interaction = async (
     for (const tool_call of answer.tool_calls || []) {
       console.log(
         "call function",
-        tool_call.toolName || tool_call.function?.name
+        tool_call.toolName || tool_call.function?.name,
       );
 
       await addToContext(run, {
@@ -329,7 +329,7 @@ const process_interaction = async (
 
       const tool = find_tool(
         tool_call.toolName || tool_call.function?.name,
-        config
+        config,
       );
 
       if (tool) {
@@ -355,10 +355,10 @@ const process_interaction = async (
               wrapSegment(
                 wrapCard(
                   tool.skill.skill_label || tool.skill.constructor.skill_name,
-                  rendered
+                  rendered,
                 ),
-                agent_label
-              )
+                agent_label,
+              ),
             );
         }
         hasResult = true;
@@ -366,7 +366,7 @@ const process_interaction = async (
           answer.ai_sdk
             ? tool_call.input
             : JSON.parse(tool_call.function.arguments),
-          { req }
+          { req },
         );
         if (
           (typeof result === "object" && Object.keys(result || {}).length) ||
@@ -381,10 +381,10 @@ const process_interaction = async (
                 wrapSegment(
                   wrapCard(
                     tool.skill.skill_label || tool.skill.constructor.skill_name,
-                    rendered
+                    rendered,
                   ),
-                  agent_label
-                )
+                  agent_label,
+                ),
               );
           }
           hasResult = true;
@@ -439,13 +439,13 @@ const process_interaction = async (
         agent_label,
         [...prevResponses, ...responses],
         triggering_row,
-        agentsViewCfg
+        agentsViewCfg,
       );
   } else if (typeof answer === "string")
     responses.push(
       req.disable_markdown_render
         ? answer
-        : wrapSegment(md.render(answer), agent_label)
+        : wrapSegment(md.render(answer), agent_label),
     );
 
   return {
