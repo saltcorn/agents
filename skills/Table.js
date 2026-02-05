@@ -87,6 +87,7 @@ class TableToSkill {
 
   provideTools() {
     const table = Table.findOne(this.table_name);
+    if(!table) throw new Error(`Table skill: cannot find table ${this.table_name}`)
     const tools = [];
     let queryProperties = {};
     let required = [];

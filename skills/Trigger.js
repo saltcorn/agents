@@ -61,6 +61,8 @@ class TriggerToSkill {
     let properties = {};
 
     const trigger = Trigger.findOne({ name: this.trigger_name });
+    if(!trigger) throw new Error(`Trigger skill: cannot find trigger ${this.trigger_name}`)
+
     if (trigger.table_id) {
       const table = Table.findOne({ id: trigger.table_id });
 

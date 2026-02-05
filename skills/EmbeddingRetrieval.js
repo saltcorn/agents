@@ -128,6 +128,8 @@ class RetrievalByEmbedding {
   provideTools() {
     if (this.mode !== "Tool") return [];
     const table0 = Table.findOne(this.vec_field.split(".")[0]);
+    if(!table0) throw new Error(`Embedding Retrieval skill: cannot find table ${this.vec_field.split(".")[0]}`)
+
     const table_docs = this.doc_relation
       ? Table.findOne(table0.getField(this.doc_relation).reftable_name)
       : table0;

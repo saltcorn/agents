@@ -67,11 +67,16 @@ class PreloadData {
     } else {
       if (this.add_sys_prompt) prompts.push(this.add_sys_prompt);
       const table = Table.findOne(this.table_name);
+      if (!table)
+        throw new Error(
+          `Preload Data  skill: cannot find table ${this.table_name}`,
+        );
+
       const q = eval_expression(
         this.preload_query,
         triggering_row || {},
         user,
-        "PreloadData query"
+        "PreloadData query",
       );
 
       const rows = await table.getRows(q);
@@ -116,7 +121,7 @@ class PreloadData {
         validator(s) {
           try {
             let AsyncFunction = Object.getPrototypeOf(
-              async function () {}
+              async function () {},
             ).constructor;
             AsyncFunction(s);
             return true;
