@@ -21,7 +21,7 @@ const nubBy = (f, xs) => {
 const get_skills = () => {
   const state = getState();
   const exchange_skills = nubBy(
-    (c) => c.constructor.name,
+    (c) => c.skill_name,
     state.exchange?.agent_skills || [],
   );
 
