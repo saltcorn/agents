@@ -366,7 +366,15 @@ const process_interaction = async (
           answer.ai_sdk
             ? tool_call.input
             : JSON.parse(tool_call.function.arguments),
-          { req },
+          {
+            req,
+            async generate(prompt, opts = {}) {
+              return await sysState.functions.llm_generate.run(prompt, {
+                chat: run.context.interactions,
+                ...opts,
+              });
+            },
+          },
         );
         if (
           (typeof result === "object" && Object.keys(result || {}).length) ||
