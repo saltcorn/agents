@@ -369,8 +369,15 @@ const process_interaction = async (
           {
             req,
             async generate(prompt, opts = {}) {
+              const chat = [...run.context.interactions];
+              await sysState.functions.llm_tool_response.run(
+                "Metadata received",
+                {
+                  chat,
+                },
+              );              
               return await sysState.functions.llm_generate.run(prompt, {
-                chat: run.context.interactions,
+                chat,
                 ...opts,
               });
             },
