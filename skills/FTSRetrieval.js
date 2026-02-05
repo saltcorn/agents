@@ -104,6 +104,7 @@ class RetrievalByFullTextSearch {
   provideTools() {
     if (this.mode !== "Tool") return [];
     const table = Table.findOne(this.table_name);
+    if(!table) throw new Error(`FTSRetrieval skill: cannot find table ${this.table_name}`)
     return {
       type: "function",
       process: async (arg, { req }) => {
