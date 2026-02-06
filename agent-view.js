@@ -224,12 +224,14 @@ const run = async (
   { res, req },
 ) => {
   const action = await Trigger.findOne({ id: action_id });
-  const prevRuns = (
-    await WorkflowRun.find(
-      { trigger_id: action.id, started_by: req.user?.id },
-      { orderBy: "started_at", orderDesc: true, limit: 30 },
-    )
-  ).filter((r) => r.context.interactions);
+  const prevRuns = show_prev_runs
+    ? (
+        await WorkflowRun.find(
+          { trigger_id: action.id, started_by: req.user?.id },
+          { orderBy: "started_at", orderDesc: true, limit: 30 },
+        )
+      ).filter((r) => r.context.interactions)
+    : null;
 
   const cfgMsg = incompleteCfgMsg();
   if (cfgMsg) return cfgMsg;
@@ -244,7 +246,13 @@ const run = async (
   }
   const initial_q = state.run_id ? undefined : state._q;
   if (state.run_id) {
-    const run = prevRuns.find((r) => r.id == state.run_id);
+    const run = prevRuns
+      ? prevRuns.find((r) => r.id == state.run_id)
+      : await WorkflowRun.findOne({
+          trigger_id: action.id,
+          started_by: req.user?.id,
+          id: state.run_id,
+        });
     const interactMarkups = [];
     for (const interact of run.context.interactions) {
       switch (interact.role) {
@@ -455,49 +463,54 @@ const run = async (
         div({ class: "next_response_scratch" }),
   );
 
-  const prev_runs_side_bar = div(
-    div(
-      {
-        class: "d-flex justify-content-between align-middle mb-2",
-      },
-      div(
-        { class: "d-flex" },
-        i({
-          class: "fas fa-caret-down me-1 session-open-sessions",
-          onclick: "close_session_list()",
-        }),
-        h5(req.__("Sessions")),
-      ),
-      button(
-        {
-          type: "button",
-          class: "btn btn-secondary btn-sm py-0",
-          style: "font-size: 0.9em;height:1.5em",
-          onclick: "unset_state_field('run_id')",
-          title: "New session",
-        },
-        i({ class: "fas fa-redo fa-sm" }),
-      ),
-    ),
-    prevRuns.map((run) =>
-      div(
-        {
-          onclick: `set_state_field('run_id',${run.id})`,
-          class: "prevcopilotrun border p-2",
-        },
+  const prev_runs_side_bar = show_prev_runs
+    ? div(
         div(
-          { class: "d-flex justify-content-between" },
-          localeDateTime(run.started_at),
-          i({
-            class: "far fa-trash-alt",
-            onclick: `delprevrun(event, ${run.id})`,
-          }),
+          {
+            class: "d-flex justify-content-between align-middle mb-2",
+          },
+          div(
+            { class: "d-flex" },
+            i({
+              class: "fas fa-caret-down me-1 session-open-sessions",
+              onclick: "close_session_list()",
+            }),
+            h5(req.__("Sessions")),
+          ),
+          button(
+            {
+              type: "button",
+              class: "btn btn-secondary btn-sm py-0",
+              style: "font-size: 0.9em;height:1.5em",
+              onclick: "unset_state_field('run_id')",
+              title: "New session",
+            },
+            i({ class: "fas fa-redo fa-sm" }),
+          ),
         ),
+        prevRuns.map((run) =>
+          div(
+            {
+              onclick: `set_state_field('run_id',${run.id})`,
+              class: "prevcopilotrun border p-2",
+            },
+            div(
+              { class: "d-flex justify-content-between" },
+              localeDateTime(run.started_at),
+              i({
+                class: "far fa-trash-alt",
+                onclick: `delprevrun(event, ${run.id})`,
+              }),
+            ),
 
-        p({ class: "prevrun_content" }, run.context.interactions[0]?.content),
-      ),
-    ),
-  );
+            p(
+              { class: "prevrun_content" },
+              run.context.interactions[0]?.content,
+            ),
+          ),
+        ),
+      )
+    : "";
   const main_chat = div(
     { class: "card" },
     div(
