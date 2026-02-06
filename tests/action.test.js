@@ -39,8 +39,50 @@ for (const nameconfig of require("./configs")) {
 
     it("generates text", async () => {
       const action = require("../action");
+      const user = { id: 1, role_id: 1 };
 
-      expect(1).toBe(1);
+      const result = await action.run({
+        row: { theprompt: "What is the word of the day?" },
+        configuration: {
+          model: "",
+          prompt: "theprompt",
+          skills: [
+            {
+              mode: "Tool",
+              js_code: 'return "Strawberry"',
+              toolargs: [
+                {
+                  name: "",
+                  argtype: "string",
+                  description: "",
+                },
+              ],
+              tool_name: "word_of_the_day",
+              skill_type: "Run JavaScript code",
+              add_sys_prompt: "",
+              tool_description: "return the word of the day",
+            },
+            {
+              skill_type: "Prompt picker",
+              placeholder: "Pick voice",
+              options_array: [
+                {
+                  promptpicker_label: "Pirate",
+                  promptpicker_sysprompt: "Speak like a pirate",
+                },
+                {
+                  promptpicker_label: "Lawyer",
+                  promptpicker_sysprompt: "Speak like a lawyer",
+                },
+              ],
+            },
+          ],
+          sys_prompt: "",
+        },
+        user,
+        req: { user },
+      });
+      expect(result.json.response).toContain("trawberry");
     });
   });
 }
