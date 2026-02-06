@@ -6,6 +6,13 @@ const Plugin = require("@saltcorn/data/models/plugin");
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
 const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
 
+/* 
+ 
+ RUN WITH:
+  saltcorn dev:plugin-test -d ~/agents -o ~/large-language-model/
+ 
+ */
+
 afterAll(require("@saltcorn/data/db").close);
 beforeAll(async () => {
   await require("@saltcorn/data/db/reset_schema")();
@@ -43,42 +50,7 @@ for (const nameconfig of require("./configs")) {
 
       const result = await action.run({
         row: { theprompt: "What is the word of the day?" },
-        configuration: {
-          model: "",
-          prompt: "theprompt",
-          skills: [
-            {
-              mode: "Tool",
-              js_code: 'return "Strawberry"',
-              toolargs: [
-                {
-                  name: "",
-                  argtype: "string",
-                  description: "",
-                },
-              ],
-              tool_name: "word_of_the_day",
-              skill_type: "Run JavaScript code",
-              add_sys_prompt: "",
-              tool_description: "return the word of the day",
-            },
-            {
-              skill_type: "Prompt picker",
-              placeholder: "Pick voice",
-              options_array: [
-                {
-                  promptpicker_label: "Pirate",
-                  promptpicker_sysprompt: "Speak like a pirate",
-                },
-                {
-                  promptpicker_label: "Lawyer",
-                  promptpicker_sysprompt: "Speak like a lawyer",
-                },
-              ],
-            },
-          ],
-          sys_prompt: "",
-        },
+        configuration: require("./agentcfg"),
         user,
         req: { user },
       });

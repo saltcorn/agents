@@ -10,7 +10,7 @@ module.exports = [
     responses_api: false,
     ai_sdk_provider: "OpenAI",
   },
-  {
+  /*{
     name: "OpenAI responses",
     model: "gpt-5.1",
     api_key: process.env.OPENAI_API_KEY,
@@ -30,5 +30,5 @@ module.exports = [
     image_model: "gpt-image-1",
     temperature: 0.7,
     ai_sdk_provider: "OpenAI",
-  },
+  },*/
 ];
