@@ -1,6 +1,6 @@
 module.exports = {
   model: "",
-  prompt: "theprompt",
+  prompt: "{{theprompt}}",
   skills: [
     {
       mode: "Tool",
@@ -30,6 +30,16 @@ module.exports = {
           promptpicker_sysprompt: "Speak like a lawyer",
         },
       ],
+    },
+    {
+      mode: "Tool",
+      list_view: "",
+      doc_format: "",
+      skill_type: "Retrieval by full-text search",
+      table_name: "books",
+      hidden_fields: "",
+      add_sys_prompt:
+        "Use this tool to search information about books in a book database. Each book is indexed by author and has page counts. If the user asks for information about books by a specific author, use this tool.",
     },
   ],
   sys_prompt: "",

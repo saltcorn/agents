@@ -72,18 +72,31 @@ module.exports = {
       }),
     ];
   },
-  run: async ({ configuration, user, row, trigger_id, req, ...rest }) => {
+  run: async ({
+    configuration,
+    user,
+    row,
+    trigger_id,
+    run_id,
+    req,
+    ...rest
+  }) => {
     const userinput = interpolate(configuration.prompt, row, user);
-    const run = await WorkflowRun.create({
-      status: "Running",
-      started_by: user?.id,
-      trigger_id: trigger_id || undefined,
-      context: {
-        implemented_fcall_ids: [],
-        interactions: [{ role: "user", content: userinput }],
-        funcalls: {},
-      },
-    });
+
+    const run = run_id
+      ? await WorkflowRun.findOne({ id: run_id })
+      : await WorkflowRun.create({
+          status: "Running",
+          started_by: user?.id,
+          trigger_id: trigger_id || undefined,
+          context: {
+            implemented_fcall_ids: [],
+            interactions: [{ role: "user", content: userinput }],
+            funcalls: {},
+          },
+        });
+    if (run_id)
+      run.context.interactions.push({ role: "user", content: userinput });
     return await process_interaction(
       run,
       configuration,

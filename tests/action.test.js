@@ -1,5 +1,6 @@
 const { getState } = require("@saltcorn/data/db/state");
 const View = require("@saltcorn/data/models/view");
+const WorkflowRuns = require("@saltcorn/data/models/workflow_run");
 const Table = require("@saltcorn/data/models/table");
 const Plugin = require("@saltcorn/data/models/plugin");
 
@@ -23,6 +24,9 @@ beforeAll(async () => {
 
 jest.setTimeout(30000);
 
+const user = { id: 1, role_id: 1 };
+const action = require("../action");
+
 for (const nameconfig of require("./configs")) {
   const { name, ...config } = nameconfig;
   describe("agent action with " + name, () => {
@@ -35,7 +39,6 @@ for (const nameconfig of require("./configs")) {
       getState().registerPlugin("@saltcorn/agents", require(".."));
     });
     it("has config fields", async () => {
-      const action = require("../action");
       const cfgFldsNoTable = await action.configFields({});
       expect(cfgFldsNoTable.length).toBe(3);
       const cfgFldsWithTable = await action.configFields({
@@ -43,11 +46,7 @@ for (const nameconfig of require("./configs")) {
       });
       expect(cfgFldsWithTable.length).toBe(4);
     });
-
     it("generates text", async () => {
-      const action = require("../action");
-      const user = { id: 1, role_id: 1 };
-
       const result = await action.run({
         row: { theprompt: "What is the word of the day?" },
         configuration: require("./agentcfg"),
@@ -56,5 +55,22 @@ for (const nameconfig of require("./configs")) {
       });
       expect(result.json.response).toContain("trawberry");
     });
+    it("queries table", async () => {
+      const run = await WorkflowRuns.findOne({});
+      const result = await action.run({
+        row: {
+          theprompt:
+            "How many pages are there in the book by Herman Melville in the database?",
+        },
+        configuration: require("./agentcfg"),
+        user,
+        run_id: run.id,
+        req: { ...mockReqRes.req, user },
+      });
+      expect(result.json.response).toContain("967");
+      const run1 = await WorkflowRuns.findOne({});
+      
+    });
   });
+  break;
 }

@@ -82,7 +82,7 @@ for (const nameconfig of require("./configs")) {
       await getState().refresh_views(false)
 
       const result = await view.run({}, mockReqRes);  
-      expect(result).toContain("Pirate")
+      expect(result).toContain(">Pirate<")
     });
   });
   break; //only need to test one config iteration
