@@ -68,9 +68,9 @@ for (const nameconfig of require("./configs")) {
         req: { ...mockReqRes.req, user },
       });
       expect(result.json.response).toContain("967");
-      const run1 = await WorkflowRuns.findOne({});
+      //const run1 = await WorkflowRuns.findOne({});
       
     });
   });
-  break;
+  //break;
 }
