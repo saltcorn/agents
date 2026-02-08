@@ -224,6 +224,7 @@ const run = async (
   { res, req },
 ) => {
   const action = await Trigger.findOne({ id: action_id });
+  if(!action) throw new Error(`Action not found: ${action_id}`)
   const prevRuns = show_prev_runs
     ? (
         await WorkflowRun.find(

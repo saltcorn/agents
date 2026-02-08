@@ -25,7 +25,7 @@ jest.setTimeout(30000);
 
 for (const nameconfig of require("./configs")) {
   const { name, ...config } = nameconfig;
-  describe("agent view with " + name, () => {
+  describe("agent action with " + name, () => {
     beforeAll(async () => {
       getState().registerPlugin(
         "@saltcorn/large-language-model",
