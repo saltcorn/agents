@@ -883,7 +883,11 @@ const execute_user_action = async (
     (ua) => ua.rndid === rndid,
   );
   if (!uadata) return;
-  const result = await instance.userActions[uaname](uadata.input);
+  const result = await instance.userActions[uaname]({
+    user: req.user,
+    ...uadata.tool_call.input,
+    ...uadata.input,
+  });
   return {
     json: {
       success: "ok",
