@@ -508,7 +508,7 @@ const run = async (
 
             p(
               { class: "prevrun_content" },
-              run.context.interactions[0]?.content,
+              run.context.interactions[0]?.content?.substring?.(0,80),
             ),
           ),
         ),
