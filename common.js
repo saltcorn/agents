@@ -387,6 +387,22 @@ const process_interaction = async (
           await addToContext(run, {
             interactions: run.context.interactions,
           });
+          if (tool.tool.postProcess) {
+            const chat = [...run.context.interactions];
+            await tool.tool.postProcess({
+              tool_call,
+              result,
+              chat,
+              req,
+              async generate(prompt, opts = {}) {                
+                return await sysState.functions.llm_generate.run(prompt, {
+                  chat,
+                  appendToChat: true,
+                  ...opts,
+                });
+              },
+            });
+          }
         }
       }
     if (hasResult)
