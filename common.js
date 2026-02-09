@@ -192,6 +192,7 @@ const process_interaction = async (
   prevResponses = [],
   triggering_row = {},
   agentsViewCfg = { stream: false },
+  dyn_updates = false,
 ) => {
   const { stream, viewname } = agentsViewCfg;
   const sysState = getState();
@@ -235,6 +236,17 @@ const process_interaction = async (
     interactions: complArgs.chat,
   });
   const responses = [];
+  const add_response = (resp) => {
+    if (dyn_updates)
+      getState().emitDynamicUpdate(
+        db.getTenantSchema(),
+        {
+          eval_js: `processCopilotResponse({response: ${JSON.stringify(resp)}, run_id: ${run.id}})`,
+        },
+        [req.user.id],
+      );
+    else responses.push(resp);
+  };
   if (answer && typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {
       const tool = find_image_tool(config);
@@ -252,7 +264,7 @@ const process_interaction = async (
           },
         );
         if (rendered)
-          responses.push(
+          add_response(
             wrapSegment(
               wrapCard(
                 tool.skill.skill_label || tool.skill.constructor.skill_name,
@@ -264,7 +276,7 @@ const process_interaction = async (
       }
     }
     if (answer.content && !answer.tool_calls)
-      responses.push(
+      add_response(
         req.disable_markdown_render
           ? answer
           : wrapSegment(md.render(answer.content), agent_label),
@@ -277,7 +289,7 @@ const process_interaction = async (
     (answer.hasToolCalls || answer.mcp_calls)
   ) {
     if (answer.content)
-      responses.push(
+      add_response(
         req.disable_markdown_render
           ? answer
           : wrapSegment(md.render(answer.content), agent_label),
@@ -320,7 +332,7 @@ const process_interaction = async (
               req,
             });
             if (rendered)
-              responses.push(
+              add_response(
                 wrapSegment(
                   wrapCard(
                     tool.skill.skill_label || tool.skill.constructor.skill_name,
@@ -344,7 +356,7 @@ const process_interaction = async (
                 req,
               });
               if (rendered)
-                responses.push(
+                add_responses(
                   wrapSegment(
                     wrapCard(
                       tool.skill.skill_label ||
@@ -406,7 +418,7 @@ const process_interaction = async (
                 ],
               });
             if (postprocres.add_response)
-              responses.push(
+              add_response(
                 wrapSegment(
                   wrapCard(
                     tool.skill.skill_label || tool.skill.constructor.skill_name,
@@ -426,7 +438,7 @@ const process_interaction = async (
               await addToContext(run, {
                 user_actions,
               });
-              responses.push(
+              add_response(
                 div(
                   { class: "d-flex mb-2" },
                   user_actions.map((ua) =>
@@ -454,9 +466,10 @@ const process_interaction = async (
         [...prevResponses, ...responses],
         triggering_row,
         agentsViewCfg,
+        dyn_updates,
       );
   } else if (typeof answer === "string")
-    responses.push(
+    add_response(
       req.disable_markdown_render
         ? answer
         : wrapSegment(md.render(answer), agent_label),

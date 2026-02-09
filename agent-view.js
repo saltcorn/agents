@@ -399,10 +399,12 @@ const run = async (
   }
 
   const debugMode = is_debug_mode(action.configuration, req.user);
+  const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
+
   const rndid = Math.floor(Math.random() * 16777215).toString(16);
   const input_form = form(
     {
-      onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), processCopilotResponse);return false;`,
+      onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), ${dyn_updates ? "null" : "processCopilotResponse"});return false;`,
       class: ["form-namespace copilot mt-2 agent-view"],
       method: "post",
     },
@@ -601,7 +603,8 @@ const run = async (
     function get_run_id(elem) {
         return $("input[name=run_id").val()
     }
-    function processCopilotResponse(res) {
+    function processCopilotResponse(res) {        
+        console.log("processCopilotResponse", res)
         const hadFile = $("input#attach_agent_image").val();
         $("span.filename-label").text("");
         $("input#attach_agent_image").val(null);
@@ -619,6 +622,7 @@ const run = async (
         if(res.response)
             $("#copilotinteractions").append(res.response)
     }
+    window.processCopilotResponse = processCopilotResponse;
     function agent_file_attach(e) {
         $(".attach_agent_image_wrap span.filename-label").text(e.target.files[0].name)
     }
@@ -769,8 +773,8 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       ],
     });
   }
-
-  return await process_interaction(
+  const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
+  const process_promise = process_interaction(
     run,
     action.configuration,
     req,
@@ -778,7 +782,10 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     [],
     triggering_row,
     config,
+    dyn_updates,
   );
+  if (dyn_updates) return;
+  else return await process_promise;
 };
 
 const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
@@ -899,37 +906,6 @@ const execute_user_action = async (
     },
   };
 };
-
-const wrapAction = (
-  inner_markup,
-  viewname,
-  tool_call,
-  actionClass,
-  implemented,
-  run,
-) =>
-  wrapCard(
-    actionClass.title,
-    inner_markup + implemented
-      ? button(
-          {
-            type: "button",
-            class: "btn btn-secondary d-block mt-3 float-end",
-            disabled: true,
-          },
-          i({ class: "fas fa-check me-1" }),
-          "Applied",
-        )
-      : button(
-          {
-            type: "button",
-            id: "exec-" + tool_call.id,
-            class: "btn btn-primary d-block mt-3 float-end",
-            onclick: `press_store_button(this, true);view_post('${viewname}', 'execute', {fcall_id: '${tool_call.id}', run_id: ${run.id}}, processExecuteResponse)`,
-          },
-          "Apply",
-        ) + div({ id: "postexec-" + tool_call.id }),
-  );
 
 module.exports = {
   name: "Agent Chat",
