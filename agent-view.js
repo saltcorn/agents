@@ -224,7 +224,7 @@ const run = async (
   { res, req },
 ) => {
   const action = await Trigger.findOne({ id: action_id });
-  if(!action) throw new Error(`Action not found: ${action_id}`)
+  if (!action) throw new Error(`Action not found: ${action_id}`);
   const prevRuns = show_prev_runs
     ? (
         await WorkflowRun.find(
@@ -859,6 +859,39 @@ const skillroute = async (table_id, viewname, config, body, { req, res }) => {
     },
   };
 };
+
+const execute_user_action = async (
+  table_id,
+  viewname,
+  config,
+  body,
+  { req, res },
+) => {
+  const { run_id, rndid, uaname } = body;
+
+  const action = await Trigger.findOne({ id: config.action_id });
+  const run = await WorkflowRun.findOne({ id: +run_id });
+  //console.log("run uas",run.context.user_actions );
+
+  if (!run) return;
+  const instances = get_skill_instances(action.configuration);
+  const instance = instances.find((i) => i.userActions?.[uaname]);
+  //console.log({ instance });
+
+  if (!instance) return;
+  const uadata = (run.context.user_actions || []).find(
+    (ua) => ua.rndid === rndid,
+  );
+  if (!uadata) return;
+  const result = await instance.userActions[uaname](uadata.input);
+  return {
+    json: {
+      success: "ok",
+      ...result,
+    },
+  };
+};
+
 const wrapAction = (
   inner_markup,
   viewname,
@@ -898,5 +931,5 @@ module.exports = {
   //tableless: true,
   table_optional: true,
   run,
-  routes: { interact, delprevrun, debug_info, skillroute },
+  routes: { interact, delprevrun, debug_info, skillroute, execute_user_action },
 };
