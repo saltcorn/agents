@@ -314,9 +314,8 @@ const process_interaction = async (
             );
           }
           if (tool.tool.renderToolCall) {
-            const row = answer.ai_sdk
-              ? tool_call.input
-              : JSON.parse(tool_call.function.arguments);
+            const row = tool_call.input;
+
             const rendered = await tool.tool.renderToolCall(row, {
               req,
             });
@@ -378,7 +377,7 @@ const process_interaction = async (
             interactions: run.context.interactions,
           });
           if (tool.tool.postProcess && !stop) {
-            const chat = [...run.context.interactions];
+            const chat = run.context.interactions;
             let generateUsed = false;
             const postprocres = await tool.tool.postProcess({
               tool_call,
@@ -396,7 +395,7 @@ const process_interaction = async (
             });
             if (generateUsed)
               await addToContext(run, {
-                interactions: run.context.interactions,
+                interactions: chat,
               });
             if (postprocres.stop) stop = true;
             if (postprocres.add_response)
