@@ -727,7 +727,10 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
   } else {
     run = await WorkflowRun.findOne({ id: +run_id });
     await addToContext(run, {
-      interactions: [{ role: "user", content: userinput }],
+      interactions: [
+        ...(run.context.interactions || []),
+        { role: "user", content: userinput },
+      ],
     });
   }
   if (config.image_upload && req.files?.file) {
@@ -751,6 +754,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     }
     await addToContext(run, {
       interactions: [
+        ...(run.context.interactions || []),
         {
           role: "user",
           content: [
