@@ -1,5 +1,5 @@
 const { getState } = require("@saltcorn/data/db/state");
-const { div, span } = require("@saltcorn/markup/tags");
+const { div, span, button } = require("@saltcorn/markup/tags");
 const Trigger = require("@saltcorn/data/models/trigger");
 const View = require("@saltcorn/data/models/view");
 const { interpolate } = require("@saltcorn/data/utils");
@@ -408,6 +408,36 @@ const process_interaction = async (
                   agent_label,
                 ),
               );
+            if (postprocres.add_user_action && viewname) {
+              const user_actions = Array.isArray()
+                ? postprocres.add_user_action
+                : [postprocres.add_user_action];
+              for (const uact of user_actions) {
+                uact.rndid = Math.floor(Math.random() * 16777215).toString(16);
+              }
+              await addToContext(run, {
+                user_actions,
+              });
+              responses.push(
+                wrapSegment(
+                  wrapCard(
+                    tool.skill.skill_label || tool.skill.constructor.skill_name,
+                    div(
+                      user_actions.map((ua) =>
+                        button(
+                          {
+                            class: "btn btn-primary",
+                            onclick: `press_store_button(this, true);view_post('${viewname}', 'execute_user_action', {rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
+                          },
+                          ua.label,
+                        ),
+                      ),
+                    ),
+                  ),
+                  agent_label,
+                ),
+              );
+            }
           }
           if (myHasResult && !stop) hasResult = true;
         }
