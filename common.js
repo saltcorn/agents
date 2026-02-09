@@ -427,22 +427,17 @@ const process_interaction = async (
                 user_actions,
               });
               responses.push(
-                wrapSegment(
-                  wrapCard(
-                    tool.skill.skill_label || tool.skill.constructor.skill_name,
-                    div(
-                      user_actions.map((ua) =>
-                        button(
-                          {
-                            class: "btn btn-primary", //press_store_button(this, true);
-                            onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
-                          },
-                          ua.label,
-                        ),
-                      ),
+                div(
+                  { class: "d-flex mb-2" },
+                  user_actions.map((ua) =>
+                    button(
+                      {
+                        class: "btn btn-primary", //press_store_button(this, true);
+                        onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
+                      },
+                      ua.label,
                     ),
                   ),
-                  agent_label,
                 ),
               );
             }
