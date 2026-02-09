@@ -150,7 +150,8 @@ const addToContext = async (run, newCtx) => {
     if (Array.isArray(run.context[k])) {
       if (!Array.isArray(newCtx[k]))
         throw new Error("Must be array to append to array");
-      run.context[k].push(...newCtx[k]);
+      if (k === "interactions") run.context[k] = newCtx[k];
+      else run.context[k].push(...newCtx[k]);
       changed = true;
     } else if (typeof run.context[k] === "object") {
       if (typeof newCtx[k] !== "object")
@@ -181,23 +182,6 @@ const wrapCard = (title, ...inners) =>
     div({ class: "card-body" }, inners),
   );
 
-const only_response_text_if_present = (interact) => {
-  if (
-    interact.role === "tool" &&
-    interact.call_id &&
-    interact.content?.[0] === "{"
-  ) {
-    try {
-      const result = JSON.parse(interact.content);
-      if (result.responseText)
-        return { ...interact, content: result.responseText };
-    } catch {
-      //ignore, not json content
-    }
-  }
-  return interact;
-};
-
 const is_debug_mode = (config, user) => user?.role_id === 1;
 
 const process_interaction = async (
@@ -217,7 +201,8 @@ const process_interaction = async (
     triggering_row,
     req.body,
   );
-  complArgs.chat = run.context.interactions.map(only_response_text_if_present);
+  complArgs.appendToChat = true;
+  complArgs.chat = run.context.interactions;
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
   const debugMode = is_debug_mode(config, req.user);
@@ -240,12 +225,15 @@ const process_interaction = async (
   }
   const answer = await sysState.functions.llm_generate.run("", complArgs);
 
-  //console.log({answer});
+  //console.log("answer", answer);
 
   if (debugMode)
     await addToContext(run, {
       api_interactions: [debugCollector],
     });
+  await addToContext(run, {
+    interactions: complArgs.chat,
+  });
   const responses = [];
   if (answer && typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {
@@ -282,27 +270,11 @@ const process_interaction = async (
           : wrapSegment(md.render(answer.content), agent_label),
       );
   }
-  if (answer.ai_sdk)
-    await addToContext(run, {
-      interactions: answer.messages,
-    });
-  else
-    await addToContext(run, {
-      interactions:
-        typeof answer === "object" && answer.tool_calls
-          ? [
-              {
-                role: "assistant",
-                tool_calls: answer.tool_calls,
-                content: answer.content,
-              },
-            ]
-          : [{ role: "assistant", content: answer }],
-    });
+
   if (
     answer &&
     typeof answer === "object" &&
-    (answer.tool_calls || answer.mcp_calls)
+    (answer.hasToolCalls || answer.mcp_calls)
   ) {
     if (answer.content)
       responses.push(
@@ -313,82 +285,37 @@ const process_interaction = async (
     //const actions = [];
     let hasResult = false;
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
-    for (const tool_call of answer.tool_calls || []) {
-      console.log(
-        "call function",
-        tool_call.toolName || tool_call.function?.name,
-      );
+    if (answer.hasToolCalls)
+      for (const tool_call of answer.getToolCalls()) {
+        console.log("call function", tool_call.tool_name);
 
-      await addToContext(run, {
-        funcalls: {
-          [tool_call.id || tool_call.toolCallId]: answer.ai_sdk
-            ? tool_call
-            : tool_call.function,
-        },
-      });
-
-      const tool = find_tool(
-        tool_call.toolName || tool_call.function?.name,
-        config,
-      );
-
-      if (tool) {
-        if (stream && viewname) {
-          let content =
-            "Using skill: " + tool.skill.skill_label ||
-            tool.skill.constructor.skill_name;
-          const view = View.findOne({ name: viewname });
-          const pageLoadTag = req.body.page_load_tag;
-          view.emitRealTimeEvent(`STREAM_CHUNK?page_load_tag=${pageLoadTag}`, {
-            content,
-          });
-        }
-        if (tool.tool.renderToolCall) {
-          const row = answer.ai_sdk
-            ? tool_call.input
-            : JSON.parse(tool_call.function.arguments);
-          const rendered = await tool.tool.renderToolCall(row, {
-            req,
-          });
-          if (rendered)
-            responses.push(
-              wrapSegment(
-                wrapCard(
-                  tool.skill.skill_label || tool.skill.constructor.skill_name,
-                  rendered,
-                ),
-                agent_label,
-              ),
-            );
-        }
-        hasResult = true;
-        const result = await tool.tool.process(
-          answer.ai_sdk
-            ? tool_call.input
-            : JSON.parse(tool_call.function.arguments),
-          {
-            req,
-            async generate(prompt, opts = {}) {
-              const chat = [...run.context.interactions];
-              await sysState.functions.llm_tool_response.run(
-                "Metadata received",
-                {
-                  chat,
-                },
-              );              
-              return await sysState.functions.llm_generate.run(prompt, {
-                chat,
-                ...opts,
-              });
-            },
+        await addToContext(run, {
+          funcalls: {
+            [tool_call.tool_call_id]: tool_call,
           },
-        );
-        if (
-          (typeof result === "object" && Object.keys(result || {}).length) ||
-          typeof result === "string"
-        ) {
-          if (tool.tool.renderToolResponse) {
-            const rendered = await tool.tool.renderToolResponse(result, {
+        });
+
+        const tool = find_tool(tool_call.tool_name, config);
+
+        if (tool) {
+          if (stream && viewname) {
+            let content =
+              "Using skill: " + tool.skill.skill_label ||
+              tool.skill.constructor.skill_name;
+            const view = View.findOne({ name: viewname });
+            const pageLoadTag = req.body.page_load_tag;
+            view.emitRealTimeEvent(
+              `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
+              {
+                content,
+              },
+            );
+          }
+          if (tool.tool.renderToolCall) {
+            const row = answer.ai_sdk
+              ? tool_call.input
+              : JSON.parse(tool_call.function.arguments);
+            const rendered = await tool.tool.renderToolCall(row, {
               req,
             });
             if (rendered)
@@ -403,49 +330,65 @@ const process_interaction = async (
               );
           }
           hasResult = true;
+          const result = await tool.tool.process(tool_call.input, {
+            req,
+            /*async generate(prompt, opts = {}) {
+              const chat = [...run.context.interactions];
+              await sysState.functions.llm_tool_response.run(
+                "Metadata received",
+                {
+                  chat,
+                },
+              );
+              return await sysState.functions.llm_generate.run(prompt, {
+                chat,
+                ...opts,
+              });
+            },*/
+          });
+          if (
+            (typeof result === "object" && Object.keys(result || {}).length) ||
+            typeof result === "string"
+          ) {
+            if (tool.tool.renderToolResponse) {
+              const rendered = await tool.tool.renderToolResponse(result, {
+                req,
+              });
+              if (rendered)
+                responses.push(
+                  wrapSegment(
+                    wrapCard(
+                      tool.skill.skill_label ||
+                        tool.skill.constructor.skill_name,
+                      rendered,
+                    ),
+                    agent_label,
+                  ),
+                );
+            }
+            hasResult = true;
+          }
+          await sysState.functions.llm_add_tool_response.run(
+            !result || typeof result === "string"
+              ? {
+                  type: "text",
+                  value: result || "Action run",
+                }
+              : {
+                  type: "json",
+                  value: JSON.parse(JSON.stringify(result)),
+                },
+            {
+              chat: run.context.interactions,
+              tool_call,
+            },
+          );         
+
+          await addToContext(run, {
+            interactions: run.context.interactions,
+          });
         }
-        if (answer.ai_sdk)
-          await addToContext(run, {
-            interactions: [
-              {
-                role: "tool",
-                content: [
-                  {
-                    type: "tool-result",
-                    toolCallId: tool_call.toolCallId,
-                    toolName: tool_call.toolName,
-                    output:
-                      !result || typeof result === "string"
-                        ? {
-                            type: "text",
-                            value: result || "Action run",
-                          }
-                        : {
-                            type: "json",
-                            value: JSON.parse(JSON.stringify(result)),
-                          },
-                  },
-                ],
-              },
-            ],
-          });
-        else
-          await addToContext(run, {
-            interactions: [
-              {
-                role: "tool",
-                tool_call_id: tool_call.toolCallId || tool_call.id,
-                call_id: tool_call.call_id,
-                name: tool_call.toolName || tool_call.function.name,
-                content:
-                  result && typeof result !== "string"
-                    ? JSON.stringify(result)
-                    : result || "Action run",
-              },
-            ],
-          });
       }
-    }
     if (hasResult)
       return await process_interaction(
         run,

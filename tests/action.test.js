@@ -57,6 +57,7 @@ for (const nameconfig of require("./configs")) {
     });
     it("queries table", async () => {
       const run = await WorkflowRuns.findOne({});
+      expect(!!run).toBe(true);
       const result = await action.run({
         row: {
           theprompt:
@@ -69,7 +70,6 @@ for (const nameconfig of require("./configs")) {
       });
       expect(result.json.response).toContain("967");
       //const run1 = await WorkflowRuns.findOne({});
-      
     });
   });
   //break;
