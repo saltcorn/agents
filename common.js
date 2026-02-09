@@ -398,6 +398,13 @@ const process_interaction = async (
                 interactions: chat,
               });
             if (postprocres.stop) stop = true;
+            if (postprocres.add_system_prompt)
+              await addToContext(run, {
+                interactions: [
+                  ...chat,
+                  { role: "system", content: postprocres.add_system_prompt },
+                ],
+              });
             if (postprocres.add_response)
               responses.push(
                 wrapSegment(
@@ -414,6 +421,7 @@ const process_interaction = async (
                 : [postprocres.add_user_action];
               for (const uact of user_actions) {
                 uact.rndid = Math.floor(Math.random() * 16777215).toString(16);
+                uact.tool_call = tool_call;
               }
               await addToContext(run, {
                 user_actions,
@@ -426,8 +434,8 @@ const process_interaction = async (
                       user_actions.map((ua) =>
                         button(
                           {
-                            class: "btn btn-primary",
-                            onclick: `press_store_button(this, true);view_post('${viewname}', 'execute_user_action', {rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
+                            class: "btn btn-primary", //press_store_button(this, true);
+                            onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
                           },
                           ua.label,
                         ),
