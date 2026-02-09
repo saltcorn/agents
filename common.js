@@ -298,6 +298,7 @@ const process_interaction = async (
         const tool = find_tool(tool_call.tool_name, config);
 
         if (tool) {
+          let stop = false;
           if (stream && viewname) {
             let content =
               "Using skill: " + tool.skill.skill_label ||
@@ -332,20 +333,8 @@ const process_interaction = async (
           hasResult = true;
           const result = await tool.tool.process(tool_call.input, {
             req,
-            /*async generate(prompt, opts = {}) {
-              const chat = [...run.context.interactions];
-              await sysState.functions.llm_tool_response.run(
-                "Metadata received",
-                {
-                  chat,
-                },
-              );
-              return await sysState.functions.llm_generate.run(prompt, {
-                chat,
-                ...opts,
-              });
-            },*/
           });
+          if (result.stop) stop = true;
           if (
             (typeof result === "object" && Object.keys(result || {}).length) ||
             typeof result === "string"
@@ -387,14 +376,14 @@ const process_interaction = async (
           await addToContext(run, {
             interactions: run.context.interactions,
           });
-          if (tool.tool.postProcess) {
+          if (tool.tool.postProcess && !stop) {
             const chat = [...run.context.interactions];
-            await tool.tool.postProcess({
+            const postprocres = await tool.tool.postProcess({
               tool_call,
               result,
               chat,
               req,
-              async generate(prompt, opts = {}) {                
+              async generate(prompt, opts = {}) {
                 return await sysState.functions.llm_generate.run(prompt, {
                   chat,
                   appendToChat: true,
@@ -402,10 +391,11 @@ const process_interaction = async (
                 });
               },
             });
+            if (postprocres.stop) stop = true;
           }
         }
       }
-    if (hasResult)
+    if (hasResult && !stop)
       return await process_interaction(
         run,
         config,
