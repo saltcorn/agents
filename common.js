@@ -298,7 +298,8 @@ const process_interaction = async (
         const tool = find_tool(tool_call.tool_name, config);
 
         if (tool) {
-          let stop = false;
+          let stop = false,
+            myHasResult = false;
           if (stream && viewname) {
             let content =
               "Using skill: " + tool.skill.skill_label ||
@@ -330,7 +331,7 @@ const process_interaction = async (
                 ),
               );
           }
-          hasResult = true;
+          myHasResult = true;
           const result = await tool.tool.process(tool_call.input, {
             req,
           });
@@ -355,7 +356,7 @@ const process_interaction = async (
                   ),
                 );
             }
-            hasResult = true;
+            myHasResult = true;
           }
           await sysState.functions.llm_add_tool_response.run(
             !result || typeof result === "string"
@@ -378,12 +379,14 @@ const process_interaction = async (
           });
           if (tool.tool.postProcess && !stop) {
             const chat = [...run.context.interactions];
+            let generateUsed = false;
             const postprocres = await tool.tool.postProcess({
               tool_call,
               result,
               chat,
               req,
               async generate(prompt, opts = {}) {
+                generateUsed = true;
                 return await sysState.functions.llm_generate.run(prompt, {
                   chat,
                   appendToChat: true,
@@ -391,11 +394,26 @@ const process_interaction = async (
                 });
               },
             });
+            if (generateUsed)
+              await addToContext(run, {
+                interactions: run.context.interactions,
+              });
             if (postprocres.stop) stop = true;
+            if (postprocres.add_response)
+              responses.push(
+                wrapSegment(
+                  wrapCard(
+                    tool.skill.skill_label || tool.skill.constructor.skill_name,
+                    postprocres.add_response,
+                  ),
+                  agent_label,
+                ),
+              );
           }
+          if (myHasResult && !stop) hasResult = true;
         }
       }
-    if (hasResult && !stop)
+    if (hasResult)
       return await process_interaction(
         run,
         config,
