@@ -382,7 +382,7 @@ const process_interaction = async (
               chat: run.context.interactions,
               tool_call,
             },
-          );         
+          );
 
           await addToContext(run, {
             interactions: run.context.interactions,

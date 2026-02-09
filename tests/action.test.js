@@ -30,6 +30,7 @@ const action = require("../action");
 for (const nameconfig of require("./configs")) {
   const { name, ...config } = nameconfig;
   describe("agent action with " + name, () => {
+    let run_id;
     beforeAll(async () => {
       getState().registerPlugin(
         "@saltcorn/large-language-model",
@@ -37,6 +38,8 @@ for (const nameconfig of require("./configs")) {
         config,
       );
       getState().registerPlugin("@saltcorn/agents", require(".."));
+      const runs = await WorkflowRuns.find({});
+      for (const run of runs) await run.delete();
     });
     it("has config fields", async () => {
       const cfgFldsNoTable = await action.configFields({});
@@ -54,9 +57,10 @@ for (const nameconfig of require("./configs")) {
         req: { user },
       });
       expect(result.json.response).toContain("trawberry");
+      run_id = result.json.run_id;
     });
     it("queries table", async () => {
-      const run = await WorkflowRuns.findOne({});
+      const run = await WorkflowRuns.findOne({ id: run_id });
       expect(!!run).toBe(true);
       const result = await action.run({
         row: {
