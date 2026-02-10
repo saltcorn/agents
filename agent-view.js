@@ -108,6 +108,15 @@ const configuration_workflow = (req) =>
                   "Appears below the input box. Use for additional instructions.",
               },
               {
+                name: "layout",
+                label: "Layout",
+                type: "String",
+                required: true,
+                attributes: {
+                  options: ["Standard", "No card"],
+                },
+              },
+              {
                 name: "image_upload",
                 label: "Upload images",
                 sublabel: "Allow the user to upload images",
@@ -219,6 +228,7 @@ const run = async (
     image_upload,
     stream,
     audio_recorder,
+    layout,
   },
   state,
   { res, req },
@@ -508,31 +518,29 @@ const run = async (
 
             p(
               { class: "prevrun_content" },
-              run.context.interactions[0]?.content?.substring?.(0,80),
+              run.context.interactions[0]?.content?.substring?.(0, 80),
             ),
           ),
         ),
       )
     : "";
-  const main_chat = div(
-    { class: "card" },
+
+  const main_inner = div(
     div(
-      { class: "card-body" },
-      div(
-        {
-          class: "open-prev-runs",
-          style: prev_runs_closed ? {} : { display: "none" },
-          onclick: "open_session_list()",
-        },
-        i({
-          class: "fas fa-caret-right me-1",
-        }),
-        req.__("Sessions"),
-      ),
-      div({ id: "copilotinteractions" }, runInteractions),
-      input_form,
-      style(
-        `div.interaction-segment:not(:first-child) {border-top: 1px solid #e7e7e7; }
+      {
+        class: "open-prev-runs",
+        style: prev_runs_closed ? {} : { display: "none" },
+        onclick: "open_session_list()",
+      },
+      i({
+        class: "fas fa-caret-right me-1",
+      }),
+      req.__("Sessions"),
+    ),
+    div({ id: "copilotinteractions" }, runInteractions),
+    input_form,
+    style(
+      `div.interaction-segment:not(:first-child) {border-top: 1px solid #e7e7e7; }
               div.interaction-segment {padding-top: 5px;padding-bottom: 5px;}
               div.interaction-segment p {margin-bottom: 0px;}
               div.interaction-segment div.card {margin-top: 0.5rem;}            
@@ -589,9 +597,9 @@ const run = async (
     margin-bottom: 0px;
     display: block;
     text-overflow: ellipsis;}`,
-      ),
-      script(
-        `
+    ),
+    script(
+      `
     function close_session_list() {
       $("div.prev-runs-list").hide().parents(".col-3").removeClass("col-3").addClass("was-col-3").parent().children(".col-9").removeClass("col-9").addClass("col-12")
       $("div.open-prev-runs").show()
@@ -679,14 +687,17 @@ const run = async (
     function spin_send_button() {
       $("#sendbuttonicon").attr("class","fas fa-spinner fa-spin");
     };`,
-        stream &&
-          domReady(
-            `$('form.agent-view input[name=page_load_tag]').val(window._sc_pageloadtag)`,
-          ),
-        initial_q && domReady("$('form.copilot').submit()"),
-      ),
+      stream &&
+        domReady(
+          `$('form.agent-view input[name=page_load_tag]').val(window._sc_pageloadtag)`,
+        ),
+      initial_q && domReady("$('form.copilot').submit()"),
     ),
   );
+  const main_chat =
+    layout === "No card"
+      ? div({ class: "mx-1" }, main_inner)
+      : div({ class: "card" }, div({ class: "card-body" }, main_inner));
 
   return show_prev_runs
     ? div(
