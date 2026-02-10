@@ -369,7 +369,8 @@ const process_interaction = async (
             }
             myHasResult = true;
           }
-          await sysState.functions.llm_add_tool_response.run(
+          await sysState.functions.llm_add_message.run(
+            "tool_response",
             !result || typeof result === "string"
               ? {
                   type: "text",
