@@ -735,19 +735,13 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       trigger_id: config.action_id,
       context: {
         implemented_fcall_ids: [],
-        interactions: [...ini_interacts, { role: "user", content: userinput }],
+        interactions: [...ini_interacts],
         funcalls: {},
         triggering_row_id,
       },
     });
   } else {
     run = await WorkflowRun.findOne({ id: +run_id });
-    await addToContext(run, {
-      interactions: [
-        ...(run.context.interactions || []),
-        { role: "user", content: userinput },
-      ],
-    });
   }
   if (config.image_upload && req.files?.file) {
     const file = await File.from_req_files(
@@ -768,23 +762,19 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       const b64 = await file.get_contents("base64");
       imageurl = `data:${file.mimetype};base64,${b64}`;
     }
+    await getState().functions.llm_add_message.run("image", imageurl, {
+      chat: run.context.interactions || [],
+    });
     await addToContext(run, {
-      interactions: [
-        ...(run.context.interactions || []),
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: imageurl,
-              },
-            },
-          ],
-        },
-      ],
+      interactions: run.context.interactions || [],
     });
   }
+  await addToContext(run, {
+    interactions: [
+      ...(run.context.interactions || []),
+      { role: "user", content: userinput },
+    ],
+  });
   const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
   const process_promise = process_interaction(
     run,
@@ -796,8 +786,19 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     config,
     dyn_updates,
   );
-  if (dyn_updates) return;
-  else return await process_promise;
+  if (dyn_updates) {
+    process_promise.catch((e) => {
+      console.error(e);
+      getState().emitDynamicUpdate(
+        db.getTenantSchema(),
+        {
+          error: e?.message || e,
+        },
+        [req.user.id],
+      );
+    });
+    return;
+  } else return await process_promise;
 };
 
 const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
