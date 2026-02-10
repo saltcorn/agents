@@ -598,6 +598,7 @@ const run = async (
     display: block;
     text-overflow: ellipsis;}`,
     ),
+    script(domReady(`$( "#inputuserinput" ).autogrow({paddingBottom: 20});`)),
     script(
       `
     function close_session_list() {

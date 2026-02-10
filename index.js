@@ -25,6 +25,12 @@ module.exports = {
       }/markdown-it.min.js`,
       onlyViews: ["Agent Chat"],
     },
+    {
+      script: `/plugins/public/agents@${
+        require("./package.json").version
+      }/jquery.autogrow-textarea.js`,
+      onlyViews: ["Agent Chat"],
+    },
   ],
   actions: {
     Agent: require("./action"),
