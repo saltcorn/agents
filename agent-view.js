@@ -619,6 +619,7 @@ const run = async (
     function processCopilotResponse(res) {        
         console.log("processCopilotResponse", res)
         const hadFile = $("input#attach_agent_image").val();
+        let fileBadge = hadFile ? '<span class="badge text-bg-info"><i class="fas fa-image me-1"></i>'+$("input#attach_agent_image")[0].files?.item?.(0)?.name||"File"+'</span>': ""
         $("span.filename-label").text("");
         $("input#attach_agent_image").val(null);
         $("#sendbuttonicon").attr("class","far fa-paper-plane");
@@ -626,9 +627,7 @@ const run = async (
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
           $runidin.val(res.run_id);
         const wrapSegment = (html, who) => '<div class="interaction-segment"><span class="badge bg-secondary">'+who+'</span>'+html+'</div>'
-        $("#copilotinteractions").append(wrapSegment('<p>'+$("textarea[name=userinput]").val()+'</p>', "You"))
-        if(hadFile)
-          $("#copilotinteractions").append(wrapSegment('File', "You"))
+        $("#copilotinteractions").append(wrapSegment('<p>'+$("textarea[name=userinput]").val()+'</p>'+fileBadge, "You"))
         $("textarea[name=userinput]").val("")
         $('form.agent-view div.next_response_scratch').html("")
         window['stream scratch ${viewname} ${rndid}'] = []
