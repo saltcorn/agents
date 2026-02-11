@@ -629,7 +629,9 @@ const run = async (
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
           $runidin.val(res.run_id);
         const wrapSegment = (html, who) => '<div class="interaction-segment"><span class="badge bg-secondary">'+who+'</span>'+html+'</div>'
-        $("#copilotinteractions").append(wrapSegment('<p>'+$("textarea[name=userinput]").val()+'</p>'+fileBadge, "You"))
+        const user_input = $("textarea[name=userinput]").val()
+        if(user_input)
+          $("#copilotinteractions").append(wrapSegment('<p>'+user_input+'</p>'+fileBadge, "You"))
         $("textarea[name=userinput]").val("")
         $('form.agent-view div.next_response_scratch').html("")
         window['stream scratch ${viewname} ${rndid}'] = []
