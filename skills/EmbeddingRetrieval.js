@@ -10,6 +10,10 @@ const { interpolate } = require("@saltcorn/data/utils");
 class RetrievalByEmbedding {
   static skill_name = "Retrieval by embedding";
 
+  get skill_label() {
+    return `Searching...`;
+  }
+
   constructor(cfg) {
     Object.assign(this, cfg);
   }
