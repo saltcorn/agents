@@ -806,6 +806,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
         db.getTenantSchema(),
         {
           error: e?.message || e,
+          page_load_tag: req?.headers?.["page-load-tag"],
         },
         [req.user.id],
       );

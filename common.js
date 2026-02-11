@@ -242,13 +242,14 @@ const process_interaction = async (
         db.getTenantSchema(),
         {
           eval_js: `processCopilotResponse({response: ${JSON.stringify(resp)}, run_id: ${run.id}})`,
+          page_load_tag: req?.headers?.["page-load-tag"],
         },
         [req.user.id],
       );
     else responses.push(resp);
     await addToContext(run, {
-    html_interactions: [resp],
-  });
+      html_interactions: [resp],
+    });
   };
   if (answer && typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {
