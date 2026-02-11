@@ -359,7 +359,7 @@ const process_interaction = async (
                 req,
               });
               if (rendered)
-                add_responses(
+                add_response(
                   wrapSegment(
                     wrapCard(
                       tool.skill.skill_label ||
