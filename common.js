@@ -236,7 +236,7 @@ const process_interaction = async (
     interactions: complArgs.chat,
   });
   const responses = [];
-  const add_response = (resp) => {
+  const add_response = async (resp) => {
     if (dyn_updates)
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
@@ -246,6 +246,9 @@ const process_interaction = async (
         [req.user.id],
       );
     else responses.push(resp);
+    await addToContext(run, {
+    html_interactions: [resp],
+  });
   };
   if (answer && typeof answer === "object" && answer.image_calls) {
     for (const image_call of answer.image_calls) {

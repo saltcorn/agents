@@ -30,6 +30,7 @@ const {
   textarea,
   label,
   a,
+  br,
 } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const {
@@ -265,135 +266,138 @@ const run = async (
           id: state.run_id,
         });
     const interactMarkups = [];
-    for (const interact of run.context.interactions) {
-      switch (interact.role) {
-        case "user":
-          if (interact.content?.[0]?.type === "image_url") {
-            const image_url = interact.content[0].image_url.url;
-            if (image_url.startsWith("data"))
-              interactMarkups.push(
-                div(
-                  { class: "interaction-segment" },
-                  span({ class: "badge bg-secondary" }, "You"),
-                  "File",
-                ),
-              );
-            else
-              interactMarkups.push(
-                div(
-                  { class: "interaction-segment" },
-                  span({ class: "badge bg-secondary" }, "You"),
-                  a({ href: image_url, target: "_blank" }, "File"),
-                ),
-              );
-          } else
-            interactMarkups.push(
-              div(
-                { class: "interaction-segment" },
-                span({ class: "badge bg-secondary" }, "You"),
-                md.render(interact.content),
-              ),
-            );
-          break;
-        case "assistant":
-        case "system":
-          for (const tool_call of interact.tool_calls || []) {
-            const toolSkill = find_tool(
-              tool_call.function?.name,
-              action.configuration,
-            );
-            if (toolSkill) {
-              const row = JSON.parse(tool_call.function.arguments);
-              if (toolSkill.tool.renderToolCall) {
-                const rendered = await toolSkill.tool.renderToolCall(row, {
-                  req,
-                });
-                if (rendered)
-                  interactMarkups.push(
-                    wrapSegment(
-                      wrapCard(
-                        toolSkill.skill.skill_label ||
-                          toolSkill.skill.constructor.skill_name,
-                        rendered,
-                      ),
-                      action.name,
-                    ),
-                  );
-              }
-            }
-          }
-          for (const image_call of interact.content?.image_calls || []) {
-            const toolSkill = find_image_tool(action.configuration);
-            if (toolSkill) {
-              if (toolSkill.tool.renderToolResponse) {
-                const rendered = await toolSkill.tool.renderToolResponse(
-                  image_call,
-                  {
-                    req,
-                  },
-                );
-
-                if (rendered)
-                  interactMarkups.push(
-                    wrapSegment(
-                      wrapCard(
-                        toolSkill.skill.skill_label ||
-                          toolSkill.skill.constructor.skill_name,
-                        rendered,
-                      ),
-                      action.name,
-                    ),
-                  );
-              }
-            }
-          }
-          if (
-            typeof interact.content === "string" ||
-            typeof interact.content?.content === "string"
-          )
-            interactMarkups.push(
-              div(
-                { class: "interaction-segment" },
-                span({ class: "badge bg-secondary" }, action.name),
-                typeof interact.content === "string"
-                  ? md.render(interact.content)
-                  : typeof interact.content?.content === "string"
-                    ? md.render(interact.content.content)
-                    : interact.content,
-              ),
-            );
-          break;
-        case "tool":
-          if (interact.content !== "Action run") {
-            let markupContent;
-            const toolSkill = find_tool(interact.name, action.configuration);
-            try {
-              if (toolSkill?.tool?.renderToolResponse)
-                markupContent = await toolSkill?.tool?.renderToolResponse?.(
-                  JSON.parse(interact.content),
-                  {
-                    req,
-                  },
-                );
-            } catch {
-              markupContent = pre(interact.content);
-            }
-            if (markupContent)
-              interactMarkups.push(
-                wrapSegment(
-                  wrapCard(
-                    toolSkill?.skill?.skill_label ||
-                      toolSkill?.skill?.constructor.skill_name ||
-                      interact.name,
-                    markupContent,
+    if (run.context.html_interactions) {
+      interactMarkups.push(...run.context.html_interactions);
+    } else
+      for (const interact of run.context.interactions) {
+        switch (interact.role) {
+          case "user":
+            if (interact.content?.[0]?.type === "image_url") {
+              const image_url = interact.content[0].image_url.url;
+              if (image_url.startsWith("data"))
+                interactMarkups.push(
+                  div(
+                    { class: "interaction-segment" },
+                    span({ class: "badge bg-secondary" }, "You"),
+                    "File",
                   ),
-                  action.name,
+                );
+              else
+                interactMarkups.push(
+                  div(
+                    { class: "interaction-segment" },
+                    span({ class: "badge bg-secondary" }, "You"),
+                    a({ href: image_url, target: "_blank" }, "File"),
+                  ),
+                );
+            } else
+              interactMarkups.push(
+                div(
+                  { class: "interaction-segment" },
+                  span({ class: "badge bg-secondary" }, "You"),
+                  md.render(interact.content),
                 ),
               );
-          }
-          break;
+            break;
+          case "assistant":
+          case "system":
+            for (const tool_call of interact.tool_calls || []) {
+              const toolSkill = find_tool(
+                tool_call.function?.name,
+                action.configuration,
+              );
+              if (toolSkill) {
+                const row = JSON.parse(tool_call.function.arguments);
+                if (toolSkill.tool.renderToolCall) {
+                  const rendered = await toolSkill.tool.renderToolCall(row, {
+                    req,
+                  });
+                  if (rendered)
+                    interactMarkups.push(
+                      wrapSegment(
+                        wrapCard(
+                          toolSkill.skill.skill_label ||
+                            toolSkill.skill.constructor.skill_name,
+                          rendered,
+                        ),
+                        action.name,
+                      ),
+                    );
+                }
+              }
+            }
+            for (const image_call of interact.content?.image_calls || []) {
+              const toolSkill = find_image_tool(action.configuration);
+              if (toolSkill) {
+                if (toolSkill.tool.renderToolResponse) {
+                  const rendered = await toolSkill.tool.renderToolResponse(
+                    image_call,
+                    {
+                      req,
+                    },
+                  );
+
+                  if (rendered)
+                    interactMarkups.push(
+                      wrapSegment(
+                        wrapCard(
+                          toolSkill.skill.skill_label ||
+                            toolSkill.skill.constructor.skill_name,
+                          rendered,
+                        ),
+                        action.name,
+                      ),
+                    );
+                }
+              }
+            }
+            if (
+              typeof interact.content === "string" ||
+              typeof interact.content?.content === "string"
+            )
+              interactMarkups.push(
+                div(
+                  { class: "interaction-segment" },
+                  span({ class: "badge bg-secondary" }, action.name),
+                  typeof interact.content === "string"
+                    ? md.render(interact.content)
+                    : typeof interact.content?.content === "string"
+                      ? md.render(interact.content.content)
+                      : interact.content,
+                ),
+              );
+            break;
+          case "tool":
+            if (interact.content !== "Action run") {
+              let markupContent;
+              const toolSkill = find_tool(interact.name, action.configuration);
+              try {
+                if (toolSkill?.tool?.renderToolResponse)
+                  markupContent = await toolSkill?.tool?.renderToolResponse?.(
+                    JSON.parse(interact.content),
+                    {
+                      req,
+                    },
+                  );
+              } catch {
+                markupContent = pre(interact.content);
+              }
+              if (markupContent)
+                interactMarkups.push(
+                  wrapSegment(
+                    wrapCard(
+                      toolSkill?.skill?.skill_label ||
+                        toolSkill?.skill?.constructor.skill_name ||
+                        interact.name,
+                      markupContent,
+                    ),
+                    action.name,
+                  ),
+                );
+            }
+            break;
+        }
       }
-    }
     runInteractions = interactMarkups.join("");
   }
   const skill_form_widgets = [];
@@ -736,6 +740,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       context: {
         implemented_fcall_ids: [],
         interactions: [...ini_interacts],
+        html_interactions: [],
         funcalls: {},
         triggering_row_id,
       },
@@ -743,12 +748,18 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
   } else {
     run = await WorkflowRun.findOne({ id: +run_id });
   }
+  let fileBadges = "";
   if (config.image_upload && req.files?.file) {
     const file = await File.from_req_files(
       req.files.file,
       req.user ? req.user.id : null,
       100,
       // file_field?.attributes?.folder
+    );
+    fileBadges = span(
+      { class: "badge text-bg-info" },
+      i({ class: "fas fa-image me-1" }),
+      file.filename,
     );
     const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
     let imageurl;
@@ -774,6 +785,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       ...(run.context.interactions || []),
       { role: "user", content: userinput },
     ],
+    html_interactions: [wrapSegment(p(userinput) + fileBadges, "You")],
   });
   const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
   const process_promise = process_interaction(
