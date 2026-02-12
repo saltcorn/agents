@@ -732,7 +732,8 @@ const run = async (
         e.preventDefault();
         _dragCtr = 0;
         this.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) setAgentFiles(e.dataTransfer.files);
+        const imgs = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (imgs.length) setAgentFiles(imgs);
       });
       document.getElementById('inputuserinput').addEventListener('paste', function(e) {
         const items = e.clipboardData?.items;
