@@ -634,7 +634,7 @@ const run = async (
             '<span class="badge text-bg-info"><i class="fas fa-image me-1"></i>'+f.name+'</span>'
           ).join(" ");
         }
-        $("span.filename-label").text("");
+        $("span.filename-label").text("").removeClass("me-2");
         _agentDT.items.clear();
         $("input#attach_agent_image").val(null);
         $("#sendbuttonicon").attr("class","far fa-paper-plane");
@@ -654,11 +654,25 @@ const run = async (
     function setAgentFiles(files) {
         for (const f of files) _agentDT.items.add(f);
         document.getElementById('attach_agent_image').files = _agentDT.files;
-        const n = _agentDT.files.length;
-        $(".attach_agent_image_wrap span.filename-label").text(
-          n === 1 ? _agentDT.files[0].name : n + " files"
-        );
+        updateFileLabel();
     }
+    function updateFileLabel() {
+        const n = _agentDT.files.length;
+        const $label = $(".attach_agent_image_wrap span.filename-label");
+        if (n === 0) {
+          $label.html("").removeClass("me-2");
+        } else {
+          $label.addClass("me-2");
+          const text = n === 1 ? _agentDT.files[0].name : n + " files";
+          $label.html(text + ' <span class="badge text-bg-secondary" style="cursor:pointer;font-size:.65em;vertical-align:middle" onclick="clearAgentFiles()" title="Remove files">&times;</span>');
+        }
+    }
+    function clearAgentFiles() {
+        _agentDT.items.clear();
+        $("input#attach_agent_image").val(null);
+        updateFileLabel();
+    }
+    window.clearAgentFiles = clearAgentFiles;
     function agent_file_attach(e) {
         _agentDT.items.clear();
         setAgentFiles(e.target.files);
