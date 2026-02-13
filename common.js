@@ -242,12 +242,13 @@ const process_interaction = async (
     interactions: complArgs.chat,
   });
   const responses = [];
-  const add_response = async (resp) => {
+
+  const add_response = async (resp, not_final) => {
     if (dyn_updates)
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
         {
-          eval_js: `processCopilotResponse({response: ${JSON.stringify(resp)}, run_id: ${run.id}})`,
+          eval_js: `processCopilotResponse({response: ${JSON.stringify(resp)}, run_id: ${run.id}}, true)`,
           page_load_tag: req?.headers?.["page-load-tag"],
         },
         [req.user.id],
@@ -484,6 +485,15 @@ const process_interaction = async (
       req.disable_markdown_render
         ? answer
         : wrapSegment(md.render(answer), agent_label),
+    );
+  if (dyn_updates)
+    getState().emitDynamicUpdate(
+      db.getTenantSchema(),
+      {
+        eval_js: `final_agent_response()`,
+        page_load_tag: req?.headers?.["page-load-tag"],
+      },
+      [req.user.id],
     );
 
   return {

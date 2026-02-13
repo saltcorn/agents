@@ -626,7 +626,7 @@ const run = async (
     function get_run_id(elem) {
         return $("input[name=run_id").val()
     }
-    function processCopilotResponse(res) {        
+    function processCopilotResponse(res, not_final) {        
         console.log("processCopilotResponse", res)
         const fileInput = $("input#attach_agent_image")[0];
         let fileBadge = "";
@@ -638,13 +638,13 @@ const run = async (
         $("span.filename-label").text("").removeClass("me-2");
         _agentDT.items.clear();
         $("input#attach_agent_image").val(null);
-        $("#sendbuttonicon").attr("class","far fa-paper-plane");
+        if(!not_final || (!${JSON.stringify(dyn_updates)})) $("#sendbuttonicon").attr("class","far fa-paper-plane");
         const $runidin= $("input[name=run_id")
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
           $runidin.val(res.run_id);
         const wrapSegment = (html, who) => '<div class="interaction-segment"><span class="badge bg-secondary">'+who+'</span>'+html+'</div>'
         const user_input = $("textarea[name=userinput]").val()
-        if(user_input)
+        if(user_input && (!${JSON.stringify(dyn_updates)}))
           $("#copilotinteractions").append(wrapSegment('<p>'+user_input+'</p>'+fileBadge, "You"))
         $("textarea[name=userinput]").val("")
         $('form.agent-view div.next_response_scratch').html("")
@@ -653,6 +653,9 @@ const run = async (
             $("#copilotinteractions").append(res.response)
     }
     window.processCopilotResponse = processCopilotResponse;
+    window.final_agent_response = () => {
+      $("#sendbuttonicon").attr("class","far fa-paper-plane");
+    }
     const _agentDT = new DataTransfer();
     function setAgentFiles(files) {
         for (const f of files) _agentDT.items.add(f);
@@ -865,14 +868,26 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     await saveInteractions(run);
     fileBadges = badges.join("");
   }
+  const userInteractions = wrapSegment(p(userinput) + fileBadges, "You");
+
   await addToContext(run, {
     interactions: [
       ...(run.context.interactions || []),
       { role: "user", content: userinput },
     ],
-    html_interactions: [wrapSegment(p(userinput) + fileBadges, "You")],
+    html_interactions: [userInteractions],
   });
   const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
+  if (dyn_updates) {
+    getState().emitDynamicUpdate(
+      db.getTenantSchema(),
+      {
+        eval_js: `processCopilotResponse({response: ${JSON.stringify(userInteractions)}, run_id: ${run.id}}, true)`,
+        page_load_tag: req?.headers?.["page-load-tag"],
+      },
+      [req.user.id],
+    );
+  }
   const process_promise = process_interaction(
     run,
     action.configuration,
