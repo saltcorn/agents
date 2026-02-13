@@ -45,6 +45,7 @@ const {
   is_debug_mode,
   get_initial_interactions,
   get_skill_instances,
+  saveInteractions,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
@@ -860,10 +861,8 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       await getState().functions.llm_add_message.run("image", imageurl, {
         chat: run.context.interactions || [],
       });
-      await addToContext(run, {
-        interactions: run.context.interactions || [],
-      });
     }
+    await saveInteractions(run);
     fileBadges = badges.join("");
   }
   await addToContext(run, {

@@ -166,6 +166,12 @@ const addToContext = async (run, newCtx) => {
   if (changed && run.update) await run.update({ context: run.context });
 };
 
+const saveInteractions = async (run) => {
+  await addToContext(run, {
+    interactions: run.context.interactions || [],
+  });
+};
+
 const wrapSegment = (html, who) =>
   who === null
     ? html
@@ -497,6 +503,7 @@ module.exports = {
   get_skill_instances,
   getCompletionArguments,
   addToContext,
+  saveInteractions,
   wrapCard,
   wrapSegment,
   process_interaction,
