@@ -172,14 +172,14 @@ const saveInteractions = async (run) => {
   });
 };
 
-const wrapSegment = (html, who) =>
+const wrapSegment = (html, who, to_right) =>
   who === null
     ? html
-    : '<div class="interaction-segment"><span class="badge bg-secondary">' +
+    : `<div class="interaction-segment ${to_right ? "to-right" : ""}"><div><div class="badgewrap"><span class="badge bg-secondary">` +
       who +
-      "</span>" +
+      "</span></div>" +
       html +
-      "</div>";
+      "</div></div>";
 
 const wrapCard = (title, ...inners) =>
   span({ class: "badge bg-info ms-1" }, title) +

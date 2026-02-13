@@ -272,6 +272,7 @@ const run = async (
       interactMarkups.push(...run.context.html_interactions);
     } else
       for (const interact of run.context.interactions) {
+        //legacy
         switch (interact.role) {
           case "user":
             if (interact.content?.[0]?.type === "image_url") {
@@ -551,7 +552,15 @@ const run = async (
       `div.interaction-segment:not(:first-child) {border-top: 1px solid #e7e7e7; }
               div.interaction-segment {padding-top: 5px;padding-bottom: 5px;}
               div.interaction-segment p {margin-bottom: 0px;}
-              div.interaction-segment div.card {margin-top: 0.5rem;}            
+              div.interaction-segment div.card {margin-top: 0.5rem;}
+              div.interaction-segment.to-right {
+              display: flex;             
+    flex-direction: row-reverse;
+}
+    div.interaction-segment.to-right div.badgewrap {
+              display: flex;             
+    flex-direction: row-reverse;
+}
             div.prevcopilotrun:hover {cursor: pointer; background-color: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, gray));}
             div.prevcopilotrun i.fa-trash-alt {display: none;}
             div.prevcopilotrun:hover i.fa-trash-alt {display: block;}
@@ -868,7 +877,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     await saveInteractions(run);
     fileBadges = badges.join("");
   }
-  const userInteractions = wrapSegment(p(userinput) + fileBadges, "You");
+  const userInteractions = wrapSegment(p(userinput) + fileBadges, "You", true);
 
   await addToContext(run, {
     interactions: [
