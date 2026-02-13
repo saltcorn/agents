@@ -169,6 +169,7 @@ const uploadForm = (viewname, req) =>
       type: "file",
       class: "d-none",
       accept: "image/*",
+      multiple: true,
       onchange: `agent_file_attach(event)`,
     }),
     span({ class: "ms-2 filename-label" }),
@@ -584,9 +585,15 @@ const run = async (
               cursor: pointer;
               }
               .copilot-entry span.attach_agent_image_wrap {
-              position: relative; 
+              position: relative;
               top: -1.8rem;
-              left: 0.2rem;              
+              left: 0.2rem;
+            }
+              .copilot-entry.dragover {
+              outline: 2px dashed var(--tblr-primary, #0054a6);
+              outline-offset: -2px;
+              background: var(--tblr-primary-bg-subtle, rgba(0, 84, 166, 0.05));
+              border-radius: 0.25rem;
             }
               .copilot-entry .explainer {
               position: relative; 
@@ -620,9 +627,15 @@ const run = async (
     }
     function processCopilotResponse(res) {        
         console.log("processCopilotResponse", res)
-        const hadFile = $("input#attach_agent_image").val();
-        let fileBadge = hadFile ? '<span class="badge text-bg-info"><i class="fas fa-image me-1"></i>'+$("input#attach_agent_image")[0].files?.item?.(0)?.name||"File"+'</span>': ""
-        $("span.filename-label").text("");
+        const fileInput = $("input#attach_agent_image")[0];
+        let fileBadge = "";
+        if (fileInput?.files?.length) {
+          fileBadge = Array.from(fileInput.files).map(f =>
+            '<span class="badge text-bg-info"><i class="fas fa-image me-1"></i>'+f.name+'</span>'
+          ).join(" ");
+        }
+        $("span.filename-label").text("").removeClass("me-2");
+        _agentDT.items.clear();
         $("input#attach_agent_image").val(null);
         $("#sendbuttonicon").attr("class","far fa-paper-plane");
         const $runidin= $("input[name=run_id")
@@ -639,8 +652,32 @@ const run = async (
             $("#copilotinteractions").append(res.response)
     }
     window.processCopilotResponse = processCopilotResponse;
+    const _agentDT = new DataTransfer();
+    function setAgentFiles(files) {
+        for (const f of files) _agentDT.items.add(f);
+        document.getElementById('attach_agent_image').files = _agentDT.files;
+        updateFileLabel();
+    }
+    function updateFileLabel() {
+        const n = _agentDT.files.length;
+        const $label = $(".attach_agent_image_wrap span.filename-label");
+        if (n === 0) {
+          $label.html("").removeClass("me-2");
+        } else {
+          $label.addClass("me-2");
+          const text = n === 1 ? _agentDT.files[0].name : n + " files";
+          $label.html(text + ' <span class="badge text-bg-secondary" style="cursor:pointer;font-size:.65em;vertical-align:middle" onclick="clearAgentFiles()" title="Remove files">&times;</span>');
+        }
+    }
+    function clearAgentFiles() {
+        _agentDT.items.clear();
+        $("input#attach_agent_image").val(null);
+        updateFileLabel();
+    }
+    window.clearAgentFiles = clearAgentFiles;
     function agent_file_attach(e) {
-        $(".attach_agent_image_wrap span.filename-label").text(e.target.files[0].name)
+        _agentDT.items.clear();
+        setAgentFiles(e.target.files);
     }
     function restore_old_button_elem(btn) {
         const oldText = $(btn).data("old-text");
@@ -692,6 +729,44 @@ const run = async (
         }        
     }
     document.getElementById("inputuserinput").addEventListener("keydown", submitOnEnter);
+    if (document.getElementById('attach_agent_image')) {
+      let _dragCtr = 0;
+      const _copilotEntry = document.querySelector('.copilot-entry');
+      _copilotEntry.addEventListener('dragover', function(e) {
+        e.preventDefault();
+      });
+      _copilotEntry.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        _dragCtr++;
+        this.classList.add('dragover');
+      });
+      _copilotEntry.addEventListener('dragleave', function(e) {
+        _dragCtr--;
+        if (_dragCtr === 0) this.classList.remove('dragover');
+      });
+      _copilotEntry.addEventListener('drop', function(e) {
+        e.preventDefault();
+        _dragCtr = 0;
+        this.classList.remove('dragover');
+        const imgs = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (imgs.length) setAgentFiles(imgs);
+      });
+      document.getElementById('inputuserinput').addEventListener('paste', function(e) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        const pastedFiles = [];
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) pastedFiles.push(file);
+          }
+        }
+        if (pastedFiles.length) {
+          e.preventDefault();
+          setAgentFiles(pastedFiles);
+        }
+      });
+    }
     function spin_send_button() {
       $("#sendbuttonicon").attr("class","fas fa-spinner fa-spin");
     };`,
@@ -753,35 +828,43 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
   }
   let fileBadges = "";
   if (config.image_upload && req.files?.file) {
-    const file = await File.from_req_files(
-      req.files.file,
-      req.user ? req.user.id : null,
-      100,
-      // file_field?.attributes?.folder
-    );
-    fileBadges = span(
-      { class: "badge text-bg-info" },
-      i({ class: "fas fa-image me-1" }),
-      file.filename,
-    );
-    const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
-    let imageurl;
-    if (
-      !config.image_base64 &&
-      baseUrl &&
-      !baseUrl.includes("http://localhost:")
-    ) {
-      imageurl = `${baseUrl}/files/serve/${file.path_to_serve}`;
-    } else {
-      const b64 = await file.get_contents("base64");
-      imageurl = `data:${file.mimetype};base64,${b64}`;
+    const rawFiles = Array.isArray(req.files.file)
+      ? req.files.file
+      : [req.files.file];
+    const badges = [];
+    for (const rawFile of rawFiles) {
+      const file = await File.from_req_files(
+        rawFile,
+        req.user ? req.user.id : null,
+        100,
+      );
+      badges.push(
+        span(
+          { class: "badge text-bg-info" },
+          i({ class: "fas fa-image me-1" }),
+          file.filename,
+        ),
+      );
+      const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
+      let imageurl;
+      if (
+        !config.image_base64 &&
+        baseUrl &&
+        !baseUrl.includes("http://localhost:")
+      ) {
+        imageurl = `${baseUrl}/files/serve/${file.path_to_serve}`;
+      } else {
+        const b64 = await file.get_contents("base64");
+        imageurl = `data:${file.mimetype};base64,${b64}`;
+      }
+      await getState().functions.llm_add_message.run("image", imageurl, {
+        chat: run.context.interactions || [],
+      });
+      await addToContext(run, {
+        interactions: run.context.interactions || [],
+      });
     }
-    await getState().functions.llm_add_message.run("image", imageurl, {
-      chat: run.context.interactions || [],
-    });
-    await addToContext(run, {
-      interactions: run.context.interactions || [],
-    });
+    fileBadges = badges.join("");
   }
   await addToContext(run, {
     interactions: [
