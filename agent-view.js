@@ -49,6 +49,7 @@ const {
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
+const { isWeb } = require("@saltcorn/data/utils");
 
 const configuration_workflow = (req) =>
   new Workflow({
@@ -682,7 +683,11 @@ const run = async (
         } else {
           $label.addClass("me-2");
           const text = n === 1 ? _agentDT.files[0].name : n + " files";
-          $label.html(text + ' <span class="badge text-bg-secondary" style="cursor:pointer;font-size:.65em;vertical-align:middle" onclick="clearAgentFiles()" title="Remove files">&times;</span>');
+          $label.html(${
+            isWeb(req)
+              ? `text + ' <span class="badge text-bg-secondary" style="cursor:pointer;font-size:.65em;vertical-align:middle" onclick="clearAgentFiles()" title="Remove files">&times;</span>'`
+              : `'<span style="max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">' + text + '</span> <span class="badge text-bg-secondary" style="cursor:pointer;font-size:.65em;vertical-align:middle" onclick="clearAgentFiles()" title="Remove files">&times;</span>'`
+          });
         }
     }
     function clearAgentFiles() {
