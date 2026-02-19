@@ -487,7 +487,7 @@ const run = async (
     ? div(
         div(
           {
-            class: "d-flex justify-content-between align-middle mb-2",
+            class: "d-flex flex-wrap justify-content-between align-middle mb-2",
           },
           div(
             { class: "d-flex" },
@@ -500,7 +500,7 @@ const run = async (
           button(
             {
               type: "button",
-              class: "btn btn-secondary btn-sm py-0",
+              class: "btn btn-secondary btn-sm pt-0 pb-1",
               style: "font-size: 0.9em;height:1.5em",
               onclick: "unset_state_field('run_id')",
               title: "New session",
@@ -516,7 +516,10 @@ const run = async (
             },
             div(
               { class: "d-flex justify-content-between" },
-              localeDateTime(run.started_at),
+              span(
+                { class: "text-truncate", style: "min-width:0" },
+                localeDateTime(run.started_at),
+              ),
               i({
                 class: "far fa-trash-alt",
                 onclick: `delprevrun(event, ${run.id})`,
@@ -1051,4 +1054,5 @@ module.exports = {
   table_optional: true,
   run,
   routes: { interact, delprevrun, debug_info, skillroute, execute_user_action },
+  mobile_render_server_side: true,
 };

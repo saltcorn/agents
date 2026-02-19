@@ -18,6 +18,7 @@ module.exports = {
   dependencies: ["@saltcorn/large-language-model"],
   viewtemplates: [require("./agent-view")],
   plugin_name: "agents",
+  ready_for_mobile: true,
   headers: [
     {
       script: `/plugins/public/agents@${
