@@ -31,6 +31,7 @@ const {
   label,
   a,
   br,
+  img,
 } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const {
@@ -50,6 +51,7 @@ const {
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
 const { isWeb } = require("@saltcorn/data/utils");
+const path = require("path");
 
 const configuration_workflow = (req) =>
   new Workflow({
@@ -860,9 +862,13 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
         100,
       );
       badges.push(
-        span(
-          { class: "badge text-bg-info" },
-          i({ class: "fas fa-image me-1" }),
+        div(
+          { class: "bg-secondary-subtle p-2 m-2 rounded-2" },
+          img({
+            src: `/files/resize/${50}/${50}/${file.path_to_serve}`,
+            class: "d-block",
+            onclick: `expand_thumbnail('${file.path_to_serve}', '${path.basename(file.path_to_serve)}')`,
+          }),
           file.filename,
         ),
       );
@@ -883,7 +889,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       });
     }
     await saveInteractions(run);
-    fileBadges = badges.join("");
+    fileBadges = div({ class: "d-flex" }, badges);
   }
   const userInteractions = wrapSegment(p(userinput) + fileBadges, "You", true);
 
