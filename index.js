@@ -54,6 +54,8 @@ module.exports = {
           action,
         };
       },
+      isAsync: true,
+      description: "Return system prompt, tools and action of an agent",
     },
     agent_generate: {
       run: async (agent_name, prompt, opts = {}) => {
