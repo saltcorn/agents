@@ -37,6 +37,24 @@ module.exports = {
     Agent: require("./action"),
   },
   functions: {
+    inspect_agent: {
+      run: async (agent, user, row) => {
+        const action = agent.runWithoutRow
+          ? agent
+          : await Trigger.findOne(
+              typeof agent == "number" ? { id: agent } : { name: agent },
+            );
+        const complArgs = await getCompletionArguments(
+          action.configuration,
+          user,
+          row,
+        );
+        return {
+          ...complArgs,
+          action,
+        };
+      },
+    },
     agent_generate: {
       run: async (agent_name, prompt, opts = {}) => {
         const action = await Trigger.findOne({ name: agent_name });
