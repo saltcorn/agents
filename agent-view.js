@@ -227,6 +227,7 @@ const run = async (
   viewname,
   {
     action_id,
+    agent_action,
     show_prev_runs,
     prev_runs_closed,
     placeholder,
@@ -239,7 +240,7 @@ const run = async (
   state,
   { res, req },
 ) => {
-  const action = await Trigger.findOne({ id: action_id });
+  const action = agent_action || await Trigger.findOne({ id: action_id });
   if (!action) throw new Error(`Action not found: ${action_id}`);
   const prevRuns = show_prev_runs
     ? (
@@ -819,7 +820,7 @@ const run = async (
 
 const interact = async (table_id, viewname, config, body, { req, res }) => {
   const { userinput, run_id, triggering_row_id } = body;
-  const action = await Trigger.findOne({ id: config.action_id });
+  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
 
   let run;
   let triggering_row;
@@ -950,7 +951,7 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
 
 const debug_info = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id, triggering_row_id } = body;
-  const action = await Trigger.findOne({ id: config.action_id });
+  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
   let triggering_row;
   if (table_id && triggering_row_id) {
     const table = Table.findOne(table_id);
@@ -992,7 +993,7 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
 
 const skillroute = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id, triggering_row_id, skillid } = body;
-  const action = await Trigger.findOne({ id: config.action_id });
+  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
   let triggering_row;
   if (table_id && triggering_row_id) {
     const table = Table.findOne(table_id);
@@ -1029,7 +1030,7 @@ const execute_user_action = async (
 ) => {
   const { run_id, rndid, uaname } = body;
 
-  const action = await Trigger.findOne({ id: config.action_id });
+  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
   const run = await WorkflowRun.findOne({ id: +run_id });
   //console.log("run uas",run.context.user_actions );
 
