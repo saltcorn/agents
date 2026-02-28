@@ -7,6 +7,7 @@ const {
   get_skills,
   getCompletionArguments,
   process_interaction,
+  get_skill_instances,
 } = require("./common");
 const { applyAsync } = require("@saltcorn/data/utils");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
@@ -49,9 +50,22 @@ module.exports = {
           user,
           row,
         );
+        const skills = get_skill_instances(action.configuration);
+        const skill_tools = [];
+        for (const skill of skills) {
+          const skillTools = skill.provideTools?.();
+          const tools = !skillTools
+            ? []
+            : Array.isArray(skillTools)
+              ? skillTools
+              : [skillTools];
+          skill_tools.push(...tools);
+        }
         return {
           ...complArgs,
           action,
+          skills,
+          skill_tools,
         };
       },
       isAsync: true,
