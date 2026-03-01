@@ -48,15 +48,15 @@ class RunJsCodeSkill {
         if (!enabled) {
           sysState.log(
             5,
-            "emit_to_client called, but dynamic updates are disabled"
+            "emit_to_client called, but dynamic updates are disabled",
           );
           return;
         }
         const safeIds = Array.isArray(userIds)
           ? userIds
           : userIds
-          ? [userIds]
-          : [];
+            ? [userIds]
+            : [];
         sysState.emitDynamicUpdate(db.getTenantSchema(), data, safeIds);
       },
       tryCatchInTransaction: db.tryCatchInTransaction,
@@ -184,19 +184,21 @@ class RunJsCodeSkill {
           class: ["btn btn-outline-secondary btn-sm me-1", klass],
           onclick: `view_post('${viewname}', 'skillroute', {skillid: '${this.skillid}', triggering_row_id: $('input[name=triggering_row_id').val(), run_id: get_run_id(this)});`,
         },
-        this.button_label
+        this.button_label,
       );
   }
 
   provideTools = () => {
     if (this.mode === "Button") return;
     let properties = {};
-    (this.toolargs || []).forEach((arg) => {
-      properties[arg.name] = {
-        description: arg.description,
-        type: arg.argtype,
-      };
-    });
+    (this.toolargs || [])
+      .filter((arg) => arg.name)
+      .forEach((arg) => {
+        properties[arg.name] = {
+          description: arg.description,
+          type: arg.argtype,
+        };
+      });
     return {
       type: "function",
       process: async (row, { req }) => {
@@ -209,7 +211,9 @@ class RunJsCodeSkill {
         ? async (response, { req }) => {
             return div(
               { class: "border border-success p-2 m-2" },
-              typeof response === "string" ? response : JSON.stringify(response)
+              typeof response === "string"
+                ? response
+                : JSON.stringify(response),
             );
           }
         : undefined,
@@ -218,7 +222,7 @@ class RunJsCodeSkill {
         description: this.tool_description,
         parameters: {
           type: "object",
-          required: (this.toolargs || []).map((a) => a.name),
+          required: (this.toolargs || []).filter((arg) => arg.name).map((a) => a.name),
           properties,
         },
       },
