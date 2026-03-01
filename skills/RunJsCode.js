@@ -200,7 +200,7 @@ class RunJsCodeSkill {
     return {
       type: "function",
       process: async (row, { req }) => {
-        return await this.runCode({ row, user: req.user.req });
+        return await this.runCode({ row, user: req.user });
       },
       /*renderToolCall({ phrase }, { req }) {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
