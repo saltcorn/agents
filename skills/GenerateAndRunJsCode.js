@@ -141,7 +141,7 @@ class GenerateAndRunJsCodeSkill {
 ${this.code_description}
          
 The code you write can use await at the top level, and should return 
-(at the top level) a string with the response which will be show to the user.`,
+(at the top level) a string with the response which will be shown to the user.`,
         );
         //console.log("gen answer", str);
 
