@@ -124,7 +124,7 @@ class GenerateAndRunJsCodeSkill {
           `You will now be asked to write JavaScript code.          
 ${this.code_description ? "\nSome more information: " + this.code_description : ""}
 ${this.allow_fetch ? "\nYou can use the standard fetch JavaScript function to make HTTP(S) requests." : ""}
-${this.allow_table ? getTablePrompt() : ""}
+${this.allow_table ? getTablePrompt(this.read_only) : ""}
 
 The code you write can use await at the top level, and should return 
 (at the top level) a string (which can contain HTML tags) with the response which will be shown to the user.
@@ -157,7 +157,7 @@ Now generate the JavaScript code required by the user.`,
   };
 }
 
-const getTablePrompt = (can_write) => {
+const getTablePrompt = (read_only) => {
   const state = getState();
   const tables = state.tables;
   const tableLines = [];
@@ -344,7 +344,9 @@ the criterion to match to. Some examples:
 
 There are two nearly identical functions for updating rows depending on how you want failures treated
 
-updateRow Update a row in the database table, throws an exception if update is invalid
+${
+  !read_only
+    ? `updateRow Update a row in the database table, throws an exception if update is invalid
 
 updateRow(v_in, id, user?): Promise<string | void>
 Update row
@@ -408,7 +410,9 @@ Optional user: Row
 optional user, if null then no authorization will be checked
 
 Optional noTrigger: boolean
-Returns Promise<void>
+Returns Promise<void>`
+    : ""
+}
 
 The following tables are present in the database:
 
