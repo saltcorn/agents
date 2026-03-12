@@ -652,7 +652,7 @@ const run = async (
           ).join(" ");
         }
         $("span.filename-label").text("").removeClass("me-2");
-        _agentDT.items.clear();
+        window._agentDT.items.clear();
         $("input#attach_agent_image").val(null);
         if(!not_final || (!${JSON.stringify(dyn_updates)})) $("#sendbuttonicon").attr("class","far fa-paper-plane");
         const $runidin= $("input[name=run_id")
@@ -672,20 +672,20 @@ const run = async (
     window.final_agent_response = () => {
       $("#sendbuttonicon").attr("class","far fa-paper-plane");
     }
-    const _agentDT = new DataTransfer();
+    window._agentDT = new DataTransfer();
     function setAgentFiles(files) {
-        for (const f of files) _agentDT.items.add(f);
-        document.getElementById('attach_agent_image').files = _agentDT.files;
+        for (const f of files) window._agentDT.items.add(f);
+        document.getElementById('attach_agent_image').files = window._agentDT.files;
         updateFileLabel();
     }
     function updateFileLabel() {
-        const n = _agentDT.files.length;
+        const n = window._agentDT.files.length;
         const $label = $(".attach_agent_image_wrap span.filename-label");
         if (n === 0) {
           $label.html("").removeClass("me-2");
         } else {
           $label.addClass("me-2");
-          const text = n === 1 ? _agentDT.files[0].name : n + " files";
+          const text = n === 1 ? window._agentDT.files[0].name : n + " files";
           $label.html(${
             isWeb(req)
               ? `text + ' <span class="badge text-bg-secondary" style="cursor:pointer;font-size:.65em;vertical-align:middle" onclick="clearAgentFiles()" title="Remove files">&times;</span>'`
@@ -694,13 +694,13 @@ const run = async (
         }
     }
     function clearAgentFiles() {
-        _agentDT.items.clear();
+        window._agentDT.items.clear();
         $("input#attach_agent_image").val(null);
         updateFileLabel();
     }
     window.clearAgentFiles = clearAgentFiles;
     function agent_file_attach(e) {
-        _agentDT.items.clear();
+        window._agentDT.items.clear();
         setAgentFiles(e.target.files);
     }
     function restore_old_button_elem(btn) {
