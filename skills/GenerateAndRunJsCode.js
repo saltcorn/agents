@@ -35,7 +35,7 @@ class GenerateAndRunJsCodeSkill {
   async runCode(code, { user, req, ...rest }) {
     const sysState = getState();
 
-    const f = vm.runInNewContext(`async () => {${this.js_code}\n}`, {
+    const f = vm.runInNewContext(`async () => {${code}\n}`, {
       Table,
       user,
       console,
@@ -79,7 +79,6 @@ class GenerateAndRunJsCodeSkill {
       request_headers: req?.headers,
       page_load_tag: req?.headers?.["page-load-tag"],
       request_ip: req?.ip,
-      ...(row || {}),
       ...sysState.eval_context,
       ...rest,
     });
@@ -116,10 +115,9 @@ class GenerateAndRunJsCodeSkill {
       },
       {
         name: "add_sys_prompt",
-        label: "Additional prompt",
+        label: "Additional system prompt",
         type: "String",
         fieldview: "textarea",
-        showIf: { mode: "Tool" },
       },
     ];
   }
@@ -134,20 +132,28 @@ class GenerateAndRunJsCodeSkill {
       /*renderToolCall({ phrase }, { req }) {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
       },*/
-      postProcess: async ({ tool_call, req, generate }) => {
+      postProcess: async ({ tool_call, req, generate, ...rest }) => {
+        //console.log("postprocess args", { tool_call, ...rest });
+
         const str = await generate(
-          `Now generate the code required by the user. Some more information:
+          `Now generate the JavaScript code required by the user. Some more information:
           
 ${this.code_description}
          
 The code you write can use await at the top level, and should return 
 (at the top level) a string with the response which will be show to the user.`,
         );
+        //console.log("gen answer", str);
+
         const js_code = str.includes("```javascript")
           ? str.split("```javascript")[1].split("```")[0]
           : str;
+
         const res = await this.runCode(js_code, { user: req.user });
+        //console.log("code response", res);
+
         return {
+          stop: true,
           add_response: res,
         };
       },
