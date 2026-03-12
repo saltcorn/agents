@@ -36,6 +36,7 @@ const get_skills = () => {
     require("./skills/PromptPicker"),
     require("./skills/RunJsCode"),
     require("./skills/GenerateAndRunJsCode"),
+    require("./skills/Fetch"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];

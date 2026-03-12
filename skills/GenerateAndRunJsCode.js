@@ -27,9 +27,7 @@ class GenerateAndRunJsCodeSkill {
   }
 
   constructor(cfg) {
-    Object.assign(this, cfg);
-    if (this.mode === "Button")
-      this.skillid = `jsbtn${validID(this.button_label || "jscodebtn")}`;
+    Object.assign(this, cfg);    
   }
 
   async runCode(code, { user, req }) {
