@@ -97,13 +97,15 @@ class GenerateAndRunJsCodeSkill {
         type: "Bool",
       },
       ...(Table.subClass
-        ? {
-            name: "table_read_only",
-            label: "Read only?",
-            type: "Bool",
-            showIf: { allow_table: true },
-          }
-        : {}),
+        ? [
+            {
+              name: "table_read_only",
+              label: "Read only?",
+              type: "Bool",
+              showIf: { allow_table: true },
+            },
+          ]
+        : []),
     ];
   }
 
