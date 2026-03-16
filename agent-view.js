@@ -533,9 +533,11 @@ const run = async (
 
             p(
               { class: "prevrun_content" },
-              run.context.interactions
-                .find((i) => typeof i?.content === "string")
-                ?.content?.substring?.(0, 80),
+              escapeHtml(
+                run.context.interactions
+                  .find((i) => typeof i?.content === "string")
+                  ?.content?.substring?.(0, 80),
+              ),
             ),
           ),
         ),
@@ -894,7 +896,11 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     await saveInteractions(run);
     fileBadges = div({ class: "d-flex" }, badges);
   }
-  const userInteractions = wrapSegment(p(userinput) + fileBadges, "You", true);
+  const userInteractions = wrapSegment(
+    p(escapeHtml(userinput)) + fileBadges,
+    "You",
+    true,
+  );
 
   await addToContext(run, {
     interactions: [
