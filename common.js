@@ -431,7 +431,7 @@ const process_interaction = async (
                   { role: "system", content: postprocres.add_system_prompt },
                 ],
               });
-            if (postprocres.add_response)
+            if (postprocres.add_response) {
               add_response(
                 wrapSegment(
                   wrapCard(
@@ -441,6 +441,26 @@ const process_interaction = async (
                   agent_label,
                 ),
               );
+              //replace tool response with this
+              // run.context.interactions.forEach((ic) => {});
+              const result = postprocres.add_response;
+              await sysState.functions.llm_add_message.run(
+                "tool_response",
+                !result || typeof result === "string"
+                  ? {
+                      type: "text",
+                      value: result || "Action run",
+                    }
+                  : {
+                      type: "json",
+                      value: JSON.parse(JSON.stringify(result)),
+                    },
+                {
+                  chat: run.context.interactions,
+                  tool_call,
+                },
+              );
+            }
             if (postprocres.add_user_action && viewname) {
               const user_actions = Array.isArray()
                 ? postprocres.add_user_action

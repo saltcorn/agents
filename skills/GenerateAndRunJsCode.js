@@ -141,7 +141,7 @@ Now generate the JavaScript code required by the user.`,
         //console.log("code response", res);
 
         return {
-          stop: true,
+          //stop: true,
           add_response: res,
         };
       },
