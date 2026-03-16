@@ -32,6 +32,7 @@ const {
   a,
   br,
   img,
+  text,
 } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const {
@@ -50,7 +51,7 @@ const {
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt();
-const { isWeb } = require("@saltcorn/data/utils");
+const { isWeb, escapeHtml } = require("@saltcorn/data/utils");
 const path = require("path");
 
 const configuration_workflow = (req) =>
@@ -240,7 +241,7 @@ const run = async (
   state,
   { res, req },
 ) => {
-  const action = agent_action || await Trigger.findOne({ id: action_id });
+  const action = agent_action || (await Trigger.findOne({ id: action_id }));
   if (!action) throw new Error(`Action not found: ${action_id}`);
   const prevRuns = show_prev_runs
     ? (
@@ -820,7 +821,8 @@ const run = async (
 
 const interact = async (table_id, viewname, config, body, { req, res }) => {
   const { userinput, run_id, triggering_row_id } = body;
-  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
+  const action =
+    config.agent_action || (await Trigger.findOne({ id: config.action_id }));
 
   let run;
   let triggering_row;
@@ -951,7 +953,8 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
 
 const debug_info = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id, triggering_row_id } = body;
-  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
+  const action =
+    config.agent_action || (await Trigger.findOne({ id: config.action_id }));
   let triggering_row;
   if (table_id && triggering_row_id) {
     const table = Table.findOne(table_id);
@@ -974,10 +977,12 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     sysPrompt = complArgs.systemPrompt;
   }
   const debug_html = div(
-    div(h4("System prompt"), pre(sysPrompt)),
+    div(h4("System prompt"), pre(text(escapeHtml(sysPrompt)))),
     div(
       h4("API interactions"),
-      pre(JSON.stringify(run.context.api_interactions, null, 2)),
+      pre(
+        text(escapeHtml(JSON.stringify(run.context.api_interactions, null, 2))),
+      ),
     ),
   );
   if (run && req.user?.role_id === 1)
@@ -993,7 +998,8 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
 
 const skillroute = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id, triggering_row_id, skillid } = body;
-  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
+  const action =
+    config.agent_action || (await Trigger.findOne({ id: config.action_id }));
   let triggering_row;
   if (table_id && triggering_row_id) {
     const table = Table.findOne(table_id);
@@ -1030,7 +1036,8 @@ const execute_user_action = async (
 ) => {
   const { run_id, rndid, uaname } = body;
 
-  const action = config.agent_action || await Trigger.findOne({ id: config.action_id });
+  const action =
+    config.agent_action || (await Trigger.findOne({ id: config.action_id }));
   const run = await WorkflowRun.findOne({ id: +run_id });
   //console.log("run uas",run.context.user_actions );
 
