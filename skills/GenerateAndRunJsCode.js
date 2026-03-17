@@ -27,7 +27,7 @@ class GenerateAndRunJsCodeSkill {
   }
 
   constructor(cfg) {
-    Object.assign(this, cfg);    
+    Object.assign(this, cfg);
   }
 
   async runCode(code, { user, req }) {
@@ -42,6 +42,7 @@ class GenerateAndRunJsCodeSkill {
           }
         : {}),
       ...(this.allow_fetch ? { fetch } : {}),
+      ...(this.allow_functions ? sysState.eval_context : {}),
       user,
       console,
       sleep,
@@ -92,6 +93,11 @@ class GenerateAndRunJsCodeSkill {
       {
         name: "allow_table",
         label: "Allow access to tables",
+        type: "Bool",
+      },
+      {
+        name: "allow_functions",
+        label: "Allow calls to functions from codepages and modules",
         type: "Bool",
       },
       ...(Table.subClass
