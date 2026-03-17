@@ -22,8 +22,9 @@ class SubagentToSkill {
 
   systemPrompt() {
     const trigger = Trigger.findOne({ name: this.agent_name });
-
-    return `${this.agent_name} tool: ${trigger.description}`;
+    if (trigger.description)
+      return `${this.agent_name} tool: ${trigger.description}`;
+    else return "";
   }
 
   static async configFields() {
