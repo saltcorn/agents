@@ -146,7 +146,10 @@ The code you write can use await at the top level, and should return
 
 Now generate the JavaScript code required by the user.`,
         );
-        getState().log(6, "Generated code: \n" + str);
+        getState().log(
+          6,
+          "Generated code:\n--BEGIN CODE--\n" + str + "\n--END CODE--\n",
+        );
         const js_code = str.includes("```javascript")
           ? str.split("```javascript")[1].split("```")[0]
           : str;
