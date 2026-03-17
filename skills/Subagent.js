@@ -67,8 +67,8 @@ class SubagentToSkill {
       postProcess: async ({ tool_call, req, generate, emit_update, run }) => {
         const result = await agent_action.run({
           row: {},
-          configuration: trigger.configuration,
-          user,
+          configuration: {...trigger.configuration, prompt: "continue"},
+          user: req.user,
           run_id: run.id,
           req,
         });

@@ -52,7 +52,7 @@ for (const nameconfig of require("./configs")) {
     it("generates text", async () => {
       const result = await action.run({
         row: { theprompt: "What is the word of the day?" },
-        configuration: require("./agentcfg"),
+        configuration: require("./agentcfg").agent1,
         user,
         req: { user },
       });
@@ -67,7 +67,7 @@ for (const nameconfig of require("./configs")) {
           theprompt:
             "How many pages are there in the book by Herman Melville in the database?",
         },
-        configuration: require("./agentcfg"),
+        configuration: require("./agentcfg").agent1,
         user,
         run_id: run.id,
         req: { ...mockReqRes.req, user },

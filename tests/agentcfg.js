@@ -1,4 +1,4 @@
-module.exports = {
+const agent1 = {
   model: "",
   prompt: "{{theprompt}}",
   skills: [
@@ -44,3 +44,5 @@ module.exports = {
   ],
   sys_prompt: "",
 };
+
+module.exports = { agent1 };
