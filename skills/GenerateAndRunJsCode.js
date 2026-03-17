@@ -123,9 +123,15 @@ class GenerateAndRunJsCodeSkill {
       /*renderToolCall({ phrase }, { req }) {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
       },*/
-      postProcess: async ({ tool_call, req, generate, ...rest }) => {
+      postProcess: async ({
+        tool_call,
+        req,
+        generate,
+        emit_update,
+        ...rest
+      }) => {
         //console.log("postprocess args", { tool_call, ...rest });
-
+        emit_update("Generating code");
         const str = await generate(
           `You will now be asked to write JavaScript code.          
 ${this.code_description ? "\nSome more information: " + this.code_description : ""}
@@ -137,15 +143,14 @@ The code you write can use await at the top level, and should return
 
 Now generate the JavaScript code required by the user.`,
         );
-        //console.log("gen answer", str);
-
+        getState().log(6, "Generated code: \n" + str);
         const js_code = str.includes("```javascript")
           ? str.split("```javascript")[1].split("```")[0]
           : str;
-
+        emit_update("Running code");
         const res = await this.runCode(js_code, { user: req.user });
         //console.log("code response", res);
-
+        getState().log(6, "Code answer: " + JSON.stringify(res));
         return {
           //stop: true,
           add_response: res,

@@ -418,6 +418,17 @@ const process_interaction = async (
                   ...opts,
                 });
               },
+              emit_update(s) {
+                if (!stream || !viewname) return;
+                const view = View.findOne({ name: viewname });
+                const pageLoadTag = req.body.page_load_tag;
+                view.emitRealTimeEvent(
+                  `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
+                  {
+                    content: s,
+                  },
+                );
+              },
             });
             if (generateUsed)
               await addToContext(run, {
