@@ -144,6 +144,16 @@ ${this.allow_table ? getTablePrompt(this.read_only) : ""}
 The code you write can use await at the top level, and should return 
 (at the top level) a string (which can contain HTML tags) with the response which will be shown to the user.
 
+Example:
+
+\`\`\`javascript
+
+const x = await myAsyncFunction()
+const y = await anotherAsyncFunction(x)
+
+return \`The eggs are \${x} and the why is \${y}\`
+\`\`\`
+
 Now generate the JavaScript code required by the user.`,
         );
         getState().log(
