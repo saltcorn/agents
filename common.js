@@ -251,7 +251,7 @@ const process_interaction = async (
       }
     };
   }
-  const answer = await sysState.functions.llm_generate.run("", complArgs);
+  const answer = await sysState.functions.llm_generate.run("Continue", complArgs);
 
   //console.log("answer", answer);
 
@@ -483,7 +483,7 @@ const process_interaction = async (
               // run.context.interactions.forEach((ic) => {});
               const result = postprocres.add_response;
               await sysState.functions.llm_add_message.run(
-                "tool_response",
+                "assistant",
                 !result || typeof result === "string"
                   ? {
                       type: "text",
@@ -495,7 +495,16 @@ const process_interaction = async (
                     },
                 {
                   chat: run.context.interactions,
-                  tool_call,
+                },
+              );
+              await sysState.functions.llm_add_message.run(
+                "user",
+                {
+                  type: "text",
+                  value: "Continue",
+                },
+                {
+                  chat: run.context.interactions,
                 },
               );
             }
