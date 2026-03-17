@@ -31,4 +31,13 @@ module.exports = [
     temperature: 0.7,
     ai_sdk_provider: "OpenAI",
   },
+  {
+    name: "AI SDK Anthropic",
+    model: "claude-sonnet-4-6",
+    api_key: process.env.ANTHROPIC_API_KEY,
+    backend: "AI SDK",
+    image_model: "gpt-image-1",
+    temperature: 0.7,
+    ai_sdk_provider: "Anthropic",
+  },
 ];
