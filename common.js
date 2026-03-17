@@ -37,6 +37,7 @@ const get_skills = () => {
     require("./skills/RunJsCode"),
     require("./skills/GenerateAndRunJsCode"),
     require("./skills/Fetch"),
+    require("./skills/Subagent"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
@@ -434,6 +435,7 @@ const process_interaction = async (
               result,
               chat,
               req,
+              run,
               async generate(prompt, opts = {}) {
                 generateUsed = true;
                 return await sysState.functions.llm_generate.run(prompt, {
