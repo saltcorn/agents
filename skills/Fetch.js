@@ -33,6 +33,9 @@ class FetchSkill {
   static async configFields() {
     return [];
   }
+  systemPrompt() {
+    return "If you need to retrieve the contents of a web page, use the fetch_web_page to make a GET request to a specified URL.";
+  }
 
   provideTools = () => {
     return {
