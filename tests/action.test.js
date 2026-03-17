@@ -3,6 +3,7 @@ const View = require("@saltcorn/data/models/view");
 const WorkflowRuns = require("@saltcorn/data/models/workflow_run");
 const Table = require("@saltcorn/data/models/table");
 const Plugin = require("@saltcorn/data/models/plugin");
+const Trigger = require("@saltcorn/data/models/trigger");
 
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
 const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
@@ -20,6 +21,16 @@ beforeAll(async () => {
   await require("@saltcorn/data/db/fixtures")();
 
   getState().registerPlugin("base", require("@saltcorn/data/base-plugin"));
+
+  await Trigger.create({
+    name: "MathsAgent",
+    description: "Answer questions about arithmetic",
+    action: "Agent",
+    when_trigger: "Never",
+    configuration: require("./agentcfg").maths_agent_cfg,
+  });
+
+  await getState().refresh_triggers(false);
 });
 
 jest.setTimeout(30000);
@@ -74,6 +85,15 @@ for (const nameconfig of require("./configs")) {
       });
       expect(result.json.response).toContain("967");
       //const run1 = await WorkflowRuns.findOne({});
+    });
+    it("run subagent", async () => {
+      const result = await action.run({
+        row: { theprompt: "What is the 48th Fibonacci number?" },
+        configuration: require("./agentcfg").agent1,
+        user,
+        req: { user },
+      });
+      expect(result.json.response).toBe(1);
     });
   });
   //break;
