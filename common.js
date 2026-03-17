@@ -326,10 +326,9 @@ const process_interaction = async (
           let stop = false,
             myHasResult = false;
           if (stream && viewname) {
-            let content = span(
-              { class: "badge text-bg-secondary me-1" },
-              tool.skill.skill_label || tool.skill.constructor.skill_name,
-            );
+            let content =
+              (tool.skill.skill_label || tool.skill.constructor.skill_name) +
+              "&nbsp;";
             const view = View.findOne({ name: viewname });
             const pageLoadTag = req.body.page_load_tag;
             view.emitRealTimeEvent(
@@ -426,7 +425,7 @@ const process_interaction = async (
                 view.emitRealTimeEvent(
                   `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
                   {
-                    content: span({ class: "badge text-bg-secondary me-1" }, s),
+                    content: s + "&nbsp;",
                   },
                 );
               },
