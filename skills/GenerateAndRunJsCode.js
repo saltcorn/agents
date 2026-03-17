@@ -47,6 +47,9 @@ class GenerateAndRunJsCodeSkill {
       console,
       sleep,
       setTimeout,
+      URL,
+      Buffer,
+      console,
     });
     return await f();
   }
