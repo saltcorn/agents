@@ -86,14 +86,23 @@ for (const nameconfig of require("./configs")) {
       expect(result.json.response).toContain("967");
       //const run1 = await WorkflowRuns.findOne({});
     });
+    it("generates and runs js code", async () => {
+      const result = await action.run({
+        row: { theprompt: "What is the 16th Fibonacci number?" },
+        configuration: require("./agentcfg").maths_agent_cfg,
+        user,
+        req: { user },
+      });
+      expect(result.json.response).toContain("987");
+    });
     it("run subagent", async () => {
       const result = await action.run({
-        row: { theprompt: "What is the 48th Fibonacci number?" },
+        row: { theprompt: "What is the 16th Fibonacci number?" },
         configuration: require("./agentcfg").agent1,
         user,
         req: { user },
       });
-      expect(result.json.response).toBe(1);
+      expect(result.json.response).toContain("987");
     });
   });
   //break;

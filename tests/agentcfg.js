@@ -51,6 +51,7 @@ const agent1 = {
 
 const maths_agent_cfg = {
   model: "",
+  prompt: "{{theprompt}}",
   skills: [
     {
       tool_name: "generate_arithmetic_code",
