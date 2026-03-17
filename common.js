@@ -95,6 +95,24 @@ const get_initial_interactions = async (config, user, triggering_row) => {
   return interacts;
 };
 
+const getSystemPrompt = async (config, user, triggering_row, formbody) => {
+  let sysPrompts = [
+    interpolate(config.sys_prompt, triggering_row || {}, user, "System prompt"),
+  ];
+
+  const skills = get_skill_instances(config);
+  for (const skill of skills) {
+    const sysPr = await skill.systemPrompt?.({
+      ...(formbody || {}),
+      user,
+      triggering_row,
+    });
+    if (sysPr) sysPrompts.push(sysPr);
+  }
+
+  return sysPrompts.join("\n\n");
+};
+
 const getCompletionArguments = async (
   config,
   user,
@@ -405,6 +423,12 @@ const process_interaction = async (
           if (tool.tool.postProcess && !stop) {
             const chat = run.context.interactions;
             let generateUsed = false;
+            const systemPrompt = await getSystemPrompt(
+              config,
+              req.user,
+              triggering_row,
+              req.body,
+            );
             const postprocres = await tool.tool.postProcess({
               tool_call,
               result,
@@ -415,6 +439,7 @@ const process_interaction = async (
                 return await sysState.functions.llm_generate.run(prompt, {
                   chat,
                   appendToChat: true,
+                  systemPrompt,
                   ...opts,
                 });
               },
