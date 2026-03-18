@@ -4,6 +4,7 @@ const { get_skills, process_interaction } = require("./common");
 const { applyAsync } = require("@saltcorn/data/utils");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 const { interpolate } = require("@saltcorn/data/utils");
+const { getState } = require("@saltcorn/data/db/state");
 
 module.exports = {
   disableInBuilder: true,
@@ -24,7 +25,7 @@ module.exports = {
     }
     const llm_cfg_fun = getState().functions.llm_get_configuration;
     const alt_config_options = llm_cfg_fun
-      ? llm_cfg_fun().alt_config_names
+      ? llm_cfg_fun.run().alt_config_names || []
       : [];
     return [
       ...(table
