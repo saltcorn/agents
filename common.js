@@ -251,7 +251,14 @@ const process_interaction = async (
       }
     };
   }
-  const answer = await sysState.functions.llm_generate.run("Continue", complArgs);
+
+  const lastInteract =
+    run.context.interactions[run.context.interactions.length - 1];
+
+  const answer = await sysState.functions.llm_generate.run(
+    lastInteract?.role === "user" ? "" : "Continue",
+    complArgs,
+  );
 
   //console.log("answer", answer);
 
@@ -497,16 +504,17 @@ const process_interaction = async (
                   chat: run.context.interactions,
                 },
               );
-              await sysState.functions.llm_add_message.run(
-                "user",
-                {
-                  type: "text",
-                  value: "Continue",
-                },
-                {
-                  chat: run.context.interactions,
-                },
-              );
+              if (!postprocres.stop)
+                await sysState.functions.llm_add_message.run(
+                  "user",
+                  {
+                    type: "text",
+                    value: "Continue",
+                  },
+                  {
+                    chat: run.context.interactions,
+                  },
+                );
             }
             if (postprocres.add_user_action && viewname) {
               const user_actions = Array.isArray()

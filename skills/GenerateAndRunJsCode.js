@@ -142,7 +142,8 @@ ${this.allow_fetch ? "\nYou can use the standard fetch JavaScript function to ma
 ${this.allow_table ? getTablePrompt(this.read_only) : ""}
 
 The code you write can use await at the top level, and should return 
-(at the top level) a string (which can contain HTML tags) with the response which will be shown to the user.
+(at the top level) either a string (which can contain HTML tags) with the response which will be shown 
+to the user, or a JSON object which will then be further summarized for the user.
 
 Example:
 
@@ -153,6 +154,17 @@ const y = await anotherAsyncFunction(x)
 
 return \`The eggs are \${x} and the why is \${y}\`
 \`\`\`
+
+or
+
+\`\`\`javascript
+
+const x = await myAsyncFunction()
+const y = await anotherAsyncFunction(x)
+
+return { x, y }
+\`\`\`
+
 
 Now generate the JavaScript code required by the user.`,
         );
@@ -166,9 +178,9 @@ Now generate the JavaScript code required by the user.`,
         emit_update("Running code");
         const res = await this.runCode(js_code, { user: req.user });
         //console.log("code response", res);
-        getState().log(6, "Code answer: " + JSON.stringify(res));
+        getState().log(6, "Code answer: " + JSON.stringify(res));        
         return {
-          //stop: true,
+          stop: typeof res ==="string",
           add_response: res,
         };
       },
