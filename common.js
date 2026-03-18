@@ -37,6 +37,7 @@ const get_skills = () => {
     require("./skills/RunJsCode"),
     require("./skills/GenerateAndRunJsCode"),
     require("./skills/Fetch"),
+    require("./skills/Subagent"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
@@ -250,7 +251,14 @@ const process_interaction = async (
       }
     };
   }
-  const answer = await sysState.functions.llm_generate.run("", complArgs);
+
+  const lastInteract =
+    run.context.interactions[run.context.interactions.length - 1];
+
+  const answer = await sysState.functions.llm_generate.run(
+    lastInteract?.role === "user" ? "" : "Continue",
+    complArgs,
+  );
 
   //console.log("answer", answer);
 
@@ -330,7 +338,7 @@ const process_interaction = async (
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
     if (answer.hasToolCalls)
       for (const tool_call of answer.getToolCalls()) {
-        console.log("call function", tool_call.tool_name);
+        getState().log(6, "call function " + tool_call.tool_name);
 
         await addToContext(run, {
           funcalls: {
@@ -434,6 +442,7 @@ const process_interaction = async (
               result,
               chat,
               req,
+              run,
               async generate(prompt, opts = {}) {
                 generateUsed = true;
                 return await sysState.functions.llm_generate.run(prompt, {
@@ -481,7 +490,7 @@ const process_interaction = async (
               // run.context.interactions.forEach((ic) => {});
               const result = postprocres.add_response;
               await sysState.functions.llm_add_message.run(
-                "tool_response",
+                "assistant",
                 !result || typeof result === "string"
                   ? {
                       type: "text",
@@ -493,9 +502,19 @@ const process_interaction = async (
                     },
                 {
                   chat: run.context.interactions,
-                  tool_call,
                 },
               );
+              if (!postprocres.stop)
+                await sysState.functions.llm_add_message.run(
+                  "user",
+                  {
+                    type: "text",
+                    value: "Continue",
+                  },
+                  {
+                    chat: run.context.interactions,
+                  },
+                );
             }
             if (postprocres.add_user_action && viewname) {
               const user_actions = Array.isArray()

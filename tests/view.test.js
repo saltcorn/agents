@@ -42,10 +42,10 @@ for (const nameconfig of require("./configs")) {
         description: "",
         action: "Agent",
         when_trigger: "Never",
-        configuration: require("./agentcfg"),
+        configuration: require("./agentcfg").agent1,
       });
-      
-      await getState().refresh_triggers(false)
+
+      await getState().refresh_triggers(false);
       const view = await View.create({
         name: "AgentView",
         description: "",
@@ -79,10 +79,10 @@ for (const nameconfig of require("./configs")) {
         default_render_page: "",
         exttable_name: null,
       });
-      await getState().refresh_views(false)
+      await getState().refresh_views(false);
 
-      const result = await view.run({}, mockReqRes);  
-      expect(result).toContain(">Pirate<")
+      const result = await view.run({}, mockReqRes);
+      expect(result).toContain(">Pirate<");
     });
   });
   break; //only need to test one config iteration

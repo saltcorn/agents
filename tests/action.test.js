@@ -3,6 +3,7 @@ const View = require("@saltcorn/data/models/view");
 const WorkflowRuns = require("@saltcorn/data/models/workflow_run");
 const Table = require("@saltcorn/data/models/table");
 const Plugin = require("@saltcorn/data/models/plugin");
+const Trigger = require("@saltcorn/data/models/trigger");
 
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
 const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
@@ -20,6 +21,17 @@ beforeAll(async () => {
   await require("@saltcorn/data/db/fixtures")();
 
   getState().registerPlugin("base", require("@saltcorn/data/base-plugin"));
+
+  await Trigger.create({
+    name: "MathsAgent",
+    description: "Answer questions about arithmetic",
+    action: "Agent",
+    when_trigger: "Never",
+    configuration: require("./agentcfg").maths_agent_cfg,
+  });
+
+  await getState().refresh_triggers(false);
+  //await getState().setConfig("log_level", 6);
 });
 
 jest.setTimeout(30000);
@@ -52,7 +64,7 @@ for (const nameconfig of require("./configs")) {
     it("generates text", async () => {
       const result = await action.run({
         row: { theprompt: "What is the word of the day?" },
-        configuration: require("./agentcfg"),
+        configuration: require("./agentcfg").agent1,
         user,
         req: { user },
       });
@@ -67,13 +79,35 @@ for (const nameconfig of require("./configs")) {
           theprompt:
             "How many pages are there in the book by Herman Melville in the database?",
         },
-        configuration: require("./agentcfg"),
+        configuration: require("./agentcfg").agent1,
         user,
         run_id: run.id,
         req: { ...mockReqRes.req, user },
       });
       expect(result.json.response).toContain("967");
       //const run1 = await WorkflowRuns.findOne({});
+    });
+    it("generates and runs js code", async () => {
+      const result = await action.run({
+        row: {
+          theprompt: "What is the 16th Fibonacci number (when F1=1 and F2=1) ?",
+        },
+        configuration: require("./agentcfg").maths_agent_cfg,
+        user,
+        req: { user },
+      });
+      expect(result.json.response).toContain("987");
+    });
+    it("run subagent", async () => {
+      const result = await action.run({
+        row: {
+          theprompt: "What is the 16th Fibonacci number (when F1=1 and F2=1) ?",
+        },
+        configuration: require("./agentcfg").agent1,
+        user,
+        req: { user },
+      });
+      expect(result.json.response).toContain("987");
     });
   });
   //break;
