@@ -22,12 +22,10 @@ module.exports = {
         }
       }
     }
-    const tables_with_json_field = (await Table.find({})).filter(
-      (table) =>
-        !table.external &&
-        !table.provider_name &&
-        table.fields.some((f) => f.type?.name === "JSON"),
-    );
+    const llm_cfg_fun = getState().functions.llm_get_configuration;
+    const alt_config_options = llm_cfg_fun
+      ? llm_cfg_fun().alt_config_names
+      : [];
     return [
       ...(table
         ? [
@@ -50,6 +48,17 @@ module.exports = {
         type: "String",
         fieldview: "textarea",
       },
+      ...(alt_config_options.length
+        ? [
+            {
+              name: "alt_config",
+              label: "Alternative configuration",
+              sublabel: "Use this configuration for LLM interactions",
+              type: "String",
+              attributes: { options: alt_config_options },
+            },
+          ]
+        : []),
       {
         name: "model",
         label: "Model",

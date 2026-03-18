@@ -141,6 +141,7 @@ const getCompletionArguments = async (
   if (tools.length === 0) tools = undefined;
   const complArgs = { tools, systemPrompt: sysPrompts.join("\n\n") };
   if (config.model) complArgs.model = config.model;
+  if (config.alt_config) complArgs.alt_config = config.alt_config;
   return complArgs;
 };
 
@@ -449,6 +450,7 @@ const process_interaction = async (
                   chat,
                   appendToChat: true,
                   systemPrompt,
+                  alt_config: config.alt_config,
                   ...opts,
                 });
               },
