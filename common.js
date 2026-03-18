@@ -338,7 +338,7 @@ const process_interaction = async (
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
     if (answer.hasToolCalls)
       for (const tool_call of answer.getToolCalls()) {
-        console.log("call function", tool_call.tool_name);
+        getState().log(6, "call function " + tool_call.tool_name);
 
         await addToContext(run, {
           funcalls: {
