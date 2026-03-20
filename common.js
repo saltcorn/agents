@@ -457,7 +457,7 @@ const process_interaction = async (
             interactions: run.context.interactions,
           });
 
-          if (myHasResult && !stop) hasResult = true;
+          if (myHasResult && !stop && !tool.tool.postProcess) hasResult = true;
         }
       }
 
