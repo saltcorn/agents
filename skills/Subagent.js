@@ -75,7 +75,7 @@ class SubagentToSkill {
           req,
         });
         if (subres.json.raw_responses)
-          return { add_response: subres.json.raw_responses.join("") };
+          return { add_responses: subres.json.raw_responses };
         return {
           //stop: true,
           //add_response: result,

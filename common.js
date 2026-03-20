@@ -522,11 +522,17 @@ const process_interaction = async (
                 ],
               });
             if (postprocres.add_response) {
-              raw_responses.push(postprocres.add_response);
+              if (!postprocres.add_responses)
+                postprocres.add_responses = [postprocres.add_response];
+              else postprocres.add_responses.push(postprocres.add_response);
+            }
+
+            for (const add_resp of postprocres.add_responses || []) {
+              raw_responses.push(add_resp);
               const renderedAddResponse =
-                typeof postprocres.add_response === "string"
-                  ? md.render(postprocres.add_response)
-                  : postprocres.add_response;
+                typeof add_resp === "string"
+                  ? md.render(add_resp)
+                  : add_resp;
               add_response(
                 wrapSegment(
                   wrapCard(
@@ -540,7 +546,7 @@ const process_interaction = async (
               );
               //replace tool response with this
               // run.context.interactions.forEach((ic) => {});
-              const result = postprocres.add_response;
+              const result = add_resp;
               await sysState.functions.llm_add_message.run(
                 "assistant",
                 !result || typeof result === "string"
