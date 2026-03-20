@@ -239,6 +239,7 @@ const process_interaction = async (
   triggering_row = {},
   agentsViewCfg = { stream: false },
   dyn_updates = false,
+  is_sub_agent = false,
 ) => {
   const { stream, viewname, layout } = agentsViewCfg;
   const sysState = getState();
@@ -290,6 +291,7 @@ const process_interaction = async (
     interactions: complArgs.chat,
   });
   const responses = [];
+  const raw_responses = [];
 
   const add_response = async (resp, not_final) => {
     if (dyn_updates)
@@ -520,6 +522,7 @@ const process_interaction = async (
                 ],
               });
             if (postprocres.add_response) {
+              raw_responses.push(postprocres.add_response);
               const renderedAddResponse =
                 typeof postprocres.add_response === "string"
                   ? md.render(postprocres.add_response)
@@ -605,6 +608,7 @@ const process_interaction = async (
         triggering_row,
         agentsViewCfg,
         dyn_updates,
+        is_sub_agent,
       );
   } else if (typeof answer === "string")
     add_response(
@@ -625,6 +629,7 @@ const process_interaction = async (
   return {
     json: {
       success: "ok",
+      ...(is_sub_agent ? { raw_responses } : {}),
       response: [...prevResponses, ...responses].join(""),
       run_id: run?.id,
     },
