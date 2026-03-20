@@ -1198,7 +1198,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
         [req.user.id],
       );
     });
-    return;
+    return { json: { dyn_updates }};
   } else return await process_promise;
 };
 
