@@ -6,7 +6,7 @@ const { interpolate } = require("@saltcorn/data/utils");
 const db = require("@saltcorn/data/db");
 
 const MarkdownIt = require("markdown-it"),
-  md = new MarkdownIt();
+  md = new MarkdownIt({ html: true, breaks: true, linkify: true });
 
 const nubBy = (f, xs) => {
   const vs = new Set();
@@ -194,14 +194,19 @@ const saveInteractions = async (run) => {
   });
 };
 
-const wrapSegment = (html, who, to_right) =>
+const wrapSegment = (html, who, to_right, layout) =>
   who === null
     ? html
-    : `<div class="interaction-segment ${to_right ? "to-right" : ""}"><div><div class="badgewrap"><span class="badge bg-secondary">` +
-      who +
-      "</span></div>" +
-      html +
-      "</div></div>";
+    : layout && layout.startsWith("Modern chat")
+      ? `<div class="chat-message ${to_right ? "chat-user" : "chat-assistant"}">` +
+        `<div class="chat-avatar"><i class="fas ${to_right ? "fa-user" : "fa-robot"}"></i></div>` +
+        `<div class="chat-bubble">${html}</div>` +
+        `</div>`
+      : `<div class="interaction-segment ${to_right ? "to-right" : ""}"><div><div class="badgewrap"><span class="badge bg-secondary">` +
+        who +
+        "</span></div>" +
+        html +
+        "</div></div>";
 
 const wrapCard = (title, ...inners) =>
   span({ class: "badge bg-info ms-1" }, title) +
@@ -222,7 +227,7 @@ const process_interaction = async (
   agentsViewCfg = { stream: false },
   dyn_updates = false,
 ) => {
-  const { stream, viewname } = agentsViewCfg;
+  const { stream, viewname, layout } = agentsViewCfg;
   const sysState = getState();
   const complArgs = await getCompletionArguments(
     config,
@@ -311,6 +316,8 @@ const process_interaction = async (
                 rendered,
               ),
               agent_label,
+              false,
+              layout,
             ),
           );
       }
@@ -319,7 +326,7 @@ const process_interaction = async (
       add_response(
         req.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(answer.content), agent_label),
+          : wrapSegment(md.render(answer.content), agent_label, false, layout),
       );
   }
 
@@ -332,7 +339,7 @@ const process_interaction = async (
       add_response(
         req.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(answer.content), agent_label),
+          : wrapSegment(md.render(answer.content), agent_label, false, layout),
       );
     //const actions = [];
     let hasResult = false;
@@ -379,6 +386,8 @@ const process_interaction = async (
                     rendered,
                   ),
                   agent_label,
+                  false,
+                  layout,
                 ),
               );
           }
@@ -404,6 +413,8 @@ const process_interaction = async (
                       rendered,
                     ),
                     agent_label,
+                    false,
+                    layout,
                   ),
                 );
             }
@@ -479,13 +490,18 @@ const process_interaction = async (
                 ],
               });
             if (postprocres.add_response) {
+              const renderedAddResponse = typeof postprocres.add_response === "string"
+                ? md.render(postprocres.add_response)
+                : postprocres.add_response;
               add_response(
                 wrapSegment(
                   wrapCard(
                     tool.skill.skill_label || tool.skill.constructor.skill_name,
-                    postprocres.add_response,
+                    renderedAddResponse,
                   ),
                   agent_label,
+                  false,
+                  layout,
                 ),
               );
               //replace tool response with this
@@ -563,7 +579,7 @@ const process_interaction = async (
     add_response(
       req.disable_markdown_render
         ? answer
-        : wrapSegment(md.render(answer), agent_label),
+        : wrapSegment(md.render(answer), agent_label, false, layout),
     );
   if (dyn_updates)
     getState().emitDynamicUpdate(

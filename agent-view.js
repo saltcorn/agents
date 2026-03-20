@@ -50,7 +50,7 @@ const {
   saveInteractions,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
-  md = new MarkdownIt();
+  md = new MarkdownIt({ html: true, breaks: true, linkify: true });
 const { isWeb, escapeHtml } = require("@saltcorn/data/utils");
 const path = require("path");
 
@@ -119,7 +119,7 @@ const configuration_workflow = (req) =>
                 type: "String",
                 required: true,
                 attributes: {
-                  options: ["Standard", "No card"],
+                  options: ["Standard", "No card", "Modern chat", "Modern chat - no card"],
                 },
               },
               {
@@ -180,11 +180,11 @@ const uploadForm = (viewname, req) =>
     span({ class: "ms-2 filename-label" }),
   );
 
-const realTimeCollabScript = (viewname, rndid) => {
+const realTimeCollabScript = (viewname, rndid, layout) => {
   const view = View.findOne({ name: viewname });
   return script(
     domReady(`
-      const md = markdownit()
+      const md = markdownit({html: true, breaks: true, linkify: true})
       window['stream scratch ${viewname} ${rndid}'] = []
   const callback = () => {
     const collabCfg = {
@@ -193,8 +193,11 @@ const realTimeCollabScript = (viewname, rndid) => {
           "STREAM_CHUNK",
         )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
           window['stream scratch ${viewname} ${rndid}'].push(data.content)
+          const rendered = md.render(window['stream scratch ${viewname} ${rndid}'].join(""));
           $('form.agent-view div.next_response_scratch').html(
-            md.render(window['stream scratch ${viewname} ${rndid}'].join(""))
+            (${JSON.stringify(layout || "")} || "").startsWith("Modern chat")
+              ? '<div class="chat-message chat-assistant"><div class="chat-avatar"><i class="fas fa-robot"></i></div><div class="chat-bubble">' + rendered + '</div></div>'
+              : rendered
           );
         }
       }
@@ -284,26 +287,24 @@ const run = async (
               const image_url = interact.content[0].image_url.url;
               if (image_url.startsWith("data"))
                 interactMarkups.push(
-                  div(
-                    { class: "interaction-segment" },
-                    span({ class: "badge bg-secondary" }, "You"),
-                    "File",
-                  ),
+                  wrapSegment("File", "You", true, layout),
                 );
               else
                 interactMarkups.push(
-                  div(
-                    { class: "interaction-segment" },
-                    span({ class: "badge bg-secondary" }, "You"),
+                  wrapSegment(
                     a({ href: image_url, target: "_blank" }, "File"),
+                    "You",
+                    true,
+                    layout,
                   ),
                 );
             } else
               interactMarkups.push(
-                div(
-                  { class: "interaction-segment" },
-                  span({ class: "badge bg-secondary" }, "You"),
+                wrapSegment(
                   md.render(interact.content),
+                  "You",
+                  true,
+                  layout,
                 ),
               );
             break;
@@ -329,6 +330,8 @@ const run = async (
                           rendered,
                         ),
                         action.name,
+                        false,
+                        layout,
                       ),
                     );
                 }
@@ -354,6 +357,8 @@ const run = async (
                           rendered,
                         ),
                         action.name,
+                        false,
+                        layout,
                       ),
                     );
                 }
@@ -364,14 +369,15 @@ const run = async (
               typeof interact.content?.content === "string"
             )
               interactMarkups.push(
-                div(
-                  { class: "interaction-segment" },
-                  span({ class: "badge bg-secondary" }, action.name),
+                wrapSegment(
                   typeof interact.content === "string"
                     ? md.render(interact.content)
                     : typeof interact.content?.content === "string"
                       ? md.render(interact.content.content)
                       : interact.content,
+                  action.name,
+                  false,
+                  layout,
                 ),
               );
             break;
@@ -400,6 +406,8 @@ const run = async (
                       markupContent,
                     ),
                     action.name,
+                    false,
+                    layout,
                   ),
                 );
             }
@@ -484,63 +492,110 @@ const run = async (
       explainer && small({ class: "explainer" }, i(explainer)),
     ),
     stream &&
-      realTimeCollabScript(viewname, rndid) +
+      realTimeCollabScript(viewname, rndid, layout) +
         div({ class: "next_response_scratch" }),
   );
 
+  const isModernSidebar = layout && layout.startsWith("Modern chat");
   const prev_runs_side_bar = show_prev_runs
     ? div(
-        div(
-          {
-            class: "d-flex flex-wrap justify-content-between align-middle mb-2",
-          },
-          div(
-            { class: "d-flex" },
-            i({
-              class: "fas fa-caret-down me-1 session-open-sessions",
-              onclick: "close_session_list()",
-            }),
-            h5(req.__("Sessions")),
-          ),
-          button(
-            {
-              type: "button",
-              class: "btn btn-secondary btn-sm pt-0 pb-1",
-              style: "font-size: 0.9em;height:1.5em",
-              onclick: "unset_state_field('run_id')",
-              title: "New session",
-            },
-            i({ class: "fas fa-redo fa-sm" }),
-          ),
-        ),
-        prevRuns.map((run) =>
-          div(
-            {
-              onclick: `set_state_field('run_id',${run.id})`,
-              class: "prevcopilotrun border p-2",
-            },
-            div(
-              { class: "d-flex justify-content-between" },
-              span(
-                { class: "text-truncate", style: "min-width:0" },
-                localeDateTime(run.started_at),
+        { class: isModernSidebar ? "modern-sessions" : "" },
+        isModernSidebar
+          ? div(
+              { class: "modern-sessions-header" },
+              div(
+                { class: "d-flex align-items-center" },
+                i({
+                  class: "fas fa-caret-down me-2 session-open-sessions",
+                  onclick: "close_session_list()",
+                }),
+                i({ class: "fas fa-comments me-2 text-primary" }),
+                span({ class: "fw-semibold" }, req.__("Sessions")),
               ),
-              i({
-                class: "far fa-trash-alt",
-                onclick: `delprevrun(event, ${run.id})`,
-              }),
-            ),
-
-            p(
-              { class: "prevrun_content" },
-              escapeHtml(
-                run.context.interactions
-                  .find((i) => typeof i?.content === "string")
-                  ?.content?.substring?.(0, 80),
+              button(
+                {
+                  type: "button",
+                  class: "btn btn-primary btn-sm rounded-pill px-3",
+                  onclick: "unset_state_field('run_id')",
+                  title: "New chat",
+                },
+                i({ class: "fas fa-plus me-1" }),
+                "New",
+              ),
+            )
+          : div(
+              {
+                class: "d-flex flex-wrap justify-content-between align-middle mb-2",
+              },
+              div(
+                { class: "d-flex" },
+                i({
+                  class: "fas fa-caret-down me-1 session-open-sessions",
+                  onclick: "close_session_list()",
+                }),
+                h5(req.__("Sessions")),
+              ),
+              button(
+                {
+                  type: "button",
+                  class: "btn btn-secondary btn-sm pt-0 pb-1",
+                  style: "font-size: 0.9em;height:1.5em",
+                  onclick: "unset_state_field('run_id')",
+                  title: "New session",
+                },
+                i({ class: "fas fa-redo fa-sm" }),
               ),
             ),
-          ),
-        ),
+        prevRuns.map((run) => {
+          const isActive = state.run_id && +state.run_id === run.id;
+          const preview = escapeHtml(
+            run.context.interactions
+              .find((ix) => typeof ix?.content === "string")
+              ?.content?.substring?.(0, 80),
+          );
+          return isModernSidebar
+            ? div(
+                {
+                  onclick: `set_state_field('run_id',${run.id})`,
+                  class:
+                    "prevcopilotrun modern-session-item" +
+                    (isActive ? " active-session" : ""),
+                },
+                div(
+                  { class: "d-flex justify-content-between align-items-center mb-1" },
+                  small(
+                    { class: "text-muted text-truncate", style: "min-width:0" },
+                    localeDateTime(run.started_at),
+                  ),
+                  i({
+                    class: "far fa-trash-alt text-muted",
+                    onclick: `delprevrun(event, ${run.id})`,
+                  }),
+                ),
+                p({ class: "prevrun_content mb-0" }, preview),
+              )
+            : div(
+                {
+                  onclick: `set_state_field('run_id',${run.id})`,
+                  class: "prevcopilotrun border p-2",
+                },
+                div(
+                  { class: "d-flex justify-content-between" },
+                  span(
+                    { class: "text-truncate", style: "min-width:0" },
+                    localeDateTime(run.started_at),
+                  ),
+                  i({
+                    class: "far fa-trash-alt",
+                    onclick: `delprevrun(event, ${run.id})`,
+                  }),
+                ),
+                p(
+                  { class: "prevrun_content" },
+                  preview,
+                ),
+              );
+        }),
       )
     : "";
 
@@ -629,7 +684,199 @@ const run = async (
     overflow: hidden;
     margin-bottom: 0px;
     display: block;
-    text-overflow: ellipsis;}`,
+    text-overflow: ellipsis;}
+            /* Modern Chat Layout */
+            .modern-chat-layout {
+              display: flex;
+              flex-direction: column;
+              height: 100%;
+            }
+            .modern-chat-layout #copilotinteractions {
+              max-height: 70vh;
+              overflow-y: auto;
+              padding: 1rem;
+              display: flex;
+              flex-direction: column;
+              gap: 0.75rem;
+            }
+            .modern-chat-layout .chat-message {
+              display: flex;
+              gap: 0.5rem;
+              max-width: 85%;
+              align-items: flex-start;
+            }
+            .modern-chat-layout .chat-message.chat-user {
+              align-self: flex-end;
+              flex-direction: row-reverse;
+            }
+            .modern-chat-layout .chat-message.chat-assistant {
+              align-self: flex-start;
+            }
+            .modern-chat-layout .chat-avatar {
+              width: 2rem;
+              height: 2rem;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              font-size: 0.85rem;
+              background: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #e9ecef));
+              color: var(--tblr-secondary-color, var(--bs-secondary-color, #6c757d));
+            }
+            .modern-chat-layout .chat-user .chat-avatar {
+              background: #0d6efd;
+              color: #fff;
+            }
+            .modern-chat-layout .chat-bubble {
+              padding: 0.6rem 1rem;
+              border-radius: 1rem;
+              line-height: 1.5;
+              word-wrap: break-word;
+              overflow-wrap: break-word;
+            }
+            .modern-chat-layout .chat-user .chat-bubble {
+              background: #0d6efd;
+              color: #fff;
+              border-bottom-right-radius: 0.25rem;
+            }
+            .modern-chat-layout .chat-assistant .chat-bubble {
+              background: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #f0f2f5));
+              color: var(--tblr-body-color, var(--bs-body-color, #212529));
+              border-bottom-left-radius: 0.25rem;
+            }
+            /* Markdown content inside bubbles */
+            .modern-chat-layout .chat-bubble h1,
+            .modern-chat-layout .chat-bubble h2,
+            .modern-chat-layout .chat-bubble h3,
+            .modern-chat-layout .chat-bubble h4 {
+              margin-top: 0.5rem;
+              margin-bottom: 0.25rem;
+            }
+            .modern-chat-layout .chat-bubble h1 { font-size: 1.3rem; }
+            .modern-chat-layout .chat-bubble h2 { font-size: 1.15rem; }
+            .modern-chat-layout .chat-bubble h3 { font-size: 1.05rem; }
+            .modern-chat-layout .chat-bubble h4 { font-size: 1rem; }
+            .modern-chat-layout .chat-bubble p {
+              margin-bottom: 0.4rem;
+            }
+            .modern-chat-layout .chat-bubble p:last-child {
+              margin-bottom: 0;
+            }
+            .modern-chat-layout .chat-bubble ul,
+            .modern-chat-layout .chat-bubble ol {
+              padding-left: 1.5rem;
+              margin-bottom: 0.4rem;
+            }
+            .modern-chat-layout .chat-bubble table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 0.5rem 0;
+              font-size: 0.9em;
+            }
+            .modern-chat-layout .chat-bubble table th,
+            .modern-chat-layout .chat-bubble table td {
+              border: 1px solid rgba(0,0,0,0.15);
+              padding: 0.3rem 0.5rem;
+            }
+            .modern-chat-layout .chat-bubble table th {
+              background: rgba(0,0,0,0.05);
+              font-weight: 600;
+            }
+            .modern-chat-layout .chat-bubble pre {
+              background: rgba(0,0,0,0.06);
+              padding: 0.5rem;
+              border-radius: 0.5rem;
+              overflow-x: auto;
+              margin: 0.4rem 0;
+            }
+            .modern-chat-layout .chat-bubble code {
+              font-size: 0.88em;
+            }
+            .modern-chat-layout .chat-bubble p > code {
+              background: rgba(0,0,0,0.06);
+              padding: 0.1rem 0.3rem;
+              border-radius: 0.25rem;
+            }
+            .modern-chat-layout .chat-user .chat-bubble pre {
+              background: rgba(255,255,255,0.15);
+            }
+            .modern-chat-layout .chat-user .chat-bubble p > code {
+              background: rgba(255,255,255,0.15);
+            }
+            .modern-chat-layout .chat-user .chat-bubble table th,
+            .modern-chat-layout .chat-user .chat-bubble table td {
+              border-color: rgba(255,255,255,0.25);
+            }
+            .modern-chat-layout .chat-user .chat-bubble table th {
+              background: rgba(255,255,255,0.1);
+            }
+            /* Input area for modern chat */
+            .modern-chat-layout .copilot-entry {
+              border-top: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
+              padding-top: 0.75rem;
+              margin-top: 0.5rem;
+            }
+            .modern-chat-layout .copilot-entry textarea {
+              border-radius: 1.5rem;
+              padding: 0.6rem 1rem;
+              resize: none;
+            }
+            /* Streaming scratch in modern chat */
+            .modern-chat-layout .next_response_scratch {
+              padding: 0 1rem;
+            }
+            .modern-chat-layout .next_response_scratch:not(:empty) {
+              margin-bottom: 0.5rem;
+            }
+            /* Interaction segment (tool cards) inside modern chat */
+            .modern-chat-layout .interaction-segment {
+              border-top: none;
+            }
+            /* Modern Sessions Sidebar */
+            .modern-sessions-header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 0.6rem 0.75rem;
+              margin-bottom: 0.75rem;
+              background: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #f8f9fa));
+              border-radius: 0.75rem;
+              border-bottom: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
+              position: sticky;
+              top: 0;
+              z-index: 1;
+            }
+            .modern-sessions .modern-session-item {
+              border-radius: 0.75rem;
+              padding: 0.65rem 0.75rem;
+              margin-bottom: 0.4rem;
+              border: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
+              cursor: pointer;
+              transition: all 0.15s ease;
+            }
+            .modern-sessions .modern-session-item:hover {
+              box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+              background-color: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #f8f9fa));
+            }
+            .modern-sessions .modern-session-item.active-session {
+              border-left: 3px solid #0d6efd;
+              background-color: rgba(13, 110, 253, 0.05);
+            }
+            .modern-sessions .modern-session-item i.fa-trash-alt {
+              display: none;
+              font-size: 0.8em;
+            }
+            .modern-sessions .modern-session-item:hover i.fa-trash-alt {
+              display: inline;
+            }
+            .modern-sessions .modern-session-item .prevrun_content {
+              font-size: 0.85em;
+              color: var(--tblr-secondary-color, var(--bs-secondary-color, #6c757d));
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }`,
     ),
     script(domReady(`$( "#inputuserinput" ).autogrow({paddingBottom: 20});`)),
     script(
@@ -661,10 +908,13 @@ const run = async (
         const $runidin= $("input[name=run_id")
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
           $runidin.val(res.run_id);
-        const wrapSegment = (html, who) => '<div class="interaction-segment"><span class="badge bg-secondary">'+who+'</span>'+html+'</div>'
+        const currentLayout = ${JSON.stringify(layout || "")};
+        const wrapSegment = (html, who, toRight) => currentLayout.startsWith("Modern chat")
+          ? '<div class="chat-message '+(toRight ? 'chat-user' : 'chat-assistant')+'"><div class="chat-avatar"><i class="fas '+(toRight ? 'fa-user' : 'fa-robot')+'"></i></div><div class="chat-bubble">'+html+'</div></div>'
+          : '<div class="interaction-segment '+(toRight ? 'to-right' : '')+'"><div><div class="badgewrap"><span class="badge bg-secondary">'+who+'</span></div>'+html+'</div></div>'
         const user_input = $("textarea[name=userinput]").val()
         if(user_input && (!${JSON.stringify(dyn_updates)}))
-          $("#copilotinteractions").append(wrapSegment('<p>'+user_input+'</p>'+fileBadge, "You"))
+          $("#copilotinteractions").append(wrapSegment('<p>'+user_input+'</p>'+fileBadge, "You", true))
         $("textarea[name=userinput]").val("")
         $('form.agent-view div.next_response_scratch').html("")
         window['stream scratch ${viewname} ${rndid}'] = []
@@ -804,10 +1054,15 @@ const run = async (
       initial_q && domReady("$('form.copilot').submit()"),
     ),
   );
+  const isModern = layout && layout.startsWith("Modern chat");
   const main_chat =
-    layout === "No card"
-      ? div({ class: "mx-1" }, main_inner)
-      : div({ class: "card" }, div({ class: "card-body" }, main_inner));
+    layout === "Modern chat"
+      ? div({ class: "card" }, div({ class: "card-body modern-chat-layout" }, main_inner))
+      : layout === "Modern chat - no card"
+        ? div({ class: "modern-chat-layout" }, main_inner)
+        : layout === "No card"
+          ? div({ class: "mx-1" }, main_inner)
+          : div({ class: "card" }, div({ class: "card-body" }, main_inner));
 
   return show_prev_runs
     ? div(
@@ -900,6 +1155,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     p(escapeHtml(userinput)) + fileBadges,
     "You",
     true,
+    config.layout,
   );
 
   await addToContext(run, {
