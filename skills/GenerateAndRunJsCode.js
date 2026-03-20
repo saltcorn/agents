@@ -100,7 +100,8 @@ class GenerateAndRunJsCodeSkill {
       },
       {
         name: "allow_functions",
-        label: "Allow calls to functions from codepages and modules",
+        label: "Allow system functions",
+        sublabel: "Allow calls to functions from codepages and modules",
         type: "Bool",
       },
       ...(Table.subClass
