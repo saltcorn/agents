@@ -127,7 +127,8 @@ for (const nameconfig of require("./configs")) {
       ];
       const result = await action.run({
         row: {
-          theprompt: "What is the 16th Fibonacci number (when F1=1 and F2=1)? Consult both the math agent and the oracle and see if they agree",
+          theprompt:
+            "What is the 16th Fibonacci number (when F1=1 and F2=1)? Consult both the math agent and the oracle and see if they agree",
         },
         configuration,
         user,

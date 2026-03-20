@@ -344,6 +344,7 @@ const process_interaction = async (
     //const actions = [];
     let hasResult = false;
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
+    const toolResults = {};
     if (answer.hasToolCalls)
       for (const tool_call of answer.getToolCalls()) {
         getState().log(6, "call function " + tool_call.tool_name);
@@ -395,6 +396,7 @@ const process_interaction = async (
           const result = await tool.tool.process(tool_call.input, {
             req,
           });
+          toolResults[tool_call.tool_call_id] = result;
           if (result.stop) stop = true;
           if (
             (typeof result === "object" && Object.keys(result || {}).length) ||
@@ -440,7 +442,21 @@ const process_interaction = async (
           await addToContext(run, {
             interactions: run.context.interactions,
           });
+
+          if (myHasResult && !stop) hasResult = true;
+        }
+      }
+
+    // postprocess - now all tool calls have responses
+    if (answer.hasToolCalls)
+      for (const tool_call of answer.getToolCalls()) {
+        const tool = find_tool(tool_call.tool_name, config);
+        if (tool) {
+          let stop = false,
+            myHasResult = false;
           if (tool.tool.postProcess && !stop) {
+            let result = toolResults[tool_call.tool_call_id];
+
             const chat = run.context.interactions;
             let generateUsed = false;
             const systemPrompt = await getSystemPrompt(
@@ -490,9 +506,10 @@ const process_interaction = async (
                 ],
               });
             if (postprocres.add_response) {
-              const renderedAddResponse = typeof postprocres.add_response === "string"
-                ? md.render(postprocres.add_response)
-                : postprocres.add_response;
+              const renderedAddResponse =
+                typeof postprocres.add_response === "string"
+                  ? md.render(postprocres.add_response)
+                  : postprocres.add_response;
               add_response(
                 wrapSegment(
                   wrapCard(
