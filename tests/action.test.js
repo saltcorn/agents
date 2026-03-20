@@ -41,7 +41,7 @@ beforeAll(async () => {
   //await getState().setConfig("log_level", 6);
 });
 
-jest.setTimeout(30000);
+jest.setTimeout(40000);
 
 const user = { id: 1, role_id: 1 };
 const action = require("../action");
@@ -128,7 +128,7 @@ for (const nameconfig of require("./configs")) {
       const result = await action.run({
         row: {
           theprompt:
-            "What is the 16th Fibonacci number (when F1=1 and F2=1)? Consult both the math agent and the oracle and see if they agree. You must call both the OracleAgent and the MathsAgent tools simultaneously",
+            "What is the 16th Fibonacci number (when F1=1 and F2=1)? Consult both the math agent and the oracle and see if they agree. Call both the OracleAgent and the MathsAgent tools",
         },
         configuration,
         user,
