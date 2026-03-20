@@ -277,7 +277,9 @@ const process_interaction = async (
     run.context.interactions[run.context.interactions.length - 1];
 
   const answer = await sysState.functions.llm_generate.run(
-    lastInteract?.role === "user" ? "" : "Continue",
+    lastInteract?.role === "user" || lastInteract?.role === "tool"
+      ? ""
+      : "Continue",
     complArgs,
   );
 
@@ -530,9 +532,7 @@ const process_interaction = async (
             for (const add_resp of postprocres.add_responses || []) {
               raw_responses.push(add_resp);
               const renderedAddResponse =
-                typeof add_resp === "string"
-                  ? md.render(add_resp)
-                  : add_resp;
+                typeof add_resp === "string" ? md.render(add_resp) : add_resp;
               add_response(
                 wrapSegment(
                   wrapCard(

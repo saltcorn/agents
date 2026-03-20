@@ -34,8 +34,9 @@ class ModelPicker {
         class: ["form-select form-select-sm w-unset", klass],
         name: "modelpicker",
       },
-      this.placeholder && option({ disabled: true }, this.placeholder),
-      option({ value: "" }, this.default_label),
+      this.placeholder &&
+        option({ disabled: true }, this.placeholder || "Select model"),
+      option({ value: "" }, this.default_label || "Standard"),
       alt_config_options.map((o) => option(o)),
     );
   }
