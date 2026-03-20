@@ -249,6 +249,7 @@ const process_interaction = async (
   );
   complArgs.appendToChat = true;
   complArgs.chat = run.context.interactions;
+  const use_alt_config = complArgs.alt_config;
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
   const debugMode = is_debug_mode(config, req.user);
@@ -489,7 +490,7 @@ const process_interaction = async (
                   chat,
                   appendToChat: true,
                   systemPrompt,
-                  alt_config: config.alt_config,
+                  alt_config: use_alt_config,
                   ...opts,
                 });
               },
