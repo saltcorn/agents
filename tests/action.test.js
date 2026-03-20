@@ -29,6 +29,13 @@ beforeAll(async () => {
     when_trigger: "Never",
     configuration: require("./agentcfg").maths_agent_cfg,
   });
+  await Trigger.create({
+    name: "OracleAgent",
+    description: "The all-knowing oracle answers any question",
+    action: "Agent",
+    when_trigger: "Never",
+    configuration: require("./agentcfg").oracle_agent_cfg,
+  });
 
   await getState().refresh_triggers(false);
   //await getState().setConfig("log_level", 6);
@@ -109,6 +116,26 @@ for (const nameconfig of require("./configs")) {
       });
       expect(result.json.response).toContain("987");
     });
+    it("run multiple subagents concurrenty", async () => {
+      const configuration = { ...require("./agentcfg").agent1 };
+      configuration.skills = [
+        ...configuration.skills,
+        {
+          agent_name: "OracleAgent",
+          skill_type: "Subagent",
+        },
+      ];
+      const result = await action.run({
+        row: {
+          theprompt: "What is the 16th Fibonacci number (when F1=1 and F2=1)? Consult both the math agent and the oracle and see if they agree",
+        },
+        configuration,
+        user,
+        req: { user },
+      });
+      expect(result.json.response).toContain("987");
+    });
   });
+
   //break;
 }

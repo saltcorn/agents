@@ -65,4 +65,26 @@ const maths_agent_cfg = {
     "If the user asks an arithmetic question, generate javascript code to solve it with the generate_arithmetic_code tool",
 };
 
-module.exports = { agent1, maths_agent_cfg };
+const oracle_agent_cfg = {
+  model: "",
+  prompt: "{{theprompt}}",
+  skills: [
+    {
+      tool_name: "ask_the_oracle",
+      tool_description: "Ask the all-knowing oracle a question",
+      skill_type: "Run JavaScript code",
+      js_code: "return '987';",
+      toolargs: [
+        {
+          name: "question",
+          description: "The question you would like to ask",
+          argtype: "string",
+        },
+      ],
+    },
+  ],
+  sys_prompt:
+    "You can ask a question of the all-knowing oracle by calling the ask_the_oracle tool ",
+};
+
+module.exports = { agent1, maths_agent_cfg, oracle_agent_cfg };
