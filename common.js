@@ -34,6 +34,7 @@ const get_skills = () => {
     require("./skills/GenerateImage"),
     require("./skills/ModelContextProtocol"),
     require("./skills/PromptPicker"),
+    require("./skills/ModelPicker"),
     require("./skills/RunJsCode"),
     require("./skills/GenerateAndRunJsCode"),
     require("./skills/Fetch"),
@@ -127,12 +128,21 @@ const getCompletionArguments = async (
   ];
 
   const skills = get_skill_instances(config);
+  const overrides = {};
   for (const skill of skills) {
     const sysPr = await skill.systemPrompt?.({
       ...(formbody || {}),
       user,
       triggering_row,
     });
+    const overide =
+      (await skill.settingsOverride?.({
+        ...(formbody || {}),
+        user,
+        triggering_row,
+      })) || {};
+    Object.assign(overrides, overide);
+
     if (sysPr) sysPrompts.push(sysPr);
     const skillTools = skill.provideTools?.();
     if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
@@ -141,7 +151,9 @@ const getCompletionArguments = async (
   if (tools.length === 0) tools = undefined;
   const complArgs = { tools, systemPrompt: sysPrompts.join("\n\n") };
   if (config.model) complArgs.model = config.model;
-  if (config.alt_config) complArgs.alt_config = config.alt_config;
+
+  if (overrides.alt_config || config.alt_config)
+    complArgs.alt_config = overrides.alt_config || config.alt_config;
   return complArgs;
 };
 
