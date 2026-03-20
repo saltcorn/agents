@@ -38,6 +38,7 @@ const get_skills = () => {
     require("./skills/RunJsCode"),
     require("./skills/GenerateAndRunJsCode"),
     require("./skills/Fetch"),
+    require("./skills/WebSearch"),
     require("./skills/Subagent"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
