@@ -1183,7 +1183,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     action.name,
     [],
     triggering_row,
-    config,
+    { ...config, viewname },
     dyn_updates,
   );
   if (dyn_updates) {
