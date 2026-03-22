@@ -505,14 +505,18 @@ const process_interaction = async (
                 // call does not fail with "tool message must follow tool_calls"
                 if (answer && typeof answer === "object" && answer.hasToolCalls) {
                   for (const tc of answer.getToolCalls()) {
-                    chat.push({
-                      role: "tool",
-                      tool_call_id: tc.tool_call_id,
-                      content: JSON.stringify({
-                        type: "text",
-                        value: "Details provided",
-                      }),
-                    });
+                    const alreadyAnswered = chat.some(
+                      (m) => m.role === "tool" && m.tool_call_id === tc.tool_call_id,
+                    );
+                    if (!alreadyAnswered)
+                      chat.push({
+                        role: "tool",
+                        tool_call_id: tc.tool_call_id,
+                        content: JSON.stringify({
+                          type: "text",
+                          value: "Details provided",
+                        }),
+                      });
                   }
                 }
                 return answer;
