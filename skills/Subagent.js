@@ -66,13 +66,16 @@ class SubagentToSkill {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
       },*/
       postProcess: async ({ tool_call, req, generate, emit_update, run }) => {
-        await agent_action.run({
+        const subres = await agent_action.run({
           row: {},
           configuration: { ...trigger.configuration, prompt: "continue" },
           user: req.user,
           run_id: run.id,
+          is_sub_agent: true,
           req,
         });
+        if (subres.json.raw_responses)
+          return { add_responses: subres.json.raw_responses };
         return {
           //stop: true,
           //add_response: result,

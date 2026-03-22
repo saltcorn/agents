@@ -34,9 +34,11 @@ const get_skills = () => {
     require("./skills/GenerateImage"),
     require("./skills/ModelContextProtocol"),
     require("./skills/PromptPicker"),
+    require("./skills/ModelPicker"),
     require("./skills/RunJsCode"),
     require("./skills/GenerateAndRunJsCode"),
     require("./skills/Fetch"),
+    require("./skills/WebSearch"),
     require("./skills/Subagent"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
@@ -127,12 +129,21 @@ const getCompletionArguments = async (
   ];
 
   const skills = get_skill_instances(config);
+  const overrides = {};
   for (const skill of skills) {
     const sysPr = await skill.systemPrompt?.({
       ...(formbody || {}),
       user,
       triggering_row,
     });
+    const overide =
+      (await skill.settingsOverride?.({
+        ...(formbody || {}),
+        user,
+        triggering_row,
+      })) || {};
+    Object.assign(overrides, overide);
+
     if (sysPr) sysPrompts.push(sysPr);
     const skillTools = skill.provideTools?.();
     if (skillTools && Array.isArray(skillTools)) tools.push(...skillTools);
@@ -141,7 +152,9 @@ const getCompletionArguments = async (
   if (tools.length === 0) tools = undefined;
   const complArgs = { tools, systemPrompt: sysPrompts.join("\n\n") };
   if (config.model) complArgs.model = config.model;
-  if (config.alt_config) complArgs.alt_config = config.alt_config;
+
+  if (overrides.alt_config || config.alt_config)
+    complArgs.alt_config = overrides.alt_config || config.alt_config;
   return complArgs;
 };
 
@@ -226,6 +239,7 @@ const process_interaction = async (
   triggering_row = {},
   agentsViewCfg = { stream: false },
   dyn_updates = false,
+  is_sub_agent = false,
 ) => {
   const { stream, viewname, layout } = agentsViewCfg;
   const sysState = getState();
@@ -237,6 +251,7 @@ const process_interaction = async (
   );
   complArgs.appendToChat = true;
   complArgs.chat = run.context.interactions;
+  const use_alt_config = complArgs.alt_config;
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
   const debugMode = is_debug_mode(config, req.user);
@@ -262,7 +277,9 @@ const process_interaction = async (
     run.context.interactions[run.context.interactions.length - 1];
 
   const answer = await sysState.functions.llm_generate.run(
-    lastInteract?.role === "user" ? "" : "Continue",
+    lastInteract?.role === "user" || lastInteract?.role === "tool"
+      ? ""
+      : "Continue",
     complArgs,
   );
 
@@ -276,6 +293,7 @@ const process_interaction = async (
     interactions: complArgs.chat,
   });
   const responses = [];
+  const raw_responses = [];
 
   const add_response = async (resp, not_final) => {
     if (dyn_updates)
@@ -344,6 +362,7 @@ const process_interaction = async (
     //const actions = [];
     let hasResult = false;
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
+    const toolResults = {};
     if (answer.hasToolCalls)
       for (const tool_call of answer.getToolCalls()) {
         getState().log(6, "call function " + tool_call.tool_name);
@@ -395,6 +414,7 @@ const process_interaction = async (
           const result = await tool.tool.process(tool_call.input, {
             req,
           });
+          toolResults[tool_call.tool_call_id] = result;
           if (result.stop) stop = true;
           if (
             (typeof result === "object" && Object.keys(result || {}).length) ||
@@ -440,7 +460,21 @@ const process_interaction = async (
           await addToContext(run, {
             interactions: run.context.interactions,
           });
+
+          if (myHasResult && !stop && !tool.tool.postProcess) hasResult = true;
+        }
+      }
+
+    // postprocess - now all tool calls have responses
+    if (answer.hasToolCalls)
+      for (const tool_call of answer.getToolCalls()) {
+        const tool = find_tool(tool_call.tool_name, config);
+        if (tool) {
+          let stop = false,
+            myHasResult = false;
           if (tool.tool.postProcess && !stop) {
+            let result = toolResults[tool_call.tool_call_id];
+
             const chat = run.context.interactions;
             let generateUsed = false;
             const systemPrompt = await getSystemPrompt(
@@ -463,7 +497,7 @@ const process_interaction = async (
                     chat,
                     appendToChat: true,
                     systemPrompt,
-                    alt_config: config.alt_config,
+                    alt_config: use_alt_config,
                     ...opts,
                   },
                 );
@@ -508,9 +542,15 @@ const process_interaction = async (
                 ],
               });
             if (postprocres.add_response) {
-              const renderedAddResponse = typeof postprocres.add_response === "string"
-                ? md.render(postprocres.add_response)
-                : postprocres.add_response;
+              if (!postprocres.add_responses)
+                postprocres.add_responses = [postprocres.add_response];
+              else postprocres.add_responses.push(postprocres.add_response);
+            }
+
+            for (const add_resp of postprocres.add_responses || []) {
+              raw_responses.push(add_resp);
+              const renderedAddResponse =
+                typeof add_resp === "string" ? md.render(add_resp) : add_resp;
               add_response(
                 wrapSegment(
                   wrapCard(
@@ -524,7 +564,7 @@ const process_interaction = async (
               );
               //replace tool response with this
               // run.context.interactions.forEach((ic) => {});
-              const result = postprocres.add_response;
+              const result = add_resp;
               await sysState.functions.llm_add_message.run(
                 "assistant",
                 !result || typeof result === "string"
@@ -592,6 +632,7 @@ const process_interaction = async (
         triggering_row,
         agentsViewCfg,
         dyn_updates,
+        is_sub_agent,
       );
   } else if (typeof answer === "string")
     add_response(
@@ -612,6 +653,7 @@ const process_interaction = async (
   return {
     json: {
       success: "ok",
+      ...(is_sub_agent ? { raw_responses } : {}),
       response: [...prevResponses, ...responses].join(""),
       run_id: run?.id,
     },

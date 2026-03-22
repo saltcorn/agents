@@ -89,6 +89,7 @@ module.exports = {
     trigger_id,
     run_id,
     req,
+    is_sub_agent,
     ...rest
   }) => {
     const userinput = interpolate(configuration.prompt, row, user);
@@ -114,6 +115,9 @@ module.exports = {
       undefined,
       [],
       row,
+      { stream: false },
+      false,
+      is_sub_agent
     );
   },
 };
