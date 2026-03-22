@@ -457,13 +457,31 @@ const process_interaction = async (
               run,
               async generate(prompt, opts = {}) {
                 generateUsed = true;
-                return await sysState.functions.llm_generate.run(prompt, {
-                  chat,
-                  appendToChat: true,
-                  systemPrompt,
-                  alt_config: config.alt_config,
-                  ...opts,
-                });
+                const answer = await sysState.functions.llm_generate.run(
+                  prompt,
+                  {
+                    chat,
+                    appendToChat: true,
+                    systemPrompt,
+                    alt_config: config.alt_config,
+                    ...opts,
+                  },
+                );
+                // Auto-add tool responses for any tool_calls so the next LLM
+                // call does not fail with "tool message must follow tool_calls"
+                if (answer && typeof answer === "object" && answer.hasToolCalls) {
+                  for (const tc of answer.getToolCalls()) {
+                    chat.push({
+                      role: "tool",
+                      tool_call_id: tc.tool_call_id,
+                      content: JSON.stringify({
+                        type: "text",
+                        value: "Details provided",
+                      }),
+                    });
+                  }
+                }
+                return answer;
               },
               emit_update(s) {
                 if (!stream || !viewname) return;
