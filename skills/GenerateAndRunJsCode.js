@@ -16,6 +16,7 @@ const { button } = require("@saltcorn/markup/tags");
 const { validID } = require("@saltcorn/markup/layout_utils");
 
 const vm = require("vm");
+const { replaceUserContinue } = require("../common");
 
 //const { fieldProperties } = require("./helpers");
 
@@ -132,6 +133,7 @@ class GenerateAndRunJsCodeSkill {
         req,
         generate,
         emit_update,
+        chat,
         ...rest
       }) => {
         //console.log("postprocess args", { tool_call, ...rest });
@@ -179,9 +181,9 @@ Now generate the JavaScript code required by the user.`,
         emit_update("Running code");
         const res = await this.runCode(js_code, { user: req.user });
         //console.log("code response", res);
-        getState().log(6, "Code answer: " + JSON.stringify(res));        
+        getState().log(6, "Code answer: " + JSON.stringify(res));
         return {
-          stop: typeof res ==="string",
+          stop: typeof res === "string",
           add_response: res,
         };
       },

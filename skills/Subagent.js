@@ -8,6 +8,7 @@ const { getState } = require("@saltcorn/data/db/state");
 const db = require("@saltcorn/data/db");
 const { fieldProperties } = require("./helpers");
 const agent_action = require("../action");
+const { replaceUserContinue } = require("../common");
 
 class SubagentToSkill {
   static skill_name = "Subagent";
@@ -45,7 +46,12 @@ class SubagentToSkill {
         required: true,
         attributes: { options: actions.map((a) => a.name) },
       },
-      // TODO: confirm, show response, show argument
+      {
+        name: "handover_prompt",
+        label: "Handover prompt",
+        sublabel: `The prompt initialising the subagent. Example: "Continue answering my query using the tool now at you disposal"`,
+        type: "String",
+      },
     ];
   }
 
@@ -65,15 +71,30 @@ class SubagentToSkill {
       /*renderToolCall({ phrase }, { req }) {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
       },*/
-      postProcess: async ({ tool_call, req, generate, emit_update, run }) => {
+      postProcess: async ({
+        tool_call,
+        req,
+        generate,
+        emit_update,
+        run,
+        chat,
+      }) => {
+        getState().log(6, "Running subagent", this.agent_name);        
         const subres = await agent_action.run({
           row: {},
-          configuration: { ...trigger.configuration, prompt: "continue" },
+          configuration: {
+            ...trigger.configuration,
+            prompt:
+              this.handover_prompt ||
+              "Continue answering my query using the instructions and tools at you disposal, if any",
+          },
           user: req.user,
           run_id: run.id,
           is_sub_agent: true,
           req,
         });
+        getState().log(6, "Subagent response", subres.json.raw_responses);
+
         if (subres.json.raw_responses)
           return { add_responses: subres.json.raw_responses };
         return {

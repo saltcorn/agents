@@ -642,9 +642,15 @@ const process_interaction = async (
   };
 };
 
+const replaceUserContinue = (chat, newPrompt) => {
+  const lastChat = chat[chat.length - 1];
+  console.log("lastChat", lastChat);
+};
+
 module.exports = {
   get_skills,
   get_skill_class,
+  replaceUserContinue,
   incompleteCfgMsg,
   find_tool,
   get_skill_instances,
