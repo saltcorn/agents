@@ -138,8 +138,9 @@ class GenerateAndRunJsCodeSkill {
       }) => {
         //console.log("postprocess args", { tool_call, ...rest });
         emit_update("Generating code");
-        const str = await generate(
-          `You will now be asked to write JavaScript code.          
+        const gen_the_code = async (extra) => {
+          const str = await generate(
+            `You will now be asked to write JavaScript code.          
 ${this.code_description ? "\nSome more information: " + this.code_description : ""}
 ${this.allow_fetch ? "\nYou can use the standard fetch JavaScript function to make HTTP(S) requests." : ""}
 ${this.allow_table ? getTablePrompt(this.read_only) : ""}
@@ -168,24 +169,53 @@ const y = await anotherAsyncFunction(x)
 return { x, y }
 \`\`\`
 
+${extra || ""}
 
 Now generate the JavaScript code required by the user.`,
-        );
-        getState().log(
-          6,
-          "Generated code:\n--BEGIN CODE--\n" + str + "\n--END CODE--\n",
-        );
-        const js_code = str.includes("```javascript")
-          ? str.split("```javascript")[1].split("```")[0]
-          : str;
-        emit_update("Running code");
-        const res = await this.runCode(js_code, { user: req.user });
-        //console.log("code response", res);
-        getState().log(6, "Code answer: " + JSON.stringify(res));
-        return {
-          stop: typeof res === "string",
-          add_response: res,
+          );
+          getState().log(
+            6,
+            "Generated code:\n--BEGIN CODE--\n" + str + "\n--END CODE--\n",
+          );
+          const js_code = str.includes("```javascript")
+            ? str.split("```javascript")[1].split("```")[0]
+            : str;
+          return js_code;
         };
+        const js_code = await gen_the_code();
+        emit_update("Running code");
+        try {
+          const res = await this.runCode(js_code, { user: req.user });
+          //console.log("code response", res);
+          getState().log(6, "Code answer: " + JSON.stringify(res));
+          return {
+            stop: typeof res === "string",
+            add_response: res,
+          };
+        } catch (err) {
+          console.error(err);
+          const retry_js_code =
+            await gen_the_code(`You were previously asked to complete this task. This was the code generated:
+\`\`\`javascript
+${js_code}
+\`\`\`
+
+this code produced the following error:
+
+\`\`\`
+${err.message}
+\`\`\`
+
+Correct this error.
+`);
+          const res = await this.runCode(retry_js_code, { user: req.user });
+          //console.log("code response", res);
+          getState().log(6, "Code retry answer: " + JSON.stringify(res));
+          return {
+            stop: typeof res === "string",
+            add_response: res,
+          };
+        }
       },
       function: {
         name: this.tool_name,
