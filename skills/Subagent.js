@@ -49,7 +49,7 @@ class SubagentToSkill {
       {
         name: "handover_prompt",
         label: "Handover prompt",
-        sublabel: `The prompt initialising the subagent. Example: "Continue answering my query using the tool now at you disposal"`,
+        sublabel: `Optional. The prompt initialising the subagent. Example: "Continue answering my query using the tool now at you disposal"`,
         type: "String",
       },
     ];
