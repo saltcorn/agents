@@ -86,7 +86,7 @@ class SubagentToSkill {
             ...trigger.configuration,
             prompt:
               this.handover_prompt ||
-              "Continue answering my query using the instructions and tools at you disposal, if any",
+              "Your instructions and tools have changed. Continue answering my query using the instructions and tools at you disposal, if any",
           },
           user: req.user,
           run_id: run.id,
