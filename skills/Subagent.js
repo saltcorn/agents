@@ -78,8 +78,10 @@ class SubagentToSkill {
         emit_update,
         run,
         chat,
+        agent_view_config,
+        dyn_updates,
       }) => {
-        getState().log(6, "Running subagent", this.agent_name);        
+        getState().log(6, "Running subagent", this.agent_name);
         const subres = await agent_action.run({
           row: {},
           configuration: {
@@ -91,9 +93,15 @@ class SubagentToSkill {
           user: req.user,
           run_id: run.id,
           is_sub_agent: true,
+          agent_view_config,
+          dyn_updates,
           req,
         });
-        getState().log(6, "Subagent response", subres.json.raw_responses);
+        getState().log(
+          6,
+          "Subagent response",
+          subres?.json?.raw_responses || "No response",
+        );
 
         if (subres.json.raw_responses)
           return { add_responses: subres.json.raw_responses };

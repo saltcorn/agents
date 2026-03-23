@@ -489,6 +489,8 @@ const process_interaction = async (
               chat,
               req,
               run,
+              agent_view_config: agentsViewCfg,
+              dyn_updates,
               async generate(prompt, opts = {}) {
                 generateUsed = true;
                 return await sysState.functions.llm_generate.run(prompt, {
@@ -635,7 +637,7 @@ const process_interaction = async (
   return {
     json: {
       success: "ok",
-      ...(is_sub_agent ? { raw_responses } : {}),
+      ...(is_sub_agent && !stream ? { raw_responses } : {}),
       response: [...prevResponses, ...responses].join(""),
       run_id: run?.id,
     },
