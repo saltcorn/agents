@@ -192,13 +192,15 @@ const realTimeCollabScript = (viewname, rndid, layout) => {
         ['${view.getRealTimeEventName(
           "STREAM_CHUNK",
         )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
+          $(".agent-waiting-indicator").remove();
           window['stream scratch ${viewname} ${rndid}'].push(data.content)
           const rendered = md.render(window['stream scratch ${viewname} ${rndid}'].join(""));
-          $('form.agent-view div.next_response_scratch').html(
+          $('div.next_response_scratch').html(
             (${JSON.stringify(layout || "")} || "").startsWith("Modern chat")
               ? '<div class="chat-message chat-assistant"><div class="chat-avatar"><i class="fas fa-robot"></i></div><div class="chat-bubble">' + rendered + '</div></div>'
               : rendered
           );
+          scrollAgentToBottom();
         }
       }
     };
@@ -434,7 +436,7 @@ const run = async (
   const rndid = Math.floor(Math.random() * 16777215).toString(16);
   const input_form = form(
     {
-      onsubmit: `event.preventDefault();spin_send_button();view_post('${viewname}', 'interact', new FormData(this), ${dyn_updates ? "null" : "processCopilotResponse"});return false;`,
+      onsubmit: `event.preventDefault();const _fd=new FormData(this);spin_send_button();view_post('${viewname}', 'interact', _fd, ${dyn_updates ? "null" : "processCopilotResponse"});return false;`,
       class: ["form-namespace copilot mt-2 agent-view"],
       method: "post",
     },
@@ -492,8 +494,7 @@ const run = async (
       explainer && small({ class: "explainer" }, i(explainer)),
     ),
     stream &&
-      realTimeCollabScript(viewname, rndid, layout) +
-        div({ class: "next_response_scratch" }),
+      realTimeCollabScript(viewname, rndid, layout),
   );
 
   const isModernSidebar = layout && layout.startsWith("Modern chat");
@@ -612,6 +613,7 @@ const run = async (
       req.__("Sessions"),
     ),
     div({ id: "copilotinteractions" }, runInteractions),
+    stream ? div({ class: "next_response_scratch" }) : "",
     input_form,
     style(
       `div.interaction-segment:not(:first-child) {border-top: 1px solid #e7e7e7; }
@@ -685,6 +687,14 @@ const run = async (
     margin-bottom: 0px;
     display: block;
     text-overflow: ellipsis;}
+            /* Typing / Waiting Indicator */
+            .agent-waiting-indicator { display:flex; align-items:center; padding:0.75rem 1rem; }
+            .typing-dots { display:flex; gap:4px; align-items:center; }
+            .typing-dots span { width:8px; height:8px; border-radius:50%; background:#6c757d; animation:typingBounce 1.4s infinite ease-in-out both; }
+            .typing-dots span:nth-child(1) { animation-delay:-0.32s; }
+            .typing-dots span:nth-child(2) { animation-delay:-0.16s; }
+            .typing-dots span:nth-child(3) { animation-delay:0s; }
+            @keyframes typingBounce { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
             /* Modern Chat Layout */
             .modern-chat-layout {
               display: flex;
@@ -881,6 +891,16 @@ const run = async (
     script(domReady(`$( "#inputuserinput" ).autogrow({paddingBottom: 20});`)),
     script(
       `
+    function scrollAgentToBottom() {
+      const container = document.getElementById('copilotinteractions');
+      if (container) {
+        if (container.scrollHeight > container.clientHeight) {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+        const inputForm = document.querySelector('form.agent-view');
+        if (inputForm) inputForm.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
     function close_session_list() {
       $("div.prev-runs-list").hide().parents(".col-3").removeClass("col-3").addClass("was-col-3").parent().children(".col-9").removeClass("col-9").addClass("col-12")
       $("div.open-prev-runs").show()
@@ -916,14 +936,21 @@ const run = async (
         if(user_input && (!${JSON.stringify(dyn_updates)}))
           $("#copilotinteractions").append(wrapSegment('<p>'+user_input+'</p>'+fileBadge, "You", true))
         $("textarea[name=userinput]").val("")
-        $('form.agent-view div.next_response_scratch').html("")
+        $('div.next_response_scratch').html("")
         window['stream scratch ${viewname} ${rndid}'] = []
-        if(res.response)
-            $("#copilotinteractions").append(res.response)
+        if(res.response) {
+            $(".agent-waiting-indicator").remove();
+            $("#copilotinteractions").append(res.response);
+            scrollAgentToBottom();
+        }
     }
     window.processCopilotResponse = processCopilotResponse;
     window.final_agent_response = () => {
       $("#sendbuttonicon").attr("class","far fa-paper-plane");
+      $(".agent-waiting-indicator").remove();
+      $("textarea[name=userinput]").prop("disabled", false).attr("placeholder", ${JSON.stringify(placeholder || "How can I help you?")}).focus();
+      $(".copilot-entry .submit-button").css("pointer-events", "");
+      scrollAgentToBottom();
     }
     window._agentDT = new DataTransfer();
     function setAgentFiles(files) {
@@ -1046,6 +1073,14 @@ const run = async (
     }
     function spin_send_button() {
       $("#sendbuttonicon").attr("class","fas fa-spinner fa-spin");
+      $("textarea[name=userinput]").prop("disabled", true).attr("placeholder", "Waiting for response...");
+      $(".copilot-entry .submit-button").css("pointer-events", "none");
+      const isModernLayout = ${JSON.stringify((layout || "").startsWith("Modern chat"))};
+      const indicator = isModernLayout
+        ? '<div class="agent-waiting-indicator chat-message chat-assistant"><div class="chat-avatar"><i class="fas fa-robot"></i></div><div class="chat-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>'
+        : '<div class="agent-waiting-indicator"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+      $('div.next_response_scratch').before(indicator);
+      scrollAgentToBottom();
     };`,
       stream &&
         domReady(
