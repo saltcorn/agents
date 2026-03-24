@@ -361,6 +361,7 @@ const process_interaction = async (
       );
     //const actions = [];
     let hasResult = false;
+    let hasFollowUpPrompt = false;
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
     const toolResults = {};
     if (answer.hasToolCalls)
@@ -564,17 +565,40 @@ const process_interaction = async (
                   chat: run.context.interactions,
                 },
               );
-              if (!postprocres.stop)
+              if (!postprocres.stop) {
                 await sysState.functions.llm_add_message.run(
                   "user",
                   {
                     type: "text",
-                    value: "Continue",
+                    value: postprocres.follow_up_prompt || "Continue",
                   },
                   {
                     chat: run.context.interactions,
                   },
                 );
+                myHasResult = true;
+                if (postprocres.follow_up_prompt) hasFollowUpPrompt = true;
+              }
+            }
+            // Handle follow_up_prompt when add_responses is empty
+            if (
+              (!postprocres.add_responses ||
+                postprocres.add_responses.length === 0) &&
+              postprocres.follow_up_prompt &&
+              !postprocres.stop
+            ) {
+              await sysState.functions.llm_add_message.run(
+                "user",
+                {
+                  type: "text",
+                  value: postprocres.follow_up_prompt,
+                },
+                {
+                  chat: run.context.interactions,
+                },
+              );
+              myHasResult = true;
+              hasFollowUpPrompt = true;
             }
             if (postprocres.add_user_action && viewname) {
               const user_actions = Array.isArray()
