@@ -565,6 +565,9 @@ const process_interaction = async (
                   chat: run.context.interactions,
                 },
               );
+              await addToContext(run, {
+                interactions: run.context.interactions,
+              });
             }
             if (!postprocres.stop) {
               await sysState.functions.llm_add_message.run(
