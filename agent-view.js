@@ -18,6 +18,7 @@ const {
   input,
   h4,
   h3,
+  h2,
   style,
   h5,
   button,
@@ -821,6 +822,21 @@ const run = async (
             .modern-chat-layout .chat-user .chat-bubble table th {
               background: rgba(255,255,255,0.1);
             }
+            /* Skill attribution badge */
+            .modern-chat-layout .chat-bubble .badge.bg-info {
+              display: inline-block;
+              margin-bottom: 6px;
+              font-size: 0.7rem;
+              font-weight: 600;
+              letter-spacing: 0.3px;
+              text-transform: uppercase;
+              opacity: 0.85;
+            }
+            .modern-chat-layout .chat-bubble .card.bg-secondary-subtle {
+              border: none;
+              background-color: rgba(0,0,0,0.03) !important;
+              margin-bottom: 0.5rem;
+            }
             /* Input area for modern chat */
             .modern-chat-layout .copilot-entry {
               border-top: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
@@ -1273,12 +1289,80 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     );
     sysPrompt = complArgs.systemPrompt;
   }
+  const apiJson = JSON.stringify(run.context.api_interactions, null, 2);
   const debug_html = div(
-    div(h4("System prompt"), pre(text(escapeHtml(sysPrompt)))),
+    { class: "accordion", id: "debugAccordion" },
     div(
-      h4("API interactions"),
-      pre(
-        text(escapeHtml(JSON.stringify(run.context.api_interactions, null, 2))),
+      { class: "accordion-item" },
+      h2(
+        { class: "accordion-header", id: "debugHeadPrompt" },
+        button(
+          {
+            class: "accordion-button collapsed",
+            type: "button",
+            "data-bs-toggle": "collapse",
+            "data-bs-target": "#debugCollapsePrompt",
+            "aria-expanded": "false",
+            "aria-controls": "debugCollapsePrompt",
+          },
+          "System prompt",
+        ),
+      ),
+      div(
+        {
+          id: "debugCollapsePrompt",
+          class: "accordion-collapse collapse",
+          "aria-labelledby": "debugHeadPrompt",
+          "data-bs-parent": "#debugAccordion",
+        },
+        div(
+          { class: "accordion-body" },
+          pre({ style: "white-space:pre-wrap" }, text(escapeHtml(sysPrompt))),
+        ),
+      ),
+    ),
+    div(
+      { class: "accordion-item" },
+      h2(
+        { class: "accordion-header", id: "debugHeadAPI" },
+        button(
+          {
+            class: "accordion-button",
+            type: "button",
+            "data-bs-toggle": "collapse",
+            "data-bs-target": "#debugCollapseAPI",
+            "aria-expanded": "true",
+            "aria-controls": "debugCollapseAPI",
+          },
+          "API interactions",
+        ),
+      ),
+      div(
+        {
+          id: "debugCollapseAPI",
+          class: "accordion-collapse collapse show",
+          "aria-labelledby": "debugHeadAPI",
+          "data-bs-parent": "#debugAccordion",
+        },
+        div(
+          { class: "accordion-body" },
+          button(
+            {
+              class: "btn btn-sm btn-outline-secondary mb-2",
+              onclick: `
+                var t=document.getElementById('debugApiPre').textContent;
+                navigator.clipboard.writeText(t).then(function(){
+                  var b=event.target;b.textContent='Copied!';
+                  setTimeout(function(){b.textContent='Copy to clipboard'},1500)
+                })`,
+            },
+            "Copy to clipboard",
+          ),
+          pre(
+            { id: "debugApiPre", style: "white-space:pre-wrap" },
+            text(escapeHtml(apiJson)),
+          ),
+        ),
       ),
     ),
   );
