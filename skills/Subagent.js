@@ -52,6 +52,12 @@ class SubagentToSkill {
         sublabel: `Optional. The prompt initialising the subagent. Example: "Continue answering my query using the tool now at you disposal"`,
         type: "String",
       },
+      {
+        name: "handoff_prompt",
+        label: "Handoff prompt",
+        sublabel: `Optional. A prompt to process the results of the subagent. Example: "Analyze this response in relation to my query"`,
+        type: "String",
+      },
     ];
   }
 
@@ -91,21 +97,20 @@ class SubagentToSkill {
               "Your instructions and tools have changed. Continue answering my query using the instructions and tools at you disposal, if any",
           },
           user: req.user,
-          run_id: run.id,
+          run,
           is_sub_agent: true,
           agent_view_config,
           dyn_updates,
           req,
         });
-        getState().log(
-          6,
-          "Subagent response",
-          subres?.json?.raw_responses || "No response",
-        );
-
-        if (subres.json.raw_responses)
-          return { add_responses: subres.json.raw_responses };
+        getState().log(6, "Subagent response", JSON.stringify(subres, null, 2));
+        //if (subres.json.raw_responses)
+        //  return { add_responses: subres.json.raw_responses };
         return {
+          ...(this.handoff_prompt
+            ? { follow_up_prompt: this.handoff_prompt }
+            : { stop: true }),
+
           //stop: true,
           //add_response: result,
         };
