@@ -211,6 +211,7 @@ Now generate the JavaScript code required by the user.`,
         const js_code = await gen_the_code();
         emit_update("Running code");
         const ensureResult = (res) => {
+          if (res && typeof res === "object") return JSON.stringify(res);
           if (res !== undefined && res !== null && res !== "") return res;
           return "Code executed successfully but returned no output.";
         };
