@@ -18,6 +18,24 @@ const { validID } = require("@saltcorn/markup/layout_utils");
 const vm = require("vm");
 const { replaceUserContinue } = require("../common");
 
+function extractCode(str) {
+  // Try ```javascript fence
+  if (str.includes("```javascript")) {
+    return str.split("```javascript")[1].split("```")[0];
+  }
+  // Try ```js fence
+  if (str.includes("```js\n") || str.includes("```js\r")) {
+    return str.split(/```js\s/)[1].split("```")[0];
+  }
+  // Try generic ``` fence (code is between first and second ```)
+  const fenceMatch = str.match(/```\s*\n([\s\S]*?)```/);
+  if (fenceMatch) {
+    return fenceMatch[1];
+  }
+  // No fences found - return raw string
+  return str;
+}
+
 //const { fieldProperties } = require("./helpers");
 
 class GenerateAndRunJsCodeSkill {
@@ -171,15 +189,15 @@ return { x, y }
 
 ${extra || ""}
 
+CRITICAL: Your response must contain ONLY a single JavaScript code block wrapped in \`\`\`javascript ... \`\`\` fences. Do not include any text, explanation, or commentary before or after the code block.
+
 Now generate the JavaScript code required by the user.`,
           );
           getState().log(
             6,
             "Generated code:\n--BEGIN CODE--\n" + str + "\n--END CODE--\n",
           );
-          const js_code = str.includes("```javascript")
-            ? str.split("```javascript")[1].split("```")[0]
-            : str;
+          const js_code = extractCode(str);
           return js_code;
         };
         const js_code = await gen_the_code();
