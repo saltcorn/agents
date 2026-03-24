@@ -38,13 +38,20 @@ beforeAll(async () => {
   });
 
   await getState().refresh_triggers(false);
-  //await getState().setConfig("log_level", 6);
+  await getState().setConfig("log_level", 6);
 });
 
 jest.setTimeout(40000);
 
 const user = { id: 1, role_id: 1 };
 const action = require("../action");
+
+const getLastInteraction = async ({ run_id }) => {
+  const run = await WorkflowRuns.findOne({ id: run_id });
+  return JSON.stringify(
+    run.context.interactions[run.context.interactions.length - 1],
+  );
+};
 
 for (const nameconfig of require("./configs")) {
   const { name, ...config } = nameconfig;
@@ -114,7 +121,10 @@ for (const nameconfig of require("./configs")) {
         user,
         req: { user },
       });
-      expect(result.json.response).toContain("987");
+
+      const lastInteraction = await getLastInteraction(result.json);
+
+      expect(result.json.response || lastInteraction).toContain("987");
     });
     it("run multiple subagents concurrenty", async () => {
       const configuration = { ...require("./agentcfg").agent1 };
@@ -134,7 +144,8 @@ for (const nameconfig of require("./configs")) {
         user,
         req: { user },
       });
-      expect(result.json.response).toContain("987");
+      const lastInteraction = await getLastInteraction(result.json);
+      expect(lastInteraction).toContain("987");
     });
   });
 

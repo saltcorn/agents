@@ -515,7 +515,7 @@ const process_interaction = async (
             });
             if (generateUsed)
               await addToContext(run, {
-                interactions: chat,
+                interactions: run.context.interactions,
               });
             if (postprocres.stop) stop = true;
             if (postprocres.add_system_prompt)
