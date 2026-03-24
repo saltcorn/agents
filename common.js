@@ -550,17 +550,11 @@ const process_interaction = async (
               const result = add_resp;
               await sysState.functions.llm_add_message.run(
                 "assistant",
-                [
-                  !result || typeof result === "string"
-                    ? {
-                        type: "text",
-                        text: result || "Action run",
-                      }
-                    : {
-                        type: "json",
-                        value: JSON.parse(JSON.stringify(result)),
-                      },
-                ],
+
+                !result || typeof result === "string"
+                  ? result || "Action run"
+                  : JSON.stringify(result),
+
                 {
                   chat: run.context.interactions,
                 },
