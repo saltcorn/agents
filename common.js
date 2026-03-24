@@ -515,7 +515,7 @@ const process_interaction = async (
             });
             if (generateUsed)
               await addToContext(run, {
-                interactions: chat,
+                interactions: run.context.interactions,
               });
             if (postprocres.stop) stop = true;
             if (postprocres.add_system_prompt)
@@ -546,35 +546,35 @@ const process_interaction = async (
                   layout,
                 ),
               );
-              //replace tool response with this
-              // run.context.interactions.forEach((ic) => {});
+
               const result = add_resp;
               await sysState.functions.llm_add_message.run(
                 "assistant",
+
                 !result || typeof result === "string"
-                  ? {
-                      type: "text",
-                      value: result || "Action run",
-                    }
-                  : {
-                      type: "json",
-                      value: JSON.parse(JSON.stringify(result)),
-                    },
+                  ? result || "Action run"
+                  : JSON.stringify(result),
+
                 {
                   chat: run.context.interactions,
                 },
               );
-              if (!postprocres.stop)
-                await sysState.functions.llm_add_message.run(
-                  "user",
-                  {
-                    type: "text",
-                    value: "Continue",
-                  },
-                  {
-                    chat: run.context.interactions,
-                  },
-                );
+              await addToContext(run, {
+                interactions: run.context.interactions,
+              });
+            }
+            if (!postprocres.stop) {
+              await sysState.functions.llm_add_message.run(
+                "user",
+                postprocres.follow_up_prompt || "Continue with the query",
+                {
+                  chat: run.context.interactions,
+                },
+              );
+              await addToContext(run, {
+                interactions: run.context.interactions,
+              });
+              myHasResult = true;
             }
             if (postprocres.add_user_action && viewname) {
               const user_actions = Array.isArray()
