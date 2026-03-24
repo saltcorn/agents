@@ -123,6 +123,14 @@ class GenerateAndRunJsCodeSkill {
         sublabel: "Allow calls to functions from codepages and modules",
         type: "Bool",
       },
+      {
+        name: "follow_up_prompt",
+        label: "Follow-up prompt",
+        sublabel:
+          "If set, the agent will continue processing after code execution with this prompt. Leave empty to stop after code result.",
+        type: "String",
+        fieldview: "textarea",
+      },
       ...(Table.subClass
         ? [
             {
@@ -202,13 +210,20 @@ Now generate the JavaScript code required by the user.`,
         };
         const js_code = await gen_the_code();
         emit_update("Running code");
+        const ensureResult = (res) => {
+          if (res !== undefined && res !== null && res !== "") return res;
+          return "Code executed successfully but returned no output.";
+        };
         try {
           const res = await this.runCode(js_code, { user: req.user });
-          //console.log("code response", res);
           getState().log(6, "Code answer: " + JSON.stringify(res));
+          const effectiveRes = ensureResult(res);
           return {
-            stop: typeof res === "string",
-            add_response: res,
+            stop: typeof res === "string" && !this.follow_up_prompt,
+            add_response: effectiveRes,
+            ...(this.follow_up_prompt
+              ? { follow_up_prompt: this.follow_up_prompt }
+              : {}),
           };
         } catch (err) {
           console.error(err);
@@ -226,13 +241,27 @@ ${err.message}
 
 Correct this error.
 `);
-          const res = await this.runCode(retry_js_code, { user: req.user });
-          //console.log("code response", res);
-          getState().log(6, "Code retry answer: " + JSON.stringify(res));
-          return {
-            stop: typeof res === "string",
-            add_response: res,
-          };
+          try {
+            const res = await this.runCode(retry_js_code, {
+              user: req.user,
+            });
+            getState().log(6, "Code retry answer: " + JSON.stringify(res));
+            const effectiveRes = ensureResult(res);
+            return {
+              stop: typeof res === "string" && !this.follow_up_prompt,
+              add_response: effectiveRes,
+              ...(this.follow_up_prompt
+                ? { follow_up_prompt: this.follow_up_prompt }
+                : {}),
+            };
+          } catch (retryErr) {
+            console.error(retryErr);
+            return {
+              add_response:
+                "Error: code generation failed after retry: " +
+                retryErr.message,
+            };
+          }
         }
       },
       function: {
