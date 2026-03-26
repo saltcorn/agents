@@ -585,16 +585,26 @@ const process_interaction = async (
               });
             }
             if (!postprocres.stop) {
-              await sysState.functions.llm_add_message.run(
-                "user",
-                postprocres.follow_up_prompt || "Continue with the query",
-                {
-                  chat: run.context.interactions,
-                },
-              );
-              await addToContext(run, {
-                interactions: run.context.interactions,
-              });
+              const lastInteract =
+                run.context.interactions[run.context.interactions.length - 1];
+
+              if (
+                postprocres.follow_up_prompt ||
+                !(
+                  lastInteract?.role === "user" || lastInteract?.role === "tool"
+                )
+              ) {
+                await sysState.functions.llm_add_message.run(
+                  "user",
+                  postprocres.follow_up_prompt || "Continue with the query",
+                  {
+                    chat: run.context.interactions,
+                  },
+                );
+                await addToContext(run, {
+                  interactions: run.context.interactions,
+                });
+              }
               myHasResult = true;
             }
             if (postprocres.add_user_action && viewname) {
