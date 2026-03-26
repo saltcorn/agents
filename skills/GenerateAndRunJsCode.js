@@ -215,7 +215,9 @@ Now generate the JavaScript code required by the user.`,
           if (res !== undefined && res !== null && res !== "") return res;
           return "Code executed successfully but returned no output.";
         };
-        const mkMdResponse = (result, code) => `<details>
+        const mkMdResponse = (result, code) =>
+          req?.user?.role_id === 1
+            ? `<details>
 
 <summary>Show code</summary>
 
@@ -226,7 +228,8 @@ ${code}
 ⇒
 </details>
 
-${result}`;
+${result}`
+            : result;
         try {
           const res = await this.runCode(js_code, { user: req.user });
           getState().log(6, "Code answer: " + JSON.stringify(res));
