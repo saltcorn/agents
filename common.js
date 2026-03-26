@@ -234,7 +234,7 @@ const process_interaction = async (
   run,
   config,
   req,
-  agent_label = "Copilot",
+  agent_label = "Agent",
   prevResponses = [],
   triggering_row = {},
   agentsViewCfg = { stream: false },
@@ -391,6 +391,9 @@ const process_interaction = async (
               },
             );
           }
+          const response_label = is_sub_agent
+            ? agent_label
+            : tool.skill.skill_label || tool.skill.constructor.skill_name;
           if (tool.tool.renderToolCall) {
             const row = tool_call.input;
 
@@ -400,10 +403,7 @@ const process_interaction = async (
             if (rendered)
               add_response(
                 wrapSegment(
-                  wrapCard(
-                    tool.skill.skill_label || tool.skill.constructor.skill_name,
-                    rendered,
-                  ),
+                  wrapCard(response_label, rendered),
                   agent_label,
                   false,
                   layout,
@@ -427,11 +427,7 @@ const process_interaction = async (
               if (rendered)
                 add_response(
                   wrapSegment(
-                    wrapCard(
-                      tool.skill.skill_label ||
-                        tool.skill.constructor.skill_name,
-                      rendered,
-                    ),
+                    wrapCard(response_label, rendered),
                     agent_label,
                     false,
                     layout,
@@ -473,8 +469,10 @@ const process_interaction = async (
           let stop = false,
             myHasResult = false;
           if (tool.tool.postProcess && !stop) {
-            let result = toolResults[tool_call.tool_call_id];
-
+            let result = toolResults[tool_call.tool_call_id];            
+            const response_label = is_sub_agent
+              ? agent_label
+              : tool.skill.skill_label || tool.skill.constructor.skill_name;
             const chat = run.context.interactions;
             let generateUsed = false;
             const systemPrompt = await getSystemPrompt(
@@ -543,11 +541,7 @@ const process_interaction = async (
                     : content;
                 add_response(
                   wrapSegment(
-                    wrapCard(
-                      tool.skill.skill_label ||
-                        tool.skill.constructor.skill_name,
-                      renderedAddResponse,
-                    ),
+                    wrapCard(response_label, renderedAddResponse),
                     agent_label,
                     false,
                     layout,

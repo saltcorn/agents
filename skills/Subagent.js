@@ -102,6 +102,7 @@ class SubagentToSkill {
           agent_view_config,
           dyn_updates,
           req,
+          agent_label: this.agent_name,
         });
         getState().log(6, "Subagent response", JSON.stringify(subres, null, 2));
         //if (subres.json.raw_responses)
