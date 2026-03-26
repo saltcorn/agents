@@ -215,6 +215,18 @@ Now generate the JavaScript code required by the user.`,
           if (res !== undefined && res !== null && res !== "") return res;
           return "Code executed successfully but returned no output.";
         };
+        const mkMdResponse = (result, code) => `<details>
+
+<summary>Show code</summary>
+
+\`\`\`javascript
+${code}
+\`\`\`
+
+⇒
+</details>
+
+${result}`;
         try {
           const res = await this.runCode(js_code, { user: req.user });
           getState().log(6, "Code answer: " + JSON.stringify(res));
@@ -224,7 +236,7 @@ Now generate the JavaScript code required by the user.`,
             add_response: {
               role: "user",
               content: `The result of running the code is: ${effectiveRes}`,
-              md_response: effectiveRes,
+              md_response: mkMdResponse(effectiveRes, js_code),
             },
             ...(this.follow_up_prompt
               ? { follow_up_prompt: this.follow_up_prompt }
@@ -257,7 +269,7 @@ Correct this error and generate the new Javascript code to run
               add_response: {
                 role: "user",
                 content: `The result of running the code is: ${effectiveRes}`,
-                md_response: effectiveRes,
+                md_response: mkMdResponse(effectiveRes, retry_js_code),
               },
               ...(this.follow_up_prompt
                 ? { follow_up_prompt: this.follow_up_prompt }
