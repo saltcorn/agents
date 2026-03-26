@@ -655,7 +655,7 @@ const process_interaction = async (
         ? answer
         : wrapSegment(md.render(answer), agent_label, false, layout),
     );
-  if (dyn_updates)
+  if (dyn_updates && !is_sub_agent)
     getState().emitDynamicUpdate(
       db.getTenantSchema(),
       {
