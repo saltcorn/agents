@@ -221,7 +221,11 @@ Now generate the JavaScript code required by the user.`,
           const effectiveRes = ensureResult(res);
           return {
             stop: typeof res === "string" && !this.follow_up_prompt,
-            add_response: effectiveRes,
+            add_response: {
+              role: "user",
+              content: `The result of running the code is: ${effectiveRes}`,
+              md_response: effectiveRes,
+            },
             ...(this.follow_up_prompt
               ? { follow_up_prompt: this.follow_up_prompt }
               : {}),
@@ -240,7 +244,7 @@ this code produced the following error:
 ${err.message}
 \`\`\`
 
-Correct this error.
+Correct this error and generate the new Javascript code to run
 `);
           try {
             const res = await this.runCode(retry_js_code, {
@@ -250,7 +254,11 @@ Correct this error.
             const effectiveRes = ensureResult(res);
             return {
               stop: typeof res === "string" && !this.follow_up_prompt,
-              add_response: effectiveRes,
+              add_response: {
+                role: "user",
+                content: `The result of running the code is: ${effectiveRes}`,
+                md_response: effectiveRes,
+              },
               ...(this.follow_up_prompt
                 ? { follow_up_prompt: this.follow_up_prompt }
                 : {}),

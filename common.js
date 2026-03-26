@@ -532,33 +532,54 @@ const process_interaction = async (
             }
 
             for (const add_resp of postprocres.add_responses || []) {
-              raw_responses.push(add_resp);
-              const renderedAddResponse =
-                typeof add_resp === "string" ? md.render(add_resp) : add_resp;
-              add_response(
-                wrapSegment(
-                  wrapCard(
-                    tool.skill.skill_label || tool.skill.constructor.skill_name,
-                    renderedAddResponse,
+              const content =
+                add_resp.role && add_resp.content ? add_resp.content : add_resp;
+              raw_responses.push(content);
+              if (add_resp.md_response !== null) {
+                const renderedAddResponse = add_resp.md_response
+                  ? md.render(add_resp.md_response)
+                  : typeof content === "string"
+                    ? md.render(content)
+                    : content;
+                add_response(
+                  wrapSegment(
+                    wrapCard(
+                      tool.skill.skill_label ||
+                        tool.skill.constructor.skill_name,
+                      renderedAddResponse,
+                    ),
+                    agent_label,
+                    false,
+                    layout,
                   ),
-                  agent_label,
-                  false,
-                  layout,
-                ),
-              );
+                );
+              }
+              if (typeof add_resp.md_response !== "undefined")
+                delete add_resp.md_response;
 
-              const result = add_resp;
-              await sysState.functions.llm_add_message.run(
-                "assistant",
+              const result = content;
 
-                !result || typeof result === "string"
-                  ? result || "Action run"
-                  : JSON.stringify(result),
+              if (add_resp.role && add_resp.content) {
+                await sysState.functions.llm_add_message.run(
+                  add_resp.role,
+                  add_resp.content,
+                  {
+                    chat: run.context.interactions,
+                  },
+                );
+              } else
+                await sysState.functions.llm_add_message.run(
+                  "assistant",
 
-                {
-                  chat: run.context.interactions,
-                },
-              );
+                  !result || typeof result === "string"
+                    ? result || "Action run"
+                    : JSON.stringify(result),
+
+                  {
+                    chat: run.context.interactions,
+                  },
+                );
+
               await addToContext(run, {
                 interactions: run.context.interactions,
               });
