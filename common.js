@@ -245,16 +245,16 @@ const process_interaction = async (
   const sysState = getState();
   const complArgs = await getCompletionArguments(
     config,
-    req.user,
+    req?.user,
     triggering_row,
-    req.body,
+    req?.body,
   );
   complArgs.appendToChat = true;
   complArgs.chat = run.context.interactions;
   const use_alt_config = complArgs.alt_config;
   //complArgs.debugResult = true;
   //console.log("complArgs", JSON.stringify(complArgs, null, 2));
-  const debugMode = is_debug_mode(config, req.user);
+  const debugMode = is_debug_mode(config, req?.user);
   const debugCollector = {};
   if (debugMode) complArgs.debugCollector = debugCollector;
   if (stream && viewname) {
@@ -265,10 +265,11 @@ const process_interaction = async (
           ? response
           : response.choices[0].content || response.choices[0].delta?.content;
       if (content) {
-        const pageLoadTag = req.body.page_load_tag;
-        view.emitRealTimeEvent(`STREAM_CHUNK?page_load_tag=${pageLoadTag}`, {
-          content,
-        });
+        const pageLoadTag = req?.body?.page_load_tag;
+        if (pageLoadTag)
+          view.emitRealTimeEvent(`STREAM_CHUNK?page_load_tag=${pageLoadTag}`, {
+            content,
+          });
       }
     };
   }
@@ -303,7 +304,7 @@ const process_interaction = async (
           eval_js: `processCopilotResponse({response: ${JSON.stringify(resp)}, run_id: ${run.id}}, true)`,
           page_load_tag: req?.headers?.["page-load-tag"],
         },
-        [req.user.id],
+        [req?.user?.id],
       );
     else responses.push(resp);
     await addToContext(run, {
@@ -342,7 +343,7 @@ const process_interaction = async (
     }
     if (answer.content && !answer.tool_calls)
       add_response(
-        req.disable_markdown_render
+        req?.disable_markdown_render
           ? answer
           : wrapSegment(md.render(answer.content), agent_label, false, layout),
       );
@@ -355,7 +356,7 @@ const process_interaction = async (
   ) {
     if (answer.content)
       add_response(
-        req.disable_markdown_render
+        req?.disable_markdown_render
           ? answer
           : wrapSegment(md.render(answer.content), agent_label, false, layout),
       );
@@ -383,13 +384,14 @@ const process_interaction = async (
               (tool.skill.skill_label || tool.skill.constructor.skill_name) +
               "&nbsp;";
             const view = View.findOne({ name: viewname });
-            const pageLoadTag = req.body.page_load_tag;
-            view.emitRealTimeEvent(
-              `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
-              {
-                content,
-              },
-            );
+            const pageLoadTag = req?.body?.page_load_tag;
+            if (pageLoadTag)
+              view.emitRealTimeEvent(
+                `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
+                {
+                  content,
+                },
+              );
           }
           const response_label = is_sub_agent
             ? agent_label
@@ -469,7 +471,7 @@ const process_interaction = async (
           let stop = false,
             myHasResult = false;
           if (tool.tool.postProcess && !stop) {
-            let result = toolResults[tool_call.tool_call_id];            
+            let result = toolResults[tool_call.tool_call_id];
             const response_label = is_sub_agent
               ? agent_label
               : tool.skill.skill_label || tool.skill.constructor.skill_name;
@@ -477,9 +479,9 @@ const process_interaction = async (
             let generateUsed = false;
             const systemPrompt = await getSystemPrompt(
               config,
-              req.user,
+              req?.user,
               triggering_row,
-              req.body,
+              req?.body,
             );
             const postprocres = await tool.tool.postProcess({
               tool_call,
@@ -502,13 +504,14 @@ const process_interaction = async (
               emit_update(s) {
                 if (!stream || !viewname) return;
                 const view = View.findOne({ name: viewname });
-                const pageLoadTag = req.body.page_load_tag;
-                view.emitRealTimeEvent(
-                  `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
-                  {
-                    content: s + "&nbsp;",
-                  },
-                );
+                const pageLoadTag = req?.body?.page_load_tag;
+                if (pageLoadTag)
+                  view.emitRealTimeEvent(
+                    `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
+                    {
+                      content: s + "&nbsp;",
+                    },
+                  );
               },
             });
             if (generateUsed)
@@ -645,7 +648,7 @@ const process_interaction = async (
       );
   } else if (typeof answer === "string")
     add_response(
-      req.disable_markdown_render
+      req?.disable_markdown_render
         ? answer
         : wrapSegment(md.render(answer), agent_label, false, layout),
     );
@@ -656,7 +659,7 @@ const process_interaction = async (
         eval_js: `final_agent_response()`,
         page_load_tag: req?.headers?.["page-load-tag"],
       },
-      [req.user.id],
+      [req?.user?.id],
     );
 
   return {
