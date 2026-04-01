@@ -413,11 +413,11 @@ const process_interaction = async (
               );
           }
           myHasResult = true;
-          const result = await tool.tool.process(tool_call.input, {
+          let result = await tool.tool.process(tool_call.input, {
             req,
-          });
+          });        
           toolResults[tool_call.tool_call_id] = result;
-          if (result.stop) stop = true;
+          if (result?.stop) stop = true;
           if (
             (typeof result === "object" && Object.keys(result || {}).length) ||
             typeof result === "string"
