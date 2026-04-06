@@ -25,13 +25,13 @@ module.exports = {
       script: `/plugins/public/agents@${
         require("./package.json").version
       }/markdown-it.min.js`,
-      onlyViews: ["Agent Chat"],
+      onlyViews: ["Agent Chat", "Saltcorn Agent copilot"],
     },
     {
       script: `/plugins/public/agents@${
         require("./package.json").version
       }/jquery.autogrow-textarea.js`,
-      onlyViews: ["Agent Chat"],
+      onlyViews: ["Agent Chat", "Saltcorn Agent copilot"],
     },
   ],
   actions: {
