@@ -40,6 +40,7 @@ const get_skills = () => {
     require("./skills/Fetch"),
     require("./skills/WebSearch"),
     require("./skills/Subagent"),
+    require("./skills/ExternalSkill"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
