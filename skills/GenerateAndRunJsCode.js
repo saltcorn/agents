@@ -307,10 +307,11 @@ const getTablePrompt = (read_only) => {
   tables.forEach((table) => {
     const fieldLines = table.fields.map(
       (f) =>
-        `  * ${f.name} with type: ${f.pretty_type.replace(
-          "Key to",
-          "ForeignKey referencing",
-        )}.${f.description ? ` ${f.description}` : ""}`,
+        `  * ${f.name} with type: ${
+          f?.pretty_type
+            ? f.pretty_type.replace("Key to", "ForeignKey referencing")
+            : "Unknown"
+        }.${f?.description ? ` ${f.description}` : ""}`,
     );
     tableLines.push(
       `${table.name}${
