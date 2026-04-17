@@ -304,7 +304,7 @@ const getTablePrompt = (read_only) => {
   const state = getState();
   const tables = state.tables;
   const tableLines = [];
-  tables.forEach((table) => {
+  tables.map(t=>new Table(t)).forEach((table) => {
     const fieldLines = table.fields.map(
       (f) =>
         `  * ${f.name} with type: ${
