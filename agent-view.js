@@ -120,7 +120,12 @@ const configuration_workflow = (req) =>
                 type: "String",
                 required: true,
                 attributes: {
-                  options: ["Standard", "No card", "Modern chat", "Modern chat - no card"],
+                  options: [
+                    "Standard",
+                    "No card",
+                    "Modern chat",
+                    "Modern chat - no card",
+                  ],
                 },
               },
               {
@@ -289,9 +294,7 @@ const run = async (
             if (interact.content?.[0]?.type === "image_url") {
               const image_url = interact.content[0].image_url.url;
               if (image_url.startsWith("data"))
-                interactMarkups.push(
-                  wrapSegment("File", "You", true, layout),
-                );
+                interactMarkups.push(wrapSegment("File", "You", true, layout));
               else
                 interactMarkups.push(
                   wrapSegment(
@@ -303,12 +306,7 @@ const run = async (
                 );
             } else
               interactMarkups.push(
-                wrapSegment(
-                  md.render(interact.content),
-                  "You",
-                  true,
-                  layout,
-                ),
+                wrapSegment(md.render(interact.content), "You", true, layout),
               );
             break;
           case "assistant":
@@ -494,8 +492,7 @@ const run = async (
         ),
       explainer && small({ class: "explainer" }, i(explainer)),
     ),
-    stream &&
-      realTimeCollabScript(viewname, rndid, layout),
+    stream && realTimeCollabScript(viewname, rndid, layout),
   );
 
   const isModernSidebar = layout && layout.startsWith("Modern chat");
@@ -527,7 +524,8 @@ const run = async (
             )
           : div(
               {
-                class: "d-flex flex-wrap justify-content-between align-middle mb-2",
+                class:
+                  "d-flex flex-wrap justify-content-between align-middle mb-2",
               },
               div(
                 { class: "d-flex" },
@@ -564,7 +562,10 @@ const run = async (
                     (isActive ? " active-session" : ""),
                 },
                 div(
-                  { class: "d-flex justify-content-between align-items-center mb-1" },
+                  {
+                    class:
+                      "d-flex justify-content-between align-items-center mb-1",
+                  },
                   small(
                     { class: "text-muted text-truncate", style: "min-width:0" },
                     localeDateTime(run.started_at),
@@ -592,10 +593,7 @@ const run = async (
                     onclick: `delprevrun(event, ${run.id})`,
                   }),
                 ),
-                p(
-                  { class: "prevrun_content" },
-                  preview,
-                ),
+                p({ class: "prevrun_content" }, preview),
               );
         }),
       )
@@ -1108,7 +1106,10 @@ const run = async (
   const isModern = layout && layout.startsWith("Modern chat");
   const main_chat =
     layout === "Modern chat"
-      ? div({ class: "card" }, div({ class: "card-body modern-chat-layout" }, main_inner))
+      ? div(
+          { class: "card" },
+          div({ class: "card-body modern-chat-layout" }, main_inner),
+        )
       : layout === "Modern chat - no card"
         ? div({ class: "modern-chat-layout" }, main_inner)
         : layout === "No card"
@@ -1437,6 +1438,34 @@ const execute_user_action = async (
     ...uadata.tool_call.input,
     ...uadata.input,
   });
+  if (result.generate_prompt) {
+    const action =
+      config.agent_action || (await Trigger.findOne({ id: config.action_id }));
+    run.context.interactions.push({
+      role: "user",
+      content: result.generate_prompt,
+    });
+    const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
+
+    await process_interaction(
+      run,
+      action.configuration,
+      req,
+      action.name,
+      [],
+      {}, //row?
+      config,
+      dyn_updates,
+    );
+    const { generate_prompt, ...restResult } = result;
+    return {
+      json: {
+        success: "ok",
+        ...restResult,
+        reload_embedded_view: viewname,
+      },
+    };
+  }
   return {
     json: {
       success: "ok",

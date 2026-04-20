@@ -41,6 +41,7 @@ const get_skills = () => {
     require("./skills/WebSearch"),
     require("./skills/Subagent"),
     require("./skills/ExternalSkill"),
+    require("./skills/PlanApproval"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
@@ -416,9 +417,90 @@ const process_interaction = async (
           myHasResult = true;
           let result = await tool.tool.process(tool_call.input, {
             req,
-          });        
+          });
           toolResults[tool_call.tool_call_id] = result;
+          if (result.add_response) {
+            if (!result.add_responses)
+              result.add_responses = [result.add_response];
+            else result.add_responses.push(result.add_response);
+          }
+
+          for (const add_resp of result.add_responses || []) {
+            const content =
+              add_resp.role && add_resp.content ? add_resp.content : add_resp;
+            raw_responses.push(content);
+            if (add_resp.md_response !== null) {
+              const renderedAddResponse = add_resp.md_response
+                ? md.render(add_resp.md_response)
+                : typeof content === "string"
+                  ? md.render(content)
+                  : content;
+              add_response(
+                wrapSegment(
+                  wrapCard(response_label, renderedAddResponse),
+                  agent_label,
+                  false,
+                  layout,
+                ),
+              );
+            }
+            if (typeof add_resp.md_response !== "undefined")
+              delete add_resp.md_response;
+
+            const result = content;
+
+            if (add_resp.role && add_resp.content) {
+              await sysState.functions.llm_add_message.run(
+                add_resp.role,
+                add_resp.content,
+                {
+                  chat: run.context.interactions,
+                },
+              );
+            } else
+              await sysState.functions.llm_add_message.run(
+                "assistant",
+
+                !result || typeof result === "string"
+                  ? result || "Action run"
+                  : JSON.stringify(result),
+
+                {
+                  chat: run.context.interactions,
+                },
+              );
+
+            await addToContext(run, {
+              interactions: run.context.interactions,
+            });
+          }
           if (result?.stop) stop = true;
+          if (result?.add_user_action && viewname) {
+            const user_actions = Array.isArray()
+              ? result.add_user_action
+              : [result.add_user_action];
+            for (const uact of user_actions) {
+              uact.rndid = Math.floor(Math.random() * 16777215).toString(16);
+              uact.tool_call = tool_call;
+            }
+            await addToContext(run, {
+              user_actions,
+            });
+            add_response(
+              div(
+                { class: "d-flex mb-2" },
+                user_actions.map((ua) =>
+                  button(
+                    {
+                      class: "btn btn-primary", //press_store_button(this, true);
+                      onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
+                    },
+                    ua.label,
+                  ),
+                ),
+              ),
+            );
+          }
           if (
             (typeof result === "object" && Object.keys(result || {}).length) ||
             typeof result === "string"
