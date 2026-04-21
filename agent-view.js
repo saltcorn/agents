@@ -1478,7 +1478,7 @@ const execute_user_action = async (
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
         {
-          eval_js: `${`$("button[data-useraction-id=${uadata.rndid}]").replaceWith("${uadata.click_replace_text}")`}`,
+          eval_js: `spin_send_button();${`$("button[data-useraction-id=${uadata.rndid}]").replaceWith("${uadata.click_replace_text}")`}`,
           page_load_tag: req?.headers?.["page-load-tag"],
         },
         [req.user.id],
@@ -1513,7 +1513,6 @@ const execute_user_action = async (
       json: {
         success: "ok",
         ...restResult,
-        reload_embedded_view: viewname,
       },
     };
   }
