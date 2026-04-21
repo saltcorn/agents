@@ -73,6 +73,7 @@ class PlanApprovalSkill {
             name: "approve_plan",
             type: "button",
             label: `Approve`,
+            click_replace_text: "Approved",
             input: {},
           },
         };

@@ -1447,6 +1447,17 @@ const execute_user_action = async (
     });
     const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
 
+    if (dyn_updates && uadata.click_replace_text) {
+      getState().emitDynamicUpdate(
+        db.getTenantSchema(),
+        {
+          eval_js: `${`$("button[data-useraction-id=${uadata.rndid}]").replaceWith("${uadata.click_replace_text}")`}`,
+          page_load_tag: req?.headers?.["page-load-tag"],
+        },
+        [req.user.id],
+      );
+      // remove from html_interactions
+    }
     await process_interaction(
       run,
       action.configuration,

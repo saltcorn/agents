@@ -418,7 +418,7 @@ const process_interaction = async (
           let result = await tool.tool.process(tool_call.input, {
             req,
           });
-          const tool_response = result.add_response || result
+          const tool_response = result.add_response || result;
           toolResults[tool_call.tool_call_id] = result;
           if (result?.stop) stop = true;
           if (result?.add_user_action && viewname) {
@@ -438,6 +438,7 @@ const process_interaction = async (
                 user_actions.map((ua) =>
                   button(
                     {
+                      "data-useraction-id": ua.rndid,
                       class: "btn btn-primary", //press_store_button(this, true);
                       onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
                     },
@@ -448,13 +449,17 @@ const process_interaction = async (
             );
           }
           if (
-            (typeof tool_response === "object" && Object.keys(tool_response || {}).length) ||
+            (typeof tool_response === "object" &&
+              Object.keys(tool_response || {}).length) ||
             typeof tool_response === "string"
           ) {
             if (tool.tool.renderToolResponse) {
-              const rendered = await tool.tool.renderToolResponse(tool_response, {
-                req,
-              });
+              const rendered = await tool.tool.renderToolResponse(
+                tool_response,
+                {
+                  req,
+                },
+              );
               if (rendered)
                 add_response(
                   wrapSegment(
