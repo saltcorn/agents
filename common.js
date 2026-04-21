@@ -418,62 +418,8 @@ const process_interaction = async (
           let result = await tool.tool.process(tool_call.input, {
             req,
           });
+          const tool_response = result.add_response || result
           toolResults[tool_call.tool_call_id] = result;
-          if (result.add_response) {
-            if (!result.add_responses)
-              result.add_responses = [result.add_response];
-            else result.add_responses.push(result.add_response);
-          }
-
-          for (const add_resp of result.add_responses || []) {
-            const content =
-              add_resp.role && add_resp.content ? add_resp.content : add_resp;
-            raw_responses.push(content);
-            if (add_resp.md_response !== null) {
-              const renderedAddResponse = add_resp.md_response
-                ? md.render(add_resp.md_response)
-                : typeof content === "string"
-                  ? md.render(content)
-                  : content;
-              add_response(
-                wrapSegment(
-                  wrapCard(response_label, renderedAddResponse),
-                  agent_label,
-                  false,
-                  layout,
-                ),
-              );
-            }
-            if (typeof add_resp.md_response !== "undefined")
-              delete add_resp.md_response;
-
-            const result = content;
-
-            if (add_resp.role && add_resp.content) {
-              await sysState.functions.llm_add_message.run(
-                add_resp.role,
-                add_resp.content,
-                {
-                  chat: run.context.interactions,
-                },
-              );
-            } else
-              await sysState.functions.llm_add_message.run(
-                "assistant",
-
-                !result || typeof result === "string"
-                  ? result || "Action run"
-                  : JSON.stringify(result),
-
-                {
-                  chat: run.context.interactions,
-                },
-              );
-
-            await addToContext(run, {
-              interactions: run.context.interactions,
-            });
-          }
           if (result?.stop) stop = true;
           if (result?.add_user_action && viewname) {
             const user_actions = Array.isArray()
@@ -502,11 +448,11 @@ const process_interaction = async (
             );
           }
           if (
-            (typeof result === "object" && Object.keys(result || {}).length) ||
-            typeof result === "string"
+            (typeof tool_response === "object" && Object.keys(tool_response || {}).length) ||
+            typeof tool_response === "string"
           ) {
             if (tool.tool.renderToolResponse) {
-              const rendered = await tool.tool.renderToolResponse(result, {
+              const rendered = await tool.tool.renderToolResponse(tool_response, {
                 req,
               });
               if (rendered)
@@ -523,14 +469,14 @@ const process_interaction = async (
           }
           await sysState.functions.llm_add_message.run(
             "tool_response",
-            !result || typeof result === "string"
+            !tool_response || typeof tool_response === "string"
               ? {
                   type: "text",
-                  value: result || "Action run",
+                  value: tool_response || "Action run",
                 }
               : {
                   type: "json",
-                  value: JSON.parse(JSON.stringify(result)),
+                  value: JSON.parse(JSON.stringify(tool_response)),
                 },
             {
               chat: run.context.interactions,
