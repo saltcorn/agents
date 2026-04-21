@@ -77,6 +77,9 @@ class PlanApprovalSkill {
           },
         };
       },
+      renderToolCall({ plan }) {
+        return plan;
+      },
       function: {
         name: "submit_plan_for_approval",
         description:
