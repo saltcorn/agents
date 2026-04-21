@@ -61,6 +61,14 @@ const configuration_workflow = (req) =>
       {
         name: "Agent action",
         form: async (context) => {
+          let run_id_field_opts;
+          if (context.table_id) {
+            const table = Table.findOne({ id: context.table_id });
+            run_id_field_opts = table.fields
+              .filter((f) => f.type?.name === "Integer" && !f.primary_key)
+              .map((f) => f.name);
+          }
+
           const agent_actions = await Trigger.find({ action: "Agent" });
           return new Form({
             fields: [
@@ -114,6 +122,17 @@ const configuration_workflow = (req) =>
                 sublabel:
                   "Appears below the input box. Use for additional instructions.",
               },
+              ...(run_id_field_opts
+                ? [
+                    {
+                      name: "run_id_field",
+                      type: "String",
+                      label: "Run ID field",
+                      sublabel: "Set this field to the run ID",
+                      attributes: { options: run_id_field_opts },
+                    },
+                  ]
+                : []),
               {
                 name: "layout",
                 label: "Layout",
@@ -1158,6 +1177,14 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
         triggering_row_id,
       },
     });
+    if (table_id && config.run_id_field && triggering_row_id) {
+      const table = Table.findOne(table_id);
+      await table.updateRow(
+        { [config.run_id_field]: run.id },
+        triggering_row_id,
+      );
+      if (triggering_row) triggering_row[config.run_id_field] = run.id;
+    }
   } else {
     run = await WorkflowRun.findOne({ id: +run_id });
   }
