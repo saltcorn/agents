@@ -1475,10 +1475,15 @@ const execute_user_action = async (
     const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
 
     if (dyn_updates && uadata.click_replace_text) {
+      const { layout } = config;
+
+      const resp = JSON.stringify(
+        wrapSegment(uadata.click_replace_text, "You", true, layout),
+      );
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
         {
-          eval_js: `spin_send_button();${`$("button[data-useraction-id=${uadata.rndid}]").replaceWith("${uadata.click_replace_text}")`}`,
+          eval_js: `spin_send_button();$("button[data-useraction-id=${uadata.rndid}]").replaceWith("");processCopilotResponse({response: ${resp}, run_id: ${run.id}}, true)`,
           page_load_tag: req?.headers?.["page-load-tag"],
         },
         [req.user.id],
