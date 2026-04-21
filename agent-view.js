@@ -1457,6 +1457,19 @@ const execute_user_action = async (
         [req.user.id],
       );
       // remove from html_interactions
+      run.context.html_interactions = run.context.html_interactions.map(
+        (hi) => {
+          if (hi.includes(`button data-useraction-id="${uadata.rndid}"`))
+            return wrapSegment(
+              uadata.click_replace_text,
+              "You",
+              true,
+              config.layout,
+            );
+          return hi;
+        },
+      );
+      await run.update({ context: run.context });
     }
     await process_interaction(
       run,
