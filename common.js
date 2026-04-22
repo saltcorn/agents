@@ -407,7 +407,12 @@ const process_interaction = async (
             if (rendered)
               add_response(
                 wrapSegment(
-                  wrapCard(response_label, rendered),
+                  wrapCard(
+                    response_label,
+                    typeof rendered === "string"
+                      ? md.render(rendered)
+                      : rendered,
+                  ),
                   agent_label,
                   false,
                   layout,

@@ -64,8 +64,6 @@ class PlanApprovalSkill {
     return {
       type: "function",
       process: async (row) => {
-        console.log("process plan row", row);
-
         return {
           stop: true,
           add_response: row.plan,
