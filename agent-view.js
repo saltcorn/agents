@@ -1249,6 +1249,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     "You",
     true,
     config.layout,
+    req?.user
   );
 
   await addToContext(run, {
@@ -1492,7 +1493,7 @@ const execute_user_action = async (
       const { layout } = config;
 
       const resp = JSON.stringify(
-        wrapSegment(uadata.click_replace_text, "You", true, layout),
+        wrapSegment(uadata.click_replace_text, "You", true, layout, req?.user),
       );
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
@@ -1511,6 +1512,7 @@ const execute_user_action = async (
               "You",
               true,
               config.layout,
+              req?.user
             );
           return hi;
         },

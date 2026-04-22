@@ -209,12 +209,12 @@ const saveInteractions = async (run) => {
   });
 };
 
-const wrapSegment = (html, who, to_right, layout) =>
+const wrapSegment = (html, who, to_right, layout, user) =>
   who === null
     ? html
     : layout && layout.startsWith("Modern chat")
       ? `<div class="chat-message ${to_right ? "chat-user" : "chat-assistant"}">` +
-        `<div class="chat-avatar"><i class="fas ${to_right ? "fa-user" : "fa-robot"}"></i></div>` +
+        `<div class="chat-avatar"${user ? ` title="${user.email} at ${new Date().toString()}"` : ""}><i class="fas ${to_right ? "fa-user" : "fa-robot"}"></i></div>` +
         `<div class="chat-bubble">${html}</div>` +
         `</div>`
       : `<div class="interaction-segment ${to_right ? "to-right" : ""}"><div><div class="badgewrap"><span class="badge bg-secondary">` +
