@@ -197,8 +197,7 @@ const addToContext = async (run, newCtx) => {
         throw new Error("Must be object to append to object");
       Object.assign(run.context[k], newCtx[k]);
       changed = true;
-    }
-    if (k === "status") {
+    } else if (k === "status") {
       extraRunSet.status = newCtx[k];
     } else {
       run.context[k] = newCtx[k];
