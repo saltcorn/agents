@@ -557,7 +557,7 @@ const run = async (
                 {
                   type: "button",
                   class: "btn btn-primary btn-sm rounded-pill px-3",
-                  onclick: "unset_state_field('run_id')",
+                  onclick: "unset_state_field('run_id', this)",
                   title: "New chat",
                 },
                 i({ class: "fas fa-plus me-1" }),
@@ -582,7 +582,7 @@ const run = async (
                   type: "button",
                   class: "btn btn-secondary btn-sm pt-0 pb-1",
                   style: "font-size: 0.9em;height:1.5em",
-                  onclick: "unset_state_field('run_id')",
+                  onclick: "unset_state_field('run_id', this)",
                   title: "New session",
                 },
                 i({ class: "fas fa-redo fa-sm" }),
@@ -598,7 +598,7 @@ const run = async (
           return isModernSidebar
             ? div(
                 {
-                  onclick: `set_state_field('run_id',${run.id})`,
+                  onclick: `set_state_field('run_id',${run.id}, this)`,
                   class:
                     "prevcopilotrun modern-session-item" +
                     (isActive ? " active-session" : ""),
@@ -621,7 +621,7 @@ const run = async (
               )
             : div(
                 {
-                  onclick: `set_state_field('run_id',${run.id})`,
+                  onclick: `set_state_field('run_id',${run.id}, this)`,
                   class: "prevcopilotrun border p-2",
                 },
                 div(
