@@ -63,15 +63,15 @@ class PlanApprovalSkill {
   provideTools = () => {
     return {
       type: "function",
-      process: async (row) => {
+      process: async (row, { req }) => {
         return {
           stop: true,
           add_response: row.plan,
           add_user_action: {
             name: "approve_plan",
             type: "button",
-            label: `Approve`,
-            click_replace_text: "Approved",
+            label: req.__("Approve"),
+            click_replace_text: req.__("Approved"),
             input: {},
           },
         };
