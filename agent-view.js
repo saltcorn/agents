@@ -134,6 +134,12 @@ const configuration_workflow = (req) =>
                   ]
                 : []),
               {
+                name: "shared",
+                label: "Shared runs",
+                sublabel: "Users can open runs created by other users",
+                type: "Bool",
+              },
+              {
                 name: "layout",
                 label: "Layout",
                 type: "String",
@@ -267,24 +273,13 @@ const run = async (
     stream,
     audio_recorder,
     layout,
+    shared,
   },
   state,
   { res, req },
 ) => {
   const action = agent_action || (await Trigger.findOne({ id: action_id }));
   if (!action) throw new Error(`Action not found: ${action_id}`);
-  const prevRuns = show_prev_runs
-    ? (
-        await WorkflowRun.find(
-          { trigger_id: action.id, started_by: req.user?.id },
-          { orderBy: "started_at", orderDesc: true, limit: 30 },
-        )
-      ).filter((r) => r.context.interactions)
-    : null;
-
-  const cfgMsg = incompleteCfgMsg();
-  if (cfgMsg) return cfgMsg;
-  let runInteractions = "";
   let triggering_row_id;
   if (table_id) {
     const table = Table.findOne(table_id);
@@ -293,13 +288,32 @@ const run = async (
       //triggering_row = await table.getRow({ [pk]: state[pk] });
       triggering_row_id = state[pk];
   }
+  const prevRuns = show_prev_runs
+    ? (
+        await WorkflowRun.find(
+          {
+            trigger_id: action.id,
+            ...(shared ? {} : { started_by: req.user?.id }),
+            ...(triggering_row_id
+              ? { context: { json: ["triggering_row_id", triggering_row_id] } }
+              : {}),
+          },
+          { orderBy: "started_at", orderDesc: true, limit: 30 },
+        )
+      ).filter((r) => r.context.interactions)
+    : null;
+
+  const cfgMsg = incompleteCfgMsg();
+  if (cfgMsg) return cfgMsg;
+  let runInteractions = "";
+
   const initial_q = state.run_id ? undefined : state._q;
   if (state.run_id) {
     const run = prevRuns
       ? prevRuns.find((r) => r.id == state.run_id)
       : await WorkflowRun.findOne({
           trigger_id: action.id,
-          started_by: req.user?.id,
+          ...(shared ? {} : { started_by: req.user?.id }),
           id: state.run_id,
         });
     const interactMarkups = [];
