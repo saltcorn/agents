@@ -1503,13 +1503,20 @@ const execute_user_action = async (
       );
       await run.update({ context: run.context });
     }
+    let row = {};
+    if (run.context.triggering_row_id) {
+      const table = Table.findOne(table_id);
+      const pk = table?.pk_name;
+      if (table)
+        row = await table.getRow({ [pk]: run.context.triggering_row_id });
+    }
     await process_interaction(
       run,
       action.configuration,
       req,
       action.name,
       [],
-      {}, //row?
+      row,
       config,
       dyn_updates,
     );
