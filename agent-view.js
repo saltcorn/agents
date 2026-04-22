@@ -523,6 +523,15 @@ const run = async (
           { id: "audioinputicon", class: "", onclick: "" },
           i({ class: "fas fa-microphone" }),
         ),
+      button(
+        {
+          type: "button",
+          class: "btn btn-xs btn-sm btn-outline-secondary cancelbtn ms-2",
+          onclick: "press_cancel_button()",
+          style: { display: "none" },
+        },
+        i({ class: "fas fa-stop" }),
+      ),
       explainer && small({ class: "explainer" }, i(explainer)),
     ),
     stream && realTimeCollabScript(viewname, rndid, layout),
@@ -679,6 +688,12 @@ const run = async (
               float: right;
             }
             .copilot-entry .debugicon {
+              position: relative; 
+              top: -1.8rem;
+              left: 0.1rem;
+              cursor: pointer;
+            }
+            .copilot-entry .cancelbtn {
               position: relative; 
               top: -1.8rem;
               left: 0.1rem;
@@ -971,7 +986,10 @@ const run = async (
         $("span.filename-label").text("").removeClass("me-2");
         window._agentDT.items.clear();
         $("input#attach_agent_image").val(null);
-        if(!not_final || (!${JSON.stringify(dyn_updates)})) $("#sendbuttonicon").attr("class","far fa-paper-plane");
+        if(!not_final || (!${JSON.stringify(dyn_updates)})) {
+          $("#sendbuttonicon").attr("class","far fa-paper-plane");
+          $(".cancelbtn").hide();
+        }
         const $runidin= $("input[name=run_id")
         if(res.run_id && (!$runidin.val() || $runidin.val()=="undefined"))
           $runidin.val(res.run_id);
@@ -997,6 +1015,7 @@ const run = async (
       $(".agent-waiting-indicator").remove();
       $("textarea[name=userinput]").prop("disabled", false).attr("placeholder", ${JSON.stringify(placeholder || "How can I help you?")}).focus();
       $(".copilot-entry .submit-button").css("pointer-events", "");
+      $(".cancelbtn").hide();
       scrollAgentToBottom();
     }
     window._agentDT = new DataTransfer();
@@ -1041,6 +1060,12 @@ const run = async (
         const runid = $runidin.val()
         if(runid)
         view_post('${viewname}', 'debug_info', {run_id:runid, triggering_row_id:$("input[name=triggering_row_id").val()}, show_agent_debug_info)
+    }
+    function press_cancel_button() {
+        const $runidin= $("input[name=run_id")
+        const runid = $runidin.val()
+        if(runid)
+        view_post('${viewname}', 'cancel', {run_id:runid})
     }
     function show_agent_debug_info(info) {
       ensure_modal_exists_and_closed();
@@ -1120,6 +1145,7 @@ const run = async (
     }
     function spin_send_button() {
       $("#sendbuttonicon").attr("class","fas fa-spinner fa-spin");
+      $(".cancelbtn").show()
       $("textarea[name=userinput]").prop("disabled", true).attr("placeholder", "Waiting for response...");
       $(".copilot-entry .submit-button").css("pointer-events", "none");
       const isModernLayout = ${JSON.stringify((layout || "").startsWith("Modern chat"))};
@@ -1249,15 +1275,15 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     "You",
     true,
     config.layout,
-    req?.user
+    req?.user,
   );
-
   await addToContext(run, {
     interactions: [
       ...(run.context.interactions || []),
       { role: "user", content: userinput },
     ],
     html_interactions: [userInteractions],
+    status: "Running",
   });
   const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
   if (dyn_updates) {
@@ -1304,6 +1330,13 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
   if (req.user?.role_id === 1 || req.user?.id === run.started_by)
     await run.delete();
 
+  return;
+};
+
+const cancel = async (table_id, viewname, config, body, { req, res }) => {
+  const { run_id } = body;
+  const run = await WorkflowRun.findOne({ id: +run_id });
+  await run.update({ status: "Cancel" });
   return;
 };
 
@@ -1512,7 +1545,7 @@ const execute_user_action = async (
               "You",
               true,
               config.layout,
-              req?.user
+              req?.user,
             );
           return hi;
         },
@@ -1560,6 +1593,13 @@ module.exports = {
   //tableless: true,
   table_optional: true,
   run,
-  routes: { interact, delprevrun, debug_info, skillroute, execute_user_action },
+  routes: {
+    interact,
+    delprevrun,
+    debug_info,
+    skillroute,
+    execute_user_action,
+    cancel,
+  },
   mobile_render_server_side: true,
 };

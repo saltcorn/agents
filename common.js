@@ -4,6 +4,7 @@ const Trigger = require("@saltcorn/data/models/trigger");
 const View = require("@saltcorn/data/models/view");
 const { interpolate } = require("@saltcorn/data/utils");
 const db = require("@saltcorn/data/db");
+const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt({ html: true, breaks: true, linkify: true });
@@ -183,6 +184,7 @@ const addToContext = async (run, newCtx) => {
   if (!run) return;
   if (run.addToContext) return await run.addToContext(newCtx);
   let changed = true;
+  let extraRunSet = {};
   Object.keys(newCtx).forEach((k) => {
     if (Array.isArray(run.context[k])) {
       if (!Array.isArray(newCtx[k]))
@@ -195,12 +197,16 @@ const addToContext = async (run, newCtx) => {
         throw new Error("Must be object to append to object");
       Object.assign(run.context[k], newCtx[k]);
       changed = true;
+    }
+    if (k === "status") {
+      extraRunSet.status = newCtx[k];
     } else {
       run.context[k] = newCtx[k];
       changed = true;
     }
   });
-  if (changed && run.update) await run.update({ context: run.context });
+  if (changed && run.update)
+    await run.update({ context: run.context, ...extraRunSet });
 };
 
 const saveInteractions = async (run) => {
@@ -673,7 +679,10 @@ const process_interaction = async (
           if (myHasResult && !stop) hasResult = true;
         }
       }
-    if (hasResult)
+    //await db.commitAndBeginNewTransaction();
+    const freshRun = await WorkflowRun.findOne({ id: run.id });
+
+    if (hasResult && freshRun.status !== "Cancel")
       return await process_interaction(
         run,
         config,
