@@ -1537,18 +1537,20 @@ const execute_user_action = async (
         [req.user.id],
       );
       // remove from html_interactions
-      run.context.html_interactions = run.context.html_interactions.map(
-        (hi) => {
-          if (hi.includes(`button data-useraction-id="${uadata.rndid}"`))
-            return wrapSegment(
-              uadata.click_replace_text,
-              "You",
-              true,
-              config.layout,
-              req?.user,
-            );
-          return hi;
-        },
+      run.context.html_interactions = run.context.html_interactions.map((hi) =>
+        hi.replace(
+          `button data-useraction-id="${uadata.rndid}"`,
+          `button style="display: none;" data-useraction-id="${uadata.rndid}"`,
+        ),
+      );
+      run.context.html_interactions.push(
+        wrapSegment(
+          uadata.click_replace_text,
+          "You",
+          true,
+          config.layout,
+          req?.user,
+        ),
       );
       await run.update({ context: run.context });
     }
