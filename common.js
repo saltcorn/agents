@@ -468,6 +468,7 @@ const process_interaction = async (
                 tool_response,
                 {
                   req,
+                  tool_call
                 },
               );
               if (rendered)
