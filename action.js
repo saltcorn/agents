@@ -1,9 +1,10 @@
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Table = require("@saltcorn/data/models/table");
-const { get_skills, process_interaction } = require("./common");
+const { p } = require("@saltcorn/markup/tags");
+const { get_skills, process_interaction, wrapSegment } = require("./common");
 const { applyAsync } = require("@saltcorn/data/utils");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
-const { interpolate } = require("@saltcorn/data/utils");
+const { interpolate, escapeHtml } = require("@saltcorn/data/utils");
 const { getState } = require("@saltcorn/data/db/state");
 
 module.exports = {
@@ -119,6 +120,7 @@ module.exports = {
             context: {
               implemented_fcall_ids: [],
               interactions: [],
+              html_interactions: [],
               funcalls: {},
             },
           }));
@@ -131,6 +133,9 @@ module.exports = {
     }
 
     run.context.interactions.push({ role: "user", content: userinput });
+    run.context.html_interactions.push(
+      wrapSegment(p(escapeHtml(userinput)), "You", true, undefined, req?.user),
+    );
     return await process_interaction(
       run,
       configuration,

@@ -431,7 +431,7 @@ const process_interaction = async (
           const tool_response = result.add_response || result;
           toolResults[tool_call.tool_call_id] = result;
           if (result?.stop) stop = true;
-          if (result?.add_user_action && viewname) {
+          if (result?.add_user_action) {
             const user_actions = Array.isArray()
               ? result.add_user_action
               : [result.add_user_action];
@@ -450,7 +450,7 @@ const process_interaction = async (
                     {
                       "data-useraction-id": ua.rndid,
                       class: "btn btn-primary", //press_store_button(this, true);
-                      onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
+                      onclick: `view_post(${viewname ? `'${viewname}'` : `$(this).closest('[data-sc-embed-viewname]').attr('data-sc-embed-viewname')`}, 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
                     },
                     ua.label,
                   ),
@@ -468,7 +468,7 @@ const process_interaction = async (
                 tool_response,
                 {
                   req,
-                  tool_call
+                  tool_call,
                 },
               );
               if (rendered)
