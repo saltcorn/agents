@@ -1,5 +1,6 @@
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Table = require("@saltcorn/data/models/table");
+const View = require("@saltcorn/data/models/view");
 const { p } = require("@saltcorn/markup/tags");
 const { get_skills, process_interaction, wrapSegment } = require("./common");
 const { applyAsync } = require("@saltcorn/data/utils");
@@ -131,11 +132,26 @@ module.exports = {
         row[table.pk_name],
       );
     }
-
+    let use_agent_view_config = agent_view_config;
+    if (!use_agent_view_config) {
+      const agent_views = await View.find({ viewtemplate: "Agent Chat" });
+      const agent_view = agent_views.find(
+        (v) => v?.configuration?.action_id == trigger_id,
+      );
+      if (agent_view)
+        use_agent_view_config = { ...agent_view.configuration, stream: false };
+    }
     run.context.interactions.push({ role: "user", content: userinput });
     run.context.html_interactions.push(
-      wrapSegment(p(escapeHtml(userinput)), "You", true, undefined, req?.user),
-    );
+      wrapSegment(
+        p(escapeHtml(userinput)),
+        "You",
+        true,
+        use_agent_view_config?.layout,
+        req?.user,
+      ),
+    );   
+
     return await process_interaction(
       run,
       configuration,
@@ -143,7 +159,7 @@ module.exports = {
       agent_label || undefined,
       [],
       row,
-      agent_view_config || { stream: false },
+      use_agent_view_config || { stream: false },
       dyn_updates,
       is_sub_agent,
     );
