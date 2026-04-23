@@ -403,26 +403,13 @@ const process_interaction = async (
           const response_label = is_sub_agent
             ? agent_label
             : tool.skill.skill_label || tool.skill.constructor.skill_name;
+          let rendered_tool_call = "";
           if (tool.tool.renderToolCall) {
             const row = tool_call.input;
 
-            const rendered = await tool.tool.renderToolCall(row, {
+            rendered_tool_call = await tool.tool.renderToolCall(row, {
               req,
             });
-            if (rendered)
-              add_response(
-                wrapSegment(
-                  wrapCard(
-                    response_label,
-                    typeof rendered === "string"
-                      ? md.render(rendered)
-                      : rendered,
-                  ),
-                  agent_label,
-                  false,
-                  layout,
-                ),
-              );
           }
           myHasResult = true;
           let result = await tool.tool.process(tool_call.input, {
@@ -431,6 +418,7 @@ const process_interaction = async (
           const tool_response = result.add_response || result;
           toolResults[tool_call.tool_call_id] = result;
           if (result?.stop) stop = true;
+          let add_user_action_html = "";
           if (result?.add_user_action) {
             const user_actions = Array.isArray()
               ? result.add_user_action
@@ -442,47 +430,61 @@ const process_interaction = async (
             await addToContext(run, {
               user_actions,
             });
-            add_response(
-              div(
-                { class: "d-flex mb-2" },
-                user_actions.map((ua) =>
-                  button(
-                    {
-                      "data-useraction-id": ua.rndid,
-                      class: "btn btn-primary", //press_store_button(this, true);
-                      onclick: `view_post(${viewname ? `'${viewname}'` : `$(this).closest('[data-sc-embed-viewname]').attr('data-sc-embed-viewname')`}, 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
-                    },
-                    ua.label,
-                  ),
+            add_user_action_html = div(
+              { class: "d-flex mb-2" },
+              user_actions.map((ua) =>
+                button(
+                  {
+                    "data-useraction-id": ua.rndid,
+                    class: "btn btn-primary", //press_store_button(this, true);
+                    onclick: `view_post(${viewname ? `'${viewname}'` : `$(this).closest('[data-sc-embed-viewname]').attr('data-sc-embed-viewname')`}, 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
+                  },
+                  ua.label,
                 ),
               ),
             );
           }
+          let rendered_tool_response = "";
           if (
             (typeof tool_response === "object" &&
               Object.keys(tool_response || {}).length) ||
             typeof tool_response === "string"
           ) {
             if (tool.tool.renderToolResponse) {
-              const rendered = await tool.tool.renderToolResponse(
+              rendered_tool_response = await tool.tool.renderToolResponse(
                 tool_response,
                 {
                   req,
                   tool_call,
                 },
               );
-              if (rendered)
-                add_response(
-                  wrapSegment(
-                    wrapCard(response_label, rendered),
-                    agent_label,
-                    false,
-                    layout,
-                  ),
-                );
             }
             myHasResult = true;
           }
+          if (
+            rendered_tool_call ||
+            add_user_action_html ||
+            rendered_tool_response
+          )
+            add_response(
+              wrapSegment(
+                div(
+                  rendered_tool_call &&
+                    wrapCard(
+                      response_label,
+                      typeof rendered_tool_call === "string"
+                        ? md.render(rendered_tool_call)
+                        : rendered_tool_call,
+                    ),
+                  rendered_tool_response,
+                  add_user_action_html,
+                ),
+                agent_label,
+                false,
+                layout,
+              ),
+            );
+
           await sysState.functions.llm_add_message.run(
             "tool_response",
             !tool_response || typeof tool_response === "string"
