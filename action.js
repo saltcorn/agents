@@ -36,8 +36,18 @@ module.exports = {
               sublabel:
                 "When triggered from table event or table view button. Use handlebars <code>{{}}</code> to access table fields. Ignored if run in Agent Chat view.",
               type: "String",
-              required: true,
-              attributes: { options: table.fields.map((f) => f.name) },
+            },
+            {
+              name: "run_id_field",
+              type: "String",
+              label: "Run ID field",
+              sublabel:
+                "Set this field to the run ID, when triggered from table event or table view button. Ignored if run in Agent Chat view.",
+              attributes: {
+                options: table.fields
+                  .filter((f) => f.type?.name === "Integer" && !f.primary_key)
+                  .map((f) => f.name),
+              },
             },
           ]
         : []),
@@ -87,6 +97,7 @@ module.exports = {
     user,
     row,
     trigger_id,
+    table,
     run_id,
     req,
     is_sub_agent,
@@ -111,6 +122,13 @@ module.exports = {
               funcalls: {},
             },
           }));
+
+    if (!rest.run && !run_id && table && configuration.run_id_field) {
+      await table.updateRow(
+        { [configuration.run_id_field]: run.id },
+        row[table.pk_name],
+      );
+    }
 
     run.context.interactions.push({ role: "user", content: userinput });
     return await process_interaction(
