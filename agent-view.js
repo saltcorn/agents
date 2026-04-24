@@ -309,13 +309,13 @@ const run = async (
 
   const initial_q = state.run_id ? undefined : state._q;
   if (state.run_id) {
-    const run = prevRuns
-      ? prevRuns.find((r) => r.id == state.run_id)
-      : await WorkflowRun.findOne({
-          trigger_id: action.id,
-          ...(shared ? {} : { started_by: req.user?.id }),
-          id: state.run_id,
-        });
+    let run = prevRuns ? prevRuns.find((r) => r.id == state.run_id) : null;
+    if (!run)
+      run = await WorkflowRun.findOne({
+        trigger_id: action.id,
+        ...(shared ? {} : { started_by: req.user?.id }),
+        id: state.run_id,
+      });
     const interactMarkups = [];
     if (run.context.html_interactions) {
       interactMarkups.push(...run.context.html_interactions);
