@@ -109,6 +109,8 @@ module.exports = {
     ...rest
   }) => {
     const userinput = interpolate(configuration.prompt, row, user);
+    let triggering_row_id;
+    if (table && row) triggering_row_id = row[table.pk_name];
 
     const run =
       rest.run ||
@@ -123,6 +125,7 @@ module.exports = {
               interactions: [],
               html_interactions: [],
               funcalls: {},
+              triggering_row_id,
             },
           }));
 
@@ -150,7 +153,7 @@ module.exports = {
         use_agent_view_config?.layout,
         req?.user,
       ),
-    );   
+    );
 
     return await process_interaction(
       run,
