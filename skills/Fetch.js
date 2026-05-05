@@ -113,7 +113,11 @@ class FetchSkill {
         if (row.content_type) opts.headers["Content-Type"] = row.content_type;
         if (row.body) opts.body = row.body;
 
-        const resp = await fetch(row.url, opts);
+        let resp = await fetch(row.url, opts);
+        if (resp.status == 302 && (!row.method || row.method === "GET")) {
+          if (this.cookiejar) jar.storeFromResponse(resp);
+          resp = await fetch(resp.headers.get("location"), opts);
+        }
 
         if (this.cookiejar) {
           jar.storeFromResponse(resp);
