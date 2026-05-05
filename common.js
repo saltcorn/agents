@@ -414,6 +414,7 @@ const process_interaction = async (
           myHasResult = true;
           let result = await tool.tool.process(tool_call.input, {
             req,
+            run,
           });
           const tool_response = result.add_response || result;
           toolResults[tool_call.tool_call_id] = result;
