@@ -54,6 +54,7 @@ const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt({ html: true, breaks: true, linkify: true });
 const { isWeb, escapeHtml } = require("@saltcorn/data/utils");
 const path = require("path");
+const fs = require("fs");
 
 const configuration_workflow = (req) =>
   new Workflow({
@@ -258,6 +259,11 @@ const realTimeCollabScript = (viewname, rndid, layout) => {
   }`),
   );
 };
+
+const agents_css = fs.readFileSync(
+  path.resolve(__dirname, "agents.css"),
+  "utf8",
+);
 
 const run = async (
   table_id,
@@ -656,300 +662,7 @@ const run = async (
     div({ id: "copilotinteractions" }, runInteractions),
     stream ? div({ class: "next_response_scratch" }) : "",
     input_form,
-    style(
-      `div.interaction-segment:not(:first-child) {border-top: 1px solid #e7e7e7; }
-              div.interaction-segment {padding-top: 5px;padding-bottom: 5px;}
-              div.interaction-segment p {margin-bottom: 0px;}
-              div.interaction-segment div.card {margin-top: 0.5rem;}
-              div.interaction-segment.to-right {
-              display: flex;             
-    flex-direction: row-reverse;
-}
-    div.interaction-segment.to-right div.badgewrap {
-              display: flex;             
-    flex-direction: row-reverse;
-}
-            div.prevcopilotrun:hover {cursor: pointer; background-color: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, gray));}
-            div.prevcopilotrun i.fa-trash-alt {display: none;}
-            div.prevcopilotrun:hover i.fa-trash-alt {display: block;}
-            .copilot-entry .submit-button:hover { cursor: pointer}
-            .copilot-entry span.attach_agent_image_wrap i:hover { cursor: pointer}
-
-            .copilot-entry .submit-button {
-              position: relative; 
-              top: -1.8rem;
-              left: 0.1rem;              
-            }
-            .copilot-entry #audioinputicon {
-              position: relative; 
-              top: -1.8rem;
-              right: 0.7rem;
-              cursor: pointer;
-              float: right;
-            }
-            .copilot-entry .debugicon {
-              position: relative; 
-              top: -1.8rem;
-              left: 0.1rem;
-              cursor: pointer;
-            }
-            .copilot-entry .cancelbtn {
-              position: relative; 
-              top: -1.8rem;
-              left: 0.1rem;
-              cursor: pointer;
-            }
-            .copilot-entry .skill-form-widget {
-              position: relative; 
-              top: -2rem;
-              left: 0.4rem;
-              display: inline;
-            }
-              .session-open-sessions, .open-prev-runs {
-              cursor: pointer;
-              }
-              .copilot-entry span.attach_agent_image_wrap {
-              position: relative;
-              top: -1.8rem;
-              left: 0.2rem;
-            }
-              .copilot-entry.dragover {
-              outline: 2px dashed var(--tblr-primary, #0054a6);
-              outline-offset: -2px;
-              background: var(--tblr-primary-bg-subtle, rgba(0, 84, 166, 0.05));
-              border-radius: 0.25rem;
-            }
-              .copilot-entry .explainer {
-              position: relative; 
-              top: -1.2rem;    
-              display: block;                        
-            }
-              .col-0 {
-              width: 0%
-              }
-            .copilot-entry {margin-bottom: -1.25rem; margin-top: 1rem;}
-            p.prevrun_content {
-               white-space: nowrap;
-    overflow: hidden;
-    margin-bottom: 0px;
-    display: block;
-    text-overflow: ellipsis;}
-            /* Typing / Waiting Indicator */
-            .agent-waiting-indicator { display:flex; align-items:center; padding:0.75rem 1rem; }
-            .typing-dots { display:flex; gap:4px; align-items:center; }
-            .typing-dots span { width:8px; height:8px; border-radius:50%; background:#6c757d; animation:typingBounce 1.4s infinite ease-in-out both; }
-            .typing-dots span:nth-child(1) { animation-delay:-0.32s; }
-            .typing-dots span:nth-child(2) { animation-delay:-0.16s; }
-            .typing-dots span:nth-child(3) { animation-delay:0s; }
-            @keyframes typingBounce { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
-            /* Modern Chat Layout */
-            .modern-chat-layout {
-              display: flex;
-              flex-direction: column;
-              height: 100%;
-            }
-            .modern-chat-layout #copilotinteractions {
-              max-height: 70vh;
-              overflow-y: auto;
-              padding: 1rem;
-              display: flex;
-              flex-direction: column;
-              gap: 0.75rem;
-            }
-            .modern-chat-layout .chat-message {
-              display: flex;
-              gap: 0.5rem;
-              max-width: 85%;
-              align-items: flex-start;
-            }
-            .modern-chat-layout .chat-message.chat-user {
-              align-self: flex-end;
-              flex-direction: row-reverse;
-            }
-            .modern-chat-layout .chat-message.chat-assistant {
-              align-self: flex-start;
-            }
-            .modern-chat-layout .chat-avatar {
-              width: 2rem;
-              height: 2rem;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-              font-size: 0.85rem;
-              background: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #e9ecef));
-              color: var(--tblr-secondary-color, var(--bs-secondary-color, #6c757d));
-            }
-            .modern-chat-layout .chat-user .chat-avatar {
-              background: #0d6efd;
-              color: #fff;
-            }
-            .modern-chat-layout .chat-bubble {
-              padding: 0.6rem 1rem;
-              border-radius: 1rem;
-              line-height: 1.5;
-              word-wrap: break-word;
-              overflow-wrap: break-word;
-            }
-            .modern-chat-layout .chat-user .chat-bubble {
-              background: #0d6efd;
-              color: #fff;
-              border-bottom-right-radius: 0.25rem;
-            }
-            .modern-chat-layout .chat-assistant .chat-bubble {
-              background: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #f0f2f5));
-              color: var(--tblr-body-color, var(--bs-body-color, #212529));
-              border-bottom-left-radius: 0.25rem;
-            }
-            /* Markdown content inside bubbles */
-            .modern-chat-layout .chat-bubble h1,
-            .modern-chat-layout .chat-bubble h2,
-            .modern-chat-layout .chat-bubble h3,
-            .modern-chat-layout .chat-bubble h4 {
-              margin-top: 0.5rem;
-              margin-bottom: 0.25rem;
-            }
-            .modern-chat-layout .chat-bubble h1 { font-size: 1.3rem; }
-            .modern-chat-layout .chat-bubble h2 { font-size: 1.15rem; }
-            .modern-chat-layout .chat-bubble h3 { font-size: 1.05rem; }
-            .modern-chat-layout .chat-bubble h4 { font-size: 1rem; }
-            .modern-chat-layout .chat-bubble p {
-              margin-bottom: 0.4rem;
-            }
-            .modern-chat-layout .chat-bubble p:last-child {
-              margin-bottom: 0;
-            }
-            .modern-chat-layout .chat-bubble ul,
-            .modern-chat-layout .chat-bubble ol {
-              padding-left: 1.5rem;
-              margin-bottom: 0.4rem;
-            }
-            .modern-chat-layout .chat-bubble table {
-              width: 100%;
-              border-collapse: collapse;
-              margin: 0.5rem 0;
-              font-size: 0.9em;
-            }
-            .modern-chat-layout .chat-bubble table th,
-            .modern-chat-layout .chat-bubble table td {
-              border: 1px solid rgba(0,0,0,0.15);
-              padding: 0.3rem 0.5rem;
-            }
-            .modern-chat-layout .chat-bubble table th {
-              background: rgba(0,0,0,0.05);
-              font-weight: 600;
-            }
-            .modern-chat-layout .chat-bubble pre {
-              background: rgba(0,0,0,0.06);
-              padding: 0.5rem;
-              border-radius: 0.5rem;
-              overflow-x: auto;
-              margin: 0.4rem 0;
-            }
-            .modern-chat-layout .chat-bubble code {
-              font-size: 0.88em;
-            }
-            .modern-chat-layout .chat-bubble p > code {
-              background: rgba(0,0,0,0.06);
-              padding: 0.1rem 0.3rem;
-              border-radius: 0.25rem;
-            }
-            .modern-chat-layout .chat-user .chat-bubble pre {
-              background: rgba(255,255,255,0.15);
-            }
-            .modern-chat-layout .chat-user .chat-bubble p > code {
-              background: rgba(255,255,255,0.15);
-            }
-            .modern-chat-layout .chat-user .chat-bubble table th,
-            .modern-chat-layout .chat-user .chat-bubble table td {
-              border-color: rgba(255,255,255,0.25);
-            }
-            .modern-chat-layout .chat-user .chat-bubble table th {
-              background: rgba(255,255,255,0.1);
-            }
-            /* Skill attribution badge */
-            .modern-chat-layout .chat-bubble .badge.bg-info {
-              display: inline-block;
-              margin-bottom: 6px;
-              font-size: 0.7rem;
-              font-weight: 600;
-              letter-spacing: 0.3px;
-              text-transform: uppercase;
-              opacity: 0.85;
-            }
-            .modern-chat-layout .chat-bubble .card.bg-secondary-subtle {
-              border: none;
-              background-color: rgba(0,0,0,0.03) !important;
-              margin-bottom: 0.5rem;
-            }
-            /* Input area for modern chat */
-            .modern-chat-layout .copilot-entry {
-              border-top: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
-              padding-top: 0.75rem;
-              margin-top: 0.5rem;
-            }
-            .modern-chat-layout .copilot-entry textarea {
-              border-radius: 1.5rem;
-              padding: 0.6rem 1rem;
-              resize: none;
-            }
-            /* Streaming scratch in modern chat */
-            .modern-chat-layout .next_response_scratch {
-              padding: 0 1rem;
-            }
-            .modern-chat-layout .next_response_scratch:not(:empty) {
-              margin-bottom: 0.5rem;
-            }
-            /* Interaction segment (tool cards) inside modern chat */
-            .modern-chat-layout .interaction-segment {
-              border-top: none;
-            }
-            /* Modern Sessions Sidebar */
-            .modern-sessions-header {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              padding: 0.6rem 0.75rem;
-              margin-bottom: 0.75rem;
-              background: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #f8f9fa));
-              border-radius: 0.75rem;
-              border-bottom: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
-              position: sticky;
-              top: 0;
-              z-index: 1;
-            }
-            .modern-sessions .modern-session-item {
-              border-radius: 0.75rem;
-              padding: 0.65rem 0.75rem;
-              margin-bottom: 0.4rem;
-              border: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
-              cursor: pointer;
-              transition: all 0.15s ease;
-            }
-            .modern-sessions .modern-session-item:hover {
-              box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-              background-color: var(--tblr-secondary-bg-subtle, var(--bs-secondary-bg-subtle, #f8f9fa));
-            }
-            .modern-sessions .modern-session-item.active-session {
-              border-left: 3px solid #0d6efd;
-              background-color: rgba(13, 110, 253, 0.05);
-            }
-            .modern-sessions .modern-session-item i.fa-trash-alt {
-              display: none;
-              font-size: 0.8em;
-            }
-            .modern-sessions .modern-session-item:hover i.fa-trash-alt {
-              display: inline;
-            }
-            .modern-sessions .modern-session-item .prevrun_content {
-              font-size: 0.85em;
-              color: var(--tblr-secondary-color, var(--bs-secondary-color, #6c757d));
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }`,
-    ),
+    style(agents_css),
     script(domReady(`$( "#inputuserinput" ).autogrow({paddingBottom: 20});`)),
     script(
       `
@@ -1154,7 +867,37 @@ const run = async (
         : '<div class="agent-waiting-indicator"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
       $('div.next_response_scratch').before(indicator);
       scrollAgentToBottom();
-    };`,
+    };
+    document.addEventListener('click', async (e) => {
+  const target = e.target.closest('.copy-to-clipboard-elem');
+  if (!target) return;
+
+  // Check if the click was in the top-right corner where the icon is
+  const rect = target.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+  
+  // Icon is at top: 4px, right: 4px, ~16px size — give a generous hit area
+  const iconHitArea = 24;
+  const isIconClick = 
+    clickX >= rect.width - iconHitArea && 
+    clickX <= rect.width &&
+    clickY >= 0 && 
+    clickY <= iconHitArea;
+
+  if (!isIconClick) return;
+
+  e.stopPropagation();
+  e.preventDefault();
+
+  try {
+    await navigator.clipboard.writeText(target.innerText);
+    target.classList.add('copy-success');
+    setTimeout(() => target.classList.remove('copy-success'), 1000);
+  } catch (err) {
+    console.error('Failed to copy:', err);
+  }
+});`,
       stream &&
         domReady(
           `$('form.agent-view input[name=page_load_tag]').val(window._sc_pageloadtag)`,

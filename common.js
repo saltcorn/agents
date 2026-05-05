@@ -220,7 +220,7 @@ const wrapSegment = (html, who, to_right, layout, user) =>
     : layout && layout.startsWith("Modern chat")
       ? `<div class="chat-message ${to_right ? "chat-user" : "chat-assistant"}">` +
         `<div class="chat-avatar"${user ? ` title="${user.email} at ${new Date().toString()}"` : ""}><i class="fas ${to_right ? "fa-user" : "fa-robot"}"></i></div>` +
-        `<div class="chat-bubble">${html}</div>` +
+        `<div class="chat-bubble${" copy-to-clipboard-elem"}">${html}</div>` +
         `</div>`
       : `<div class="interaction-segment ${to_right ? "to-right" : ""}"><div><div class="badgewrap"><span class="badge bg-secondary">` +
         who +
