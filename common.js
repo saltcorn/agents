@@ -43,6 +43,7 @@ const get_skills = () => {
     require("./skills/Subagent"),
     require("./skills/ExternalSkill"),
     require("./skills/PlanApproval"),
+    require("./skills/LongTermMemory"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
