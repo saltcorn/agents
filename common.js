@@ -57,8 +57,10 @@ const get_skill_instances = (config) => {
   const instances = [];
   for (const skillCfg of config.skills) {
     const klass = get_skill_class(skillCfg.skill_type);
-    const skill = new klass(skillCfg);
-    instances.push(skill);
+    if (klass) {
+      const skill = new klass(skillCfg);
+      instances.push(skill);
+    }
   }
   return instances;
 };
@@ -236,6 +238,10 @@ const wrapCard = (title, ...inners) =>
   );
 
 const is_debug_mode = (config, user) => user?.role_id === 1;
+
+function extractText(html) {
+  return html.replace(/<[^>]*>/g, '');
+}
 
 const process_interaction = async (
   run,
@@ -745,4 +751,5 @@ module.exports = {
   is_debug_mode,
   get_initial_interactions,
   nubBy,
+  extractText
 };

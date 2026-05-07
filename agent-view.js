@@ -49,6 +49,7 @@ const {
   get_initial_interactions,
   get_skill_instances,
   saveInteractions,
+  extractText,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt({ html: true, breaks: true, linkify: true });
@@ -306,12 +307,13 @@ const run = async (
           },
           { orderBy: "started_at", orderDesc: true, limit: 30 },
         )
-      ).filter((r) => r.context.interactions)
+      ).filter((r) => r.context.interactions || r.context.html_interactions)
     : null;
 
   const cfgMsg = incompleteCfgMsg();
   if (cfgMsg) return cfgMsg;
   let runInteractions = "";
+  let hasInputForm = true;
 
   const initial_q = state.run_id ? undefined : state._q;
   if (state.run_id) {
@@ -325,6 +327,9 @@ const run = async (
     const interactMarkups = [];
     if (run.context.html_interactions) {
       interactMarkups.push(...run.context.html_interactions);
+      // no input if interactions deleted
+      if (!run.context.interactions && run.context.html_interactions.length)
+        hasInputForm = false;
     } else
       for (const interact of run.context.interactions) {
         //legacy
@@ -596,11 +601,11 @@ const run = async (
             ),
         prevRuns.map((run) => {
           const isActive = state.run_id && +state.run_id === run.id;
-          const preview = escapeHtml(
-            run.context.interactions
-              .find((ix) => typeof ix?.content === "string")
-              ?.content?.substring?.(0, 80),
-          );
+          const previewHtml =
+            (run.context.interactions || []).find(
+              (ix) => typeof ix?.content === "string",
+            )?.content || extractText(run.context.html_interactions[0] || "");
+          const preview = escapeHtml(previewHtml?.substring?.(0, 80));
           return isModernSidebar
             ? div(
                 {
@@ -661,7 +666,7 @@ const run = async (
     ),
     div({ id: "copilotinteractions" }, runInteractions),
     stream ? div({ class: "next_response_scratch" }) : "",
-    input_form,
+    hasInputForm && input_form,
     style(agents_css),
     script(domReady(`$( "#inputuserinput" ).autogrow({paddingBottom: 20});`)),
     script(
