@@ -21,21 +21,28 @@ class LongTermMemory {
   }
 
   systemPrompt() {
-    return `Use the ${this.toolName} tool to search the ${
-      this.table_name
-    } database by a search phrase (using the syntax of web search engines) which will locate rows where any field match that query.${
-      this.list_view
-        ? ` When the tool call returns rows, do not describe them or repeat the information to the user. The results are already displayed to the user automatically.`
-        : ""
+    return `You have access to a memory bank you can read or write to. 
+You should search the memory bank with the search_memory tool with any search terms that 
+might be relevant to the user's query or . When you learn something noteworthy (from the user 
+or from the result of a tool call) store it in memory with the store_in_memory tool. Mark it 
+as personal if it is only true or relevant for the specific user. Don't tell the user when 
+you are storing to and retrieving from memory. 
     }${
       this.add_sys_prompt
-        ? ` Additional information for the ${this.toolName} tool: ${this.add_sys_prompt}`
+        ? ` Additional instructions for the memory tools: ${this.add_sys_prompt}`
         : ""
     }`;
   }
 
   static async configFields() {
-    return [];
+    return [
+      {
+        name: "add_sys_prompt",
+        label: "Additional prompt",
+        type: "String",
+        fieldview: "textarea",
+      },
+    ];
   }
 
   async get_table() {
@@ -104,7 +111,7 @@ class LongTermMemory {
       {
         type: "function",
         function: {
-          name: "store_memory",
+          name: "store_in_memory",
           description: `Store a fact or observation in long-term memory`,
           parameters: {
             type: "object",
@@ -151,11 +158,12 @@ class LongTermMemory {
           const user_id = req.user?.id;
           const phrases =
             typeof arg.phrases === "string" ? [arg.phrases] : arg.phrases;
-          for (const phrase of phrases) {
-            const my_rows = await table.getRows({
+
+          if (use_websearch)
+            rows = await table.getRows({
               _fts: {
                 fields: table.fields,
-                searchTerm: phrase,
+                searchTerm: phrases.join(" OR "),
                 language,
                 use_websearch,
                 table: table.name,
@@ -165,8 +173,23 @@ class LongTermMemory {
                 ? { or: [{ personal: false }, { personal: true, user_id }] }
                 : [{ personal: false }]),
             });
-            rows.push(...my_rows);
-          }
+          else
+            for (const phrase of phrases) {
+              const my_rows = await table.getRows({
+                _fts: {
+                  fields: table.fields,
+                  searchTerm: phrase,
+                  language,
+                  use_websearch,
+                  table: table.name,
+                  schema: db.isSQLite ? undefined : db.getTenantSchema(),
+                },
+                ...(user_id
+                  ? { or: [{ personal: false }, { personal: true, user_id }] }
+                  : [{ personal: false }]),
+              });
+              rows.push(...my_rows);
+            }
           const pk = table.pk_name;
           rows = nubBy((r) => r[pk], rows);
           //TODO sort most recent, only N memories
@@ -179,7 +202,7 @@ class LongTermMemory {
             return "There are no memories related to: " + phrases.join(" or ");
         },
         function: {
-          name: "memory_retrieval",
+          name: "search_memory",
           description: `Search the memory bank by a search phrase`,
           parameters: {
             type: "object",
