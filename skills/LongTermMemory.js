@@ -60,11 +60,16 @@ you are storing to and retrieving from memory.
       label: "Run ID",
       type: "Integer",
     });
-    await Field.create({
+    const uid_field = await Field.create({
       table,
       name: "user_id",
       label: "User ID",
-      type: "Integer",
+      type: "Key to users",
+      attributes: {
+        on_delete: "Set null",
+        include_fts: false,
+        summary_field: "email",
+      },
     });
     await Field.create({
       table,
@@ -102,6 +107,7 @@ you are storing to and retrieving from memory.
       label: "Contents",
       type: "String",
     });
+    await table.update({ ownership_field_id: uid_field.id });
     await getState().refresh_tables();
     return Table.findOne("AgentLongTermMemory");
   }
