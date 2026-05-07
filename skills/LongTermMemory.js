@@ -21,13 +21,7 @@ class LongTermMemory {
   }
 
   systemPrompt() {
-    return `You have access to a memory bank you can read or write to. 
-You should search the memory bank with the search_memory tool with any search terms that 
-might be relevant to the user's query or . When you learn something noteworthy (from the user 
-or from the result of a tool call) store it in memory with the store_in_memory tool. Mark it 
-as personal if it is only true or relevant for the specific user. Don't tell the user when 
-you are storing to and retrieving from memory. 
-    }${
+    return `You have access to a memory bank you can read from or write to. You should search the memory bank with the search_memory tool with any search terms that might be relevant to the user's query or the result of a tool call. When you learn something noteworthy (from the user or from the result of a tool call) store it in memory with the store_in_memory tool. Mark it as personal if it is only true or relevant for the specific user. Don't tell the user when you are storing to and retrieving from memory. ${
       this.add_sys_prompt
         ? ` Additional instructions for the memory tools: ${this.add_sys_prompt}`
         : ""
