@@ -79,6 +79,12 @@ class LongTermMemory {
     });
     await Field.create({
       table,
+      name: "personal",
+      label: "Personal",
+      type: "Bool",
+    });
+    await Field.create({
+      table,
       name: "topic",
       label: "Topic",
       type: "String",
@@ -108,6 +114,11 @@ class LongTermMemory {
                 type: "string",
                 description: "The contents of the fact or observations",
               },
+              personal: {
+                type: "boolean",
+                description:
+                  "Is this a fact or observation specifically about the person interacting with you now, which may not be true or relevant for another person",
+              },
             },
           },
         },
@@ -120,6 +131,7 @@ class LongTermMemory {
             agent_trigger_id: run.trigger_id,
             memory_type: "Episodic",
             contents: arg.contents,
+            personal: arg.personal,
           });
           return "Recorded";
         },
@@ -136,6 +148,7 @@ class LongTermMemory {
             false,
           );
           let rows = [];
+          const user_id = req.user?.id;
           const phrases =
             typeof arg.phrases === "string" ? [arg.phrases] : arg.phrases;
           for (const phrase of phrases) {
@@ -148,6 +161,9 @@ class LongTermMemory {
                 table: table.name,
                 schema: db.isSQLite ? undefined : db.getTenantSchema(),
               },
+              ...(user_id
+                ? { or: [{ personal: false }, { personal: true, user_id }] }
+                : [{ personal: false }]),
             });
             rows.push(...my_rows);
           }
