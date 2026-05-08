@@ -9,18 +9,20 @@ const { interpolate, escapeHtml } = require("@saltcorn/data/utils");
 const { getState } = require("@saltcorn/data/db/state");
 
 module.exports = {
-  configFields: async ({ table, mode }) => [],
+  //configFields: async ({ table, mode }) => [],
   run: async ({ configuration, user, table, req, ...rest }) => {
-    const table = Table.findOne("AgentLongTermMemory");
-    if (!table) return;
+    const memtable = Table.findOne("AgentLongTermMemory");
+    if (!memtable) return;
     // write personal preferences
 
     // get all personal observations
-    const personalmems = await table.getRows(
+    const personalmems = await memtable.getRows(
       { personal: true },
       { orderBy: "written_at" },
     );
+
     const user_ids = new Set(personalmems.map((p) => p.user_id));
+
     for (const uid of user_ids.values()) {
       const umems = personalmems.filter((m) => m.user_id === uid);
       const prompt = `This is a set of observations about a user:
@@ -31,12 +33,13 @@ They are in ascending chronological order so if there are any contradictions, th
 Write a succinct summary of these observations which captures all the essential facts.`;
 
       const answer = await getState().functions.llm_generate.run(prompt);
+
       if (answer && typeof answer === "string") {
-        await table.deleteWhere({
+        await memtable.deleteRows({
           memory_type: "PersonalPreferences",
           user_id: uid,
         });
-        await table.insertRow({
+        await memtable.insertRow({
           user_id: uid,
           written_at: new Date(),
           memory_type: "PersonalPreferences",
