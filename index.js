@@ -36,6 +36,7 @@ module.exports = {
   ],
   actions: {
     Agent: require("./action"),
+    consolidate_agent_memory: require("./consolidate_agent_memory")
   },
   functions: {
     inspect_agent: {
