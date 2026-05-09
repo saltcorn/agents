@@ -24,13 +24,26 @@ module.exports = {
     const user_ids = new Set(personalmems.map((p) => p.user_id));
 
     for (const uid of user_ids.values()) {
-      const umems = personalmems.filter((m) => m.user_id === uid);
+      const all_umems = personalmems.filter((m) => m.user_id === uid);
+      const existingPP = all_umems.find(
+        (m) => m.memory_type === "PersonalPreferences",
+      );
+      const nonPPs = all_umems.filter(
+        (m) => m.memory_type !== "PersonalPreferences",
+      );
+
+      if (
+        existingPP &&
+        nonPPs.every((m) => m.written_at < existingPP.written_at)
+      )
+        continue; // no new memories
       const prompt = `This is a set of observations about a user:
-${umems.map((m) => `* ${m.contents}`).join("\n")}
+${nonPPs.map((m) => `* ${m.contents}`).join("\n")}
 
 They are in ascending chronological order so if there are any contradictions, the latter observation take precedence.
 
-Write a succinct summary of these observations which captures all the essential facts.`;
+Write a succinct summary of these observations which captures all the essential facts. Start the summary with the words
+"The user..." (in the language in which the observations appear) and then write what you have learned about the user.`;
 
       const answer = await getState().functions.llm_generate.run(prompt);
 
