@@ -36,7 +36,7 @@ module.exports = {
   ],
   actions: {
     Agent: require("./action"),
-    consolidate_agent_memory: require("./consolidate_agent_memory")
+    consolidate_agent_memory: require("./consolidate_agent_memory"),
   },
   functions: {
     inspect_agent: {
@@ -70,6 +70,7 @@ module.exports = {
         };
       },
       isAsync: true,
+      hidden: true,
       description: "Return system prompt, tools and action of an agent",
     },
     agent_generate: {
@@ -116,6 +117,7 @@ module.exports = {
         };
       },
       isAsync: true,
+      hidden: true,
       description: "Run an agent on a prompt",
       arguments: [
         { name: "agent_name", type: "String" },
