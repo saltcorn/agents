@@ -37,7 +37,7 @@ class WebSearchSkill {
         label: "Search provider",
         type: "String",
         required: true,
-        attributes: { options: ["By URL template"] },
+        attributes: { options: ["By URL template", "Firecrawl", "Tavily"] },
       },
       {
         name: "url_template",
@@ -46,6 +46,13 @@ class WebSearchSkill {
         type: "String",
         required: true,
         showIf: { search_provider: "By URL template" },
+      },
+      {
+        name: "api_key",
+        label: "API key",
+        type: "String",
+        required: true,
+        showIf: { search_provider: ["Firecrawl", "Tavily"] },
       },
       {
         name: "header",
@@ -64,16 +71,73 @@ class WebSearchSkill {
     return {
       type: "function",
       process: async (row) => {
-        const fOpts = { method: "GET" };
-        if (this.header) {
-          const [key, val] = this.header.split(":");
-          const myHeaders = new Headers();
-          myHeaders.append(key, val.trim());
-          fOpts.headers = myHeaders;
+        switch (this.search_provider) {
+          case "Firecrawl":
+            {
+              const url = "https://api.firecrawl.dev/v2/search";
+              const options = {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + this.api_key,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  query: row.search_phrase,
+                  sources: ["web"],
+                  categories: [],
+                  limit: 10,
+                  scrapeOptions: {
+                    onlyMainContent: false,
+                    maxAge: 172800000,
+                    parsers: ["pdf"],
+                    formats: [],
+                  },
+                }),
+              };
+
+              const response = await fetch(url, options);
+              const data = await response.json();
+              return data.data.web;
+            }
+            break;
+          case "Tavily":
+            {
+              const url = "https://api.tavily.com/search";
+              const options = {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer " + this.api_key,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  query: row.search_phrase,
+                  search_depth: "advanced",
+                }),
+              };
+
+              const response = await fetch(url, options);
+              const data = await response.json();
+              return data.results;
+            }
+            break;
+          case "By URL template":
+          default:
+            {
+              const fOpts = { method: "GET" };
+              if (this.header) {
+                const [key, val] = this.header.split(":");
+                const myHeaders = new Headers();
+                myHeaders.append(key, val.trim());
+                fOpts.headers = myHeaders;
+              }
+              const url = interpolate(this.url_template, {
+                q: row.search_phrase,
+              });
+              const resp = await fetch(url);
+              return await resp.text();
+            }
+            break;
         }
-        const url = interpolate(this.url_template, { q: row.search_phrase });
-        const resp = await fetch(url);
-        return await resp.text();
       },
       function: {
         name: "web_search",
