@@ -50,6 +50,7 @@ const {
   get_skill_instances,
   saveInteractions,
   extractText,
+  stripMarkdownImages,
 } = require("./common");
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt({ html: true, breaks: true, linkify: true });
@@ -103,8 +104,13 @@ const configuration_workflow = (req) =>
               {
                 name: "prev_runs_closed",
                 label: "Initially closed",
+                sublabel:
+                  "Only available for Standard / No card layouts. Modern chat uses a hamburger drawer.",
                 type: "Bool",
-                showIf: { show_prev_runs: true },
+                showIf: {
+                  show_prev_runs: true,
+                  layout: ["Standard", "No card"],
+                },
               },
               {
                 name: "stream",
@@ -153,6 +159,20 @@ const configuration_workflow = (req) =>
                     "Modern chat",
                     "Modern chat - no card",
                   ],
+                },
+              },
+              {
+                name: "input_mode",
+                label: "Input position",
+                sublabel:
+                  "Where the message input appears within the chat panel.",
+                type: "String",
+                attributes: {
+                  options: ["Inline", "Footer (sticky)"],
+                },
+                default: "Inline",
+                showIf: {
+                  layout: ["Modern chat", "Modern chat - no card"],
                 },
               },
               {
@@ -281,6 +301,7 @@ const run = async (
     audio_recorder,
     layout,
     shared,
+    input_mode,
   },
   state,
   { res, req },
@@ -416,9 +437,9 @@ const run = async (
               interactMarkups.push(
                 wrapSegment(
                   typeof interact.content === "string"
-                    ? md.render(interact.content)
+                    ? md.render(stripMarkdownImages(interact.content))
                     : typeof interact.content?.content === "string"
-                      ? md.render(interact.content.content)
+                      ? md.render(stripMarkdownImages(interact.content.content))
                       : interact.content,
                   action.name,
                   false,
@@ -462,7 +483,8 @@ const run = async (
     runInteractions = interactMarkups.join("");
   }
   const skill_form_widgets = [];
-  for (const skill of get_skill_instances(action.configuration)) {
+  const _skill_instances = get_skill_instances(action.configuration);
+  for (const skill of _skill_instances) {
     if (skill.formWidget)
       skill_form_widgets.push(
         await skill.formWidget({
@@ -472,15 +494,24 @@ const run = async (
         }),
       );
   }
+  const hasTTS = _skill_instances.some(
+    (s) => s.constructor && s.constructor.skill_name === "Text to speech",
+  );
 
   const debugMode = is_debug_mode(action.configuration, req.user);
   const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
 
   const rndid = Math.floor(Math.random() * 16777215).toString(16);
+  const footerInputMode = input_mode === "Footer (sticky)";
   const input_form = form(
     {
       onsubmit: `event.preventDefault();const _fd=new FormData(this);spin_send_button();view_post('${viewname}', 'interact', _fd, ${dyn_updates ? "null" : "processCopilotResponse"});return false;`,
-      class: ["form-namespace copilot mt-2 agent-view"],
+      class: [
+        "form-namespace copilot agent-view",
+        footerInputMode
+          ? "mt-auto sticky-bottom bg-body py-1"
+          : "mt-2",
+      ],
       method: "post",
     },
     input({
@@ -557,17 +588,13 @@ const run = async (
               { class: "modern-sessions-header" },
               div(
                 { class: "d-flex align-items-center" },
-                i({
-                  class: "fas fa-caret-down me-2 session-open-sessions",
-                  onclick: "close_session_list()",
-                }),
                 i({ class: "fas fa-comments me-2 text-primary" }),
                 span({ class: "fw-semibold" }, req.__("Sessions")),
               ),
               button(
                 {
                   type: "button",
-                  class: "btn btn-primary btn-sm rounded-pill px-3",
+                  class: "btn btn-primary btn-sm px-3",
                   onclick: "unset_state_field('run_id', this)",
                   title: "New chat",
                 },
@@ -653,6 +680,10 @@ const run = async (
     : "";
 
   const main_inner = div(
+    {
+      class: "d-flex flex-column flex-grow-1",
+      style: "min-height:0",
+    },
     div(
       {
         class: "open-prev-runs",
@@ -908,20 +939,310 @@ const run = async (
           `$('form.agent-view input[name=page_load_tag]').val(window._sc_pageloadtag)`,
         ),
       initial_q && domReady("$('form.copilot').submit()"),
+      domReady(`
+  (function() {
+    var VIEWNAME = ${JSON.stringify(viewname)};
+
+    /* Container-responsive: ResizeObserver toggles .chat-wide based on
+       the shell's own width (independent of viewport / theme sidebars).
+       Also sets a precise min-height in footer mode so the input form
+       reaches the visible viewport bottom regardless of any navbar above. */
+    function applyShellFooterHeight(shell) {
+      if (!shell.classList.contains('input-footer')) return;
+      var rect = shell.getBoundingClientRect();
+      var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      var h = Math.max(280, Math.floor(vh - rect.top - 8));
+      shell.style.minHeight = h + 'px';
+    }
+    document.querySelectorAll('.modern-chat-shell').forEach(function(shell) {
+      if (shell._scChatResizeBound) return;
+      shell._scChatResizeBound = true;
+      var apply = function(w) { shell.classList.toggle('chat-wide', w >= 720); };
+      apply(shell.getBoundingClientRect().width);
+      applyShellFooterHeight(shell);
+      if ('ResizeObserver' in window) {
+        var ro = new ResizeObserver(function(entries) {
+          apply(entries[0].contentRect.width);
+          applyShellFooterHeight(shell);
+        });
+        ro.observe(shell);
+      } else {
+        window.addEventListener('resize', function() {
+          apply(shell.getBoundingClientRect().width);
+          applyShellFooterHeight(shell);
+        });
+      }
+      window.addEventListener('resize', function() { applyShellFooterHeight(shell); });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function() {
+          applyShellFooterHeight(shell);
+        });
+      }
+    });
+
+    /* Clean Bootstrap-leftover backdrop/styles after pjax view re-render */
+    function cleanupOffcanvasState() {
+      document.querySelectorAll('.offcanvas-backdrop').forEach(function(el) { el.remove(); });
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+      document.body.classList.remove('modal-open');
+    }
+    if (!window._scAgentOffcanvasCleanupBound) {
+      $(document).on('pjaxlinks_loaded', cleanupOffcanvasState);
+      window._scAgentOffcanvasCleanupBound = true;
+    }
+    /* Hide offcanvas when user picks a session from inside the drawer */
+    if (!window._scAgentOffcanvasClickBound) {
+      document.addEventListener('click', function(e) {
+        var trigger = e.target.closest(
+          '.modern-sessions-offcanvas .prevcopilotrun, ' +
+          '.modern-sessions-offcanvas .modern-sessions-header button.btn-primary'
+        );
+        if (!trigger) return;
+        var ofc = trigger.closest('.offcanvas');
+        if (!ofc || !window.bootstrap) return;
+        var inst = bootstrap.Offcanvas.getInstance(ofc);
+        if (inst) inst.hide();
+      });
+      window._scAgentOffcanvasClickBound = true;
+    }
+
+    /* === TTS === */
+    function getSharedAudio() {
+      if (!window._ttsSharedAudio) {
+        var a = new Audio();
+        a.preload = 'auto';
+        a.className = 'agent-tts-audio d-none';
+        document.body.appendChild(a);
+        window._ttsSharedAudio = a;
+      }
+      return window._ttsSharedAudio;
+    }
+    function primeTtsUnlock() {
+      if (window._ttsUnlocked) return;
+      try {
+        var a = getSharedAudio();
+        a.src = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//FJ';
+        var p = a.play();
+        if (p && p.catch) p.catch(function() {});
+        a.pause();
+        a.currentTime = 0;
+        window._ttsUnlocked = true;
+      } catch(e) {}
+    }
+    window.toggle_agent_tts = function(btn, viewname) {
+      var key = 'agent-tts-' + (viewname || VIEWNAME);
+      var newOn = btn.getAttribute('data-tts-state') !== 'on';
+      btn.setAttribute('data-tts-state', newOn ? 'on' : 'off');
+      btn.classList.toggle('bg-primary-subtle', newOn);
+      btn.classList.toggle('text-primary', newOn);
+      try { localStorage.setItem(key, newOn ? '1' : '0'); } catch(e){}
+      if (newOn) {
+        primeTtsUnlock();
+      } else {
+        var a = window._ttsSharedAudio;
+        if (a) { try { a.pause(); } catch(e){} a.src = ''; }
+      }
+    };
+    /* Restore toggle state on load */
+    (function() {
+      try {
+        var btn = document.querySelector('.modern-tts-toggle');
+        if (!btn) return;
+        if (localStorage.getItem('agent-tts-' + VIEWNAME) === '1') {
+          btn.setAttribute('data-tts-state', 'on');
+          btn.classList.add('bg-primary-subtle');
+          btn.classList.add('text-primary');
+        }
+      } catch(e) {}
+    })();
+
+    function ttsForBubble(bubble) {
+      if (!bubble || bubble.dataset.ttsDispatched) return;
+      var btn = document.querySelector('.modern-tts-toggle[data-tts-state="on"]');
+      if (!btn) return;
+      // Skip bubbles that are just tool-rendered output (image card etc.) —
+      // they have a Bootstrap card inside and no meaningful narrative text.
+      if (bubble.querySelector('.card.bg-secondary-subtle')) return;
+      bubble.dataset.ttsDispatched = '1';
+      var text = (bubble.innerText || bubble.textContent || '').trim();
+      if (!text || text.length < 2) return;
+      var fd = new FormData();
+      fd.append('text', text);
+      var csrf = ($('input[name=_csrf]').first().val()) || '';
+      fd.append('_csrf', csrf);
+      fetch('/view/' + VIEWNAME + '/tts', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+      }).then(function(res) {
+        if (!res.ok) { res.text().then(function(t){ console.warn('tts http ' + res.status + ': ' + t); }); return null; }
+        var ct = res.headers.get('content-type') || '';
+        if (ct.indexOf('audio') !== 0) { res.text().then(function(t){ console.warn('tts non-audio:', t); }); return null; }
+        return res.blob();
+      }).then(function(blob) {
+        if (!blob) return;
+        var url = URL.createObjectURL(blob);
+        var a = getSharedAudio();
+        a.src = url;
+        var p = a.play();
+        if (p && p.catch) p.catch(function(err) { console.warn('tts play blocked:', err); });
+        var clean = function() { URL.revokeObjectURL(url); a.removeEventListener('ended', clean); };
+        a.addEventListener('ended', clean);
+      }).catch(function(err) { console.warn('tts fetch err:', err); });
+    }
+
+    var interactionsRoot = document.getElementById('copilotinteractions');
+    if (interactionsRoot && !interactionsRoot._scTtsObserver) {
+      var mo = new MutationObserver(function(muts) {
+        muts.forEach(function(m) {
+          m.addedNodes && m.addedNodes.forEach(function(n) {
+            if (!n || n.nodeType !== 1) return;
+            if (n.matches && n.matches('.chat-message.chat-assistant .chat-bubble')) {
+              ttsForBubble(n);
+            }
+            if (n.matches && n.matches('.chat-message.chat-assistant')) {
+              var b = n.querySelector('.chat-bubble');
+              if (b) ttsForBubble(b);
+            }
+            if (n.querySelectorAll) {
+              n.querySelectorAll('.chat-message.chat-assistant .chat-bubble').forEach(ttsForBubble);
+            }
+          });
+        });
+      });
+      mo.observe(interactionsRoot, { childList: true, subtree: true });
+      interactionsRoot._scTtsObserver = mo;
+    }
+
+    /* PWA-standalone image download via Web Share API */
+    function isPwaStandalone() {
+      return (window.navigator.standalone === true) ||
+             (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    }
+    if (!window._scAgentImageShareBound) {
+      document.addEventListener('click', function(e) {
+        var link = e.target.closest('.agent-image-download');
+        if (!link) return;
+        if (!isPwaStandalone()) return;
+        if (!navigator.share || typeof navigator.canShare !== 'function') return;
+        e.preventDefault();
+        e.stopPropagation();
+        var url = link.getAttribute('href');
+        var dlname = link.getAttribute('download') || ('image-' + Date.now() + '.png');
+        fetch(url).then(function(r) { return r.blob(); }).then(function(blob) {
+          var file = new File([blob], dlname, { type: blob.type });
+          if (!navigator.canShare({ files: [file] })) { window.open(url, '_blank'); return; }
+          return navigator.share({ files: [file], title: dlname });
+        }).catch(function(err) { console.warn('share err', err); });
+      }, true);
+      window._scAgentImageShareBound = true;
+    }
+  })();
+`),
     ),
   );
   const isModern = layout && layout.startsWith("Modern chat");
+  const viewObj = View.findOne({ name: viewname });
+  const headerTitle = viewObj?.description?.trim() || action.name || "";
+  const modern_chat_header =
+    isModern && (show_prev_runs || hasTTS)
+      ? div(
+          {
+            class:
+              "modern-chat-header d-flex align-items-center gap-2 px-3 py-2 border-bottom flex-shrink-0",
+          },
+          show_prev_runs
+            ? button(
+                {
+                  type: "button",
+                  class:
+                    "btn btn-sm btn-outline-secondary modern-chat-hamburger",
+                  "data-bs-toggle": "offcanvas",
+                  "data-bs-target": "#agent-sessions-" + rndid,
+                  "aria-controls": "agent-sessions-" + rndid,
+                  title: req.__("Sessions"),
+                },
+                i({ class: "fas fa-bars" }),
+              )
+            : "",
+          span(
+            { class: "flex-grow-1 text-truncate fw-semibold" },
+            headerTitle,
+          ),
+          hasTTS
+            ? button(
+                {
+                  type: "button",
+                  class:
+                    "btn btn-sm btn-outline-secondary modern-tts-toggle",
+                  onclick: `toggle_agent_tts(this, '${viewname}')`,
+                  title: req.__("Read responses aloud"),
+                  "data-tts-state": "off",
+                },
+                i({ class: "fas fa-volume-up" }),
+              )
+            : "",
+        )
+      : "";
   const main_chat =
     layout === "Modern chat"
       ? div(
-          { class: "card" },
-          div({ class: "card-body modern-chat-layout" }, main_inner),
+          { class: "card modern-chat-card d-flex flex-column" },
+          modern_chat_header,
+          div(
+            { class: "card-body modern-chat-layout p-0 d-flex flex-column" },
+            main_inner,
+          ),
         )
       : layout === "Modern chat - no card"
-        ? div({ class: "modern-chat-layout" }, main_inner)
+        ? div(
+            { class: "modern-chat-noncard d-flex flex-column" },
+            modern_chat_header,
+            div(
+              { class: "modern-chat-layout d-flex flex-column" },
+              main_inner,
+            ),
+          )
         : layout === "No card"
           ? div({ class: "mx-1" }, main_inner)
           : div({ class: "card" }, div({ class: "card-body" }, main_inner));
+
+  if (isModern) {
+    const shellExtraClass =
+      input_mode === "Footer (sticky)" ? " input-footer" : "";
+    const mainColumnAttrs = {
+      class: "modern-chat-main flex-grow-1 d-flex flex-column",
+      style: "min-width:0",
+    };
+    return show_prev_runs
+      ? div(
+          { class: "modern-chat-shell d-flex gap-4" + shellExtraClass },
+          div(
+            {
+              class:
+                "offcanvas offcanvas-start modern-sessions-offcanvas border-end pe-3" +
+                (prev_runs_closed ? " sessions-initially-closed" : ""),
+              id: "agent-sessions-" + rndid,
+              tabindex: "-1",
+              "aria-labelledby": "agent-sessions-label-" + rndid,
+            },
+            div(
+              { class: "offcanvas-body p-2" },
+              div({ class: "prev-runs-list" }, prev_runs_side_bar),
+            ),
+          ),
+          div(mainColumnAttrs, main_chat),
+        )
+      : div(
+          {
+            class:
+              "modern-chat-shell modern-chat-shell-no-sidebar d-flex" +
+              shellExtraClass,
+          },
+          div(mainColumnAttrs, main_chat),
+        );
+  }
 
   return show_prev_runs
     ? div(
@@ -1335,6 +1656,60 @@ const execute_user_action = async (
   };
 };
 
+// Text-to-speech route. Streams audio directly to the browser via
+// llm_text_to_speech with stream:true so playback can start as soon as the
+// first chunk arrives. The TextToSpeech skill must be configured on the
+// referenced agent action.
+const tts = async (table_id, viewname, config, body, { req, res }) => {
+  const { text } = body;
+  if (!text || !text.trim()) return { json: { error: "no text" } };
+  const stream_fn = getState().functions.llm_text_to_speech;
+  if (!stream_fn)
+    return {
+      json: {
+        error:
+          "llm_text_to_speech not registered — update @saltcorn/large-language-model to >= 1.1.0",
+      },
+    };
+  const action =
+    config.agent_action || (await Trigger.findOne({ id: config.action_id }));
+  const skills = get_skill_instances(action.configuration);
+  const tts_skill = skills.find(
+    (s) => s.constructor && s.constructor.skill_name === "Text to speech",
+  );
+  if (!tts_skill) return { json: { error: "tts skill not configured" } };
+  const ttsOpts = {
+    voice: tts_skill.voice,
+    speed: tts_skill.speed,
+    response_format: tts_skill.format,
+    instructions: tts_skill.instructions,
+    stream: true,
+  };
+  try {
+    const result = await stream_fn.run(text, ttsOpts);
+    const ext = result?.output_format || tts_skill.format || "mp3";
+    const mime = ext === "mp3" ? "audio/mpeg" : `audio/${ext}`;
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Accel-Buffering", "no");
+    const reader = result.stream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!res.write(Buffer.from(value))) {
+        await new Promise((r) => res.once("drain", r));
+      }
+    }
+    res.end();
+  } catch (e) {
+    getState().log(2, "tts stream pump error: " + (e?.message || e));
+    try {
+      res.end();
+    } catch (_) {}
+  }
+  return;
+};
+
 module.exports = {
   name: "Agent Chat",
   configuration_workflow,
@@ -1350,6 +1725,7 @@ module.exports = {
     skillroute,
     execute_user_action,
     cancel,
+    tts,
   },
   mobile_render_server_side: true,
 };

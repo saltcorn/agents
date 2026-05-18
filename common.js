@@ -33,6 +33,7 @@ const get_skills = () => {
     require("./skills/Table"),
     require("./skills/PreloadData"),
     require("./skills/GenerateImage"),
+    require("./skills/TextToSpeech"),
     require("./skills/ModelContextProtocol"),
     require("./skills/PromptPicker"),
     require("./skills/ModelPicker"),
@@ -244,6 +245,14 @@ function extractText(html) {
   return html.replace(/<[^>]*>/g, '');
 }
 
+// Strip markdown image syntax ![alt](url) from assistant text so that the LLM
+// can't leak a broken/duplicate image reference next to a tool-rendered image
+// bubble. Plain links are preserved.
+function stripMarkdownImages(s) {
+  if (typeof s !== "string") return s;
+  return s.replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim();
+}
+
 const process_interaction = async (
   run,
   config,
@@ -359,7 +368,7 @@ const process_interaction = async (
       add_response(
         req?.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(answer.content), agent_label, false, layout),
+          : wrapSegment(md.render(stripMarkdownImages(answer.content)), agent_label, false, layout),
       );
   }
 
@@ -372,7 +381,7 @@ const process_interaction = async (
       add_response(
         req?.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(answer.content), agent_label, false, layout),
+          : wrapSegment(md.render(stripMarkdownImages(answer.content)), agent_label, false, layout),
       );
     //const actions = [];
     let hasResult = false;
@@ -708,7 +717,7 @@ const process_interaction = async (
     add_response(
       req?.disable_markdown_render
         ? answer
-        : wrapSegment(md.render(answer), agent_label, false, layout),
+        : wrapSegment(md.render(stripMarkdownImages(answer)), agent_label, false, layout),
     );
   if (dyn_updates && !is_sub_agent)
     getState().emitDynamicUpdate(
@@ -752,5 +761,6 @@ module.exports = {
   is_debug_mode,
   get_initial_interactions,
   nubBy,
-  extractText
+  extractText,
+  stripMarkdownImages,
 };

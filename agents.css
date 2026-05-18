@@ -190,7 +190,7 @@ p.prevrun_content {
 }
 .modern-chat-layout .chat-bubble {
   padding: 0.6rem 1rem;
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   line-height: 1.5;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -198,7 +198,7 @@ p.prevrun_content {
 .modern-chat-layout .chat-user .chat-bubble {
   background: #0d6efd;
   color: #fff;
-  border-bottom-right-radius: 0.25rem;
+  border-bottom-right-radius: 0.15rem;
 }
 .modern-chat-layout .chat-assistant .chat-bubble {
   background: var(
@@ -206,7 +206,7 @@ p.prevrun_content {
     var(--bs-secondary-bg-subtle, #f0f2f5)
   );
   color: var(--tblr-body-color, var(--bs-body-color, #212529));
-  border-bottom-left-radius: 0.25rem;
+  border-bottom-left-radius: 0.15rem;
 }
 /* Markdown content inside bubbles */
 .modern-chat-layout .chat-bubble h1,
@@ -305,7 +305,7 @@ p.prevrun_content {
   margin-top: 0.5rem;
 }
 .modern-chat-layout .copilot-entry textarea {
-  border-radius: 1.5rem;
+  border-radius: 0.5rem;
   padding: 0.6rem 1rem;
   resize: none;
 }
@@ -325,23 +325,24 @@ p.prevrun_content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 0.75rem;
-  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.5rem;
   background: var(
     --tblr-secondary-bg-subtle,
     var(--bs-secondary-bg-subtle, #f8f9fa)
   );
-  border-radius: 0.75rem;
+  border-radius: 0.3rem;
   border-bottom: 1px solid
     var(--tblr-border-color, var(--bs-border-color, #dee2e6));
   position: sticky;
   top: 0;
   z-index: 1;
 }
+.modern-sessions-header .btn { border-radius: 0.3rem; }
 .modern-sessions .modern-session-item {
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.75rem;
-  margin-bottom: 0.4rem;
+  border-radius: 0.3rem;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.35rem;
   border: 1px solid var(--tblr-border-color, var(--bs-border-color, #dee2e6));
   cursor: pointer;
   transition: all 0.15s ease;
@@ -399,3 +400,82 @@ p.prevrun_content {
   content: "✓";
   color: green;
 }
+
+/* === Modern-chat container-responsive shell ===
+   Bootstrap offcanvas is viewport-driven; we want a container-driven
+   version so themes with their own sidebars don't break the chat
+   layout. A ResizeObserver toggles .chat-wide on .modern-chat-shell at
+   >= 720px container width and the rules below override Bootstrap's
+   offcanvas hiding so it renders inline as a column.
+
+   Everything else uses Bootstrap utility classes in the markup; only
+   the rules below are custom and cannot be expressed via utilities. */
+.modern-chat-shell.chat-wide .modern-sessions-offcanvas {
+  position: static !important;
+  transform: none !important;
+  visibility: visible !important;
+  z-index: auto !important;
+  width: 260px;
+  max-width: 260px;
+  flex: 0 0 260px;
+  background: transparent;
+  height: auto;
+  box-shadow: none;
+}
+.modern-chat-shell.chat-wide .modern-chat-hamburger { display: none; }
+
+/* Bootstrap has no `:empty` utility — collapse the interaction list when
+   it has no content so the input form sits directly under the header. */
+.modern-chat-layout #copilotinteractions:empty { display: none; }
+
+/* Footer mode: the shell's min-height is set dynamically by JS to fill
+   the visible viewport from its top edge down to the bottom (so a navbar
+   above doesn't push the footer off-screen and an embed without navbar
+   doesn't leave a giant gap). The fallback calc() is used until JS runs.
+   Bootstrap has no min-h-0 utility and no descendant-targeted flex-grow,
+   so the four rules below are required to propagate the shell's height
+   down through the card and card-body to the chat-layout. */
+.modern-chat-shell.input-footer { min-height: calc(100dvh - 4rem); }
+.modern-chat-shell.input-footer .modern-chat-card,
+.modern-chat-shell.input-footer .modern-chat-noncard {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.modern-chat-shell.input-footer .modern-chat-card .card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.modern-chat-shell.input-footer #copilotinteractions:empty { display: block; }
+
+/* Narrow-mode bleed: when the chat container is mobile-narrow, eat the
+   parent's gutter padding so the chat uses (nearly) the full screen
+   width — Bootstrap has no automatic mobile-only negative-margin utility. */
+.modern-chat-shell:not(.chat-wide) {
+  margin-left: -0.75rem;
+  margin-right: -0.75rem;
+}
+
+/* Generated-image hover-reveal download/share overlay (Bootstrap has no
+   hover-fade utility). */
+.agent-generated-image { position: relative; display: inline-block; }
+.agent-image-download {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+  z-index: 5;
+}
+.agent-image-download:hover { color: #fff; background: rgba(0, 0, 0, 0.75); }
+.agent-generated-image:hover .agent-image-download,
+.agent-image-download:focus { opacity: 1; }
+@media (hover: none) { .agent-image-download { opacity: 1; } }
