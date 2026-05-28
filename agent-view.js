@@ -337,14 +337,25 @@ const run = async (
   let hasInputForm = true;
 
   const initial_q = state.run_id ? undefined : state._q;
+  let run;
   if (state.run_id) {
-    let run = prevRuns ? prevRuns.find((r) => r.id == state.run_id) : null;
+    run = prevRuns ? prevRuns.find((r) => r.id == state.run_id) : null;
     if (!run)
       run = await WorkflowRun.findOne({
         trigger_id: action.id,
-        ...(shared ? {} : { started_by: req.user?.id }),
+        //...(shared ? {} : { started_by: req.user?.id }),
         id: state.run_id,
       });
+
+    if (
+      run &&
+      !shared &&
+      run.started_by != req.user?.id &&
+      run.context.share_token !== (state.share_token || "none")
+    )
+      run = null;
+  }
+  if (run) {
     const interactMarkups = [];
     if (run.context.html_interactions) {
       interactMarkups.push(...run.context.html_interactions);
@@ -508,9 +519,7 @@ const run = async (
       onsubmit: `event.preventDefault();const _fd=new FormData(this);spin_send_button();view_post('${viewname}', 'interact', _fd, ${dyn_updates ? "null" : "processCopilotResponse"});return false;`,
       class: [
         "form-namespace copilot agent-view",
-        footerInputMode
-          ? "mt-auto sticky-bottom bg-body py-1"
-          : "mt-2",
+        footerInputMode ? "mt-auto sticky-bottom bg-body py-1" : "mt-2",
       ],
       method: "post",
     },
@@ -752,6 +761,7 @@ const run = async (
         $("textarea[name=userinput]").val("")
         $('div.next_response_scratch').html("")
         window['stream scratch ${viewname} ${rndid}'] = []
+        $("button.modern-share").show()
         if(res.response) {
             $(".agent-waiting-indicator").remove();
             $("#copilotinteractions").append(res.response);
@@ -1044,6 +1054,20 @@ const run = async (
         if (a) { try { a.pause(); } catch(e){} a.src = ''; }
       }
     };
+
+    window.share_agent_chat = function(btn, viewname) {
+      const runid = $("input[name=run_id").val()
+      view_post(viewname, 'share_chat', {run_id:runid}, async (data)=>{
+        console.log(data)        
+        const clipboardItemData = {
+          ["text/plain"]: window.location.origin+'/view/'+viewname+'?run_id='+runid+(data.share_token ? "&share_token="+data.share_token:"")
+        };
+        const clipboardItem = new ClipboardItem(clipboardItemData);
+        await navigator.clipboard.write([clipboardItem]);        
+        common_done({notify: "Share link copied to clipboard", remove_delay: 1})
+        
+      })      
+    };
     /* Restore toggle state on load */
     (function() {
       try {
@@ -1166,16 +1190,22 @@ const run = async (
                 i({ class: "fas fa-bars" }),
               )
             : "",
-          span(
-            { class: "flex-grow-1 text-truncate fw-semibold" },
-            headerTitle,
+          span({ class: "flex-grow-1 text-truncate fw-semibold" }, headerTitle),
+          button(
+            {
+              type: "button",
+              style: run ? undefined : { display: "none" },
+              class: "btn btn-sm btn-outline-secondary modern-share",
+              onclick: `share_agent_chat(this, '${viewname}')`,
+              title: req.__("Share chat"),
+            },
+            i({ class: "fas fa-share-alt" }),
           ),
           hasTTS
             ? button(
                 {
                   type: "button",
-                  class:
-                    "btn btn-sm btn-outline-secondary modern-tts-toggle",
+                  class: "btn btn-sm btn-outline-secondary modern-tts-toggle",
                   onclick: `toggle_agent_tts(this, '${viewname}')`,
                   title: req.__("Read responses aloud"),
                   "data-tts-state": "off",
@@ -1199,10 +1229,7 @@ const run = async (
         ? div(
             { class: "modern-chat-noncard d-flex flex-column" },
             modern_chat_header,
-            div(
-              { class: "modern-chat-layout d-flex flex-column" },
-              main_inner,
-            ),
+            div({ class: "modern-chat-layout d-flex flex-column" }, main_inner),
           )
         : layout === "No card"
           ? div({ class: "mx-1" }, main_inner)
@@ -1407,6 +1434,19 @@ const cancel = async (table_id, viewname, config, body, { req, res }) => {
   const run = await WorkflowRun.findOne({ id: +run_id });
   await run.update({ status: "Cancel" });
   return;
+};
+
+const share_chat = async (table_id, viewname, config, body, { req, res }) => {
+  const { run_id } = body;
+  const run = await WorkflowRun.findOne({ id: +run_id });
+  if (run.context.share_token)
+    return { json: { share_token: run.context.share_token } };
+  else {
+    if (run.started_by != req.user?.id && !config.shared) return;
+    const rndid = Math.floor(Math.random() * 16777215).toString(16);
+    await run.update({ context: { ...run.context, share_token: rndid } });
+    return { json: { share_token: rndid } };
+  }
 };
 
 const debug_info = async (table_id, viewname, config, body, { req, res }) => {
@@ -1726,6 +1766,7 @@ module.exports = {
     execute_user_action,
     cancel,
     tts,
+    share_chat,
   },
   mobile_render_server_side: true,
 };
