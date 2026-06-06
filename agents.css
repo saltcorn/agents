@@ -411,7 +411,11 @@ p.prevrun_content {
    Everything else uses Bootstrap utility classes in the markup; only
    the rules below are custom and cannot be expressed via utilities. */
 .modern-chat-shell.chat-wide .modern-sessions-offcanvas {
-  position: static !important;
+  position: sticky !important;
+  top: 1rem;
+  align-self: flex-start;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
   transform: none !important;
   visibility: visible !important;
   z-index: auto !important;
@@ -419,10 +423,51 @@ p.prevrun_content {
   max-width: 260px;
   flex: 0 0 260px;
   background: transparent;
-  height: auto;
   box-shadow: none;
 }
 .modern-chat-shell.chat-wide .modern-chat-hamburger { display: none; }
+
+/* Slim, subtle scrollbars for the scrollable chat areas (sessions sidebar
+   and the message list). Firefox uses scrollbar-width/-color; WebKit/Blink
+   use the ::-webkit-scrollbar pseudo-elements. The thumb is mostly
+   transparent and only becomes clearly visible on hover, so the scrollbar
+   doesn't visually clutter the layout. */
+.modern-chat-shell.chat-wide .modern-sessions-offcanvas,
+.modern-chat-layout #copilotinteractions {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.modern-chat-shell.chat-wide .modern-sessions-offcanvas:hover,
+.modern-chat-layout #copilotinteractions:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+.modern-chat-shell.chat-wide .modern-sessions-offcanvas::-webkit-scrollbar,
+.modern-chat-layout #copilotinteractions::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.modern-chat-shell.chat-wide
+  .modern-sessions-offcanvas::-webkit-scrollbar-track,
+.modern-chat-layout #copilotinteractions::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modern-chat-shell.chat-wide
+  .modern-sessions-offcanvas::-webkit-scrollbar-thumb,
+.modern-chat-layout #copilotinteractions::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+.modern-chat-shell.chat-wide
+  .modern-sessions-offcanvas:hover::-webkit-scrollbar-thumb,
+.modern-chat-layout #copilotinteractions:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+.modern-chat-shell.chat-wide
+  .modern-sessions-offcanvas::-webkit-scrollbar-thumb:hover,
+.modern-chat-layout #copilotinteractions::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
+}
 
 /* Bootstrap has no `:empty` utility — collapse the interaction list when
    it has no content so the input form sits directly under the header. */

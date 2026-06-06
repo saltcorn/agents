@@ -713,10 +713,21 @@ const run = async (
       `
     function scrollAgentToBottom() {
       const container = document.getElementById('copilotinteractions');
-      if (container) {
-        if (container.scrollHeight > container.clientHeight) {
-          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-        }
+      if (!container) return;
+      // The message list scrolls internally when its height is bounded.
+      if (container.scrollHeight > container.clientHeight + 2) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
+      const layout = container.closest('.modern-chat-layout');
+      if (layout) {
+        // Footer-sticky modern chat: the page scrolls while the input bar is
+        // position:sticky, so scrollIntoView() on the bar is a no-op (it
+        // always reports as already "in view"). Scroll the page down by the
+        // amount the chat extends past the viewport bottom, so the newest
+        // content + input bar end up at the bottom of the screen.
+        const overshoot = layout.getBoundingClientRect().bottom - window.innerHeight;
+        if (overshoot > 0) window.scrollBy({ top: overshoot + 8, behavior: 'smooth' });
+      } else {
         const inputForm = document.querySelector('form.agent-view');
         if (inputForm) inputForm.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
@@ -758,7 +769,7 @@ const run = async (
         const user_input = $("textarea[name=userinput]").val()
         if(user_input && (!${JSON.stringify(dyn_updates)}))
           $("#copilotinteractions").append(wrapSegment('<p>'+user_input+'</p>'+fileBadge, "You", true))
-        $("textarea[name=userinput]").val("")
+        $("textarea[name=userinput]").val("").trigger("update.autogrow")
         $('div.next_response_scratch').html("")
         window['stream scratch ${viewname} ${rndid}'] = []
         $("button.modern-share").show()
