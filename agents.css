@@ -417,6 +417,7 @@ p.prevrun_content {
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
   transform: none !important;
+  transition: none !important;
   visibility: visible !important;
   z-index: auto !important;
   width: 260px;
