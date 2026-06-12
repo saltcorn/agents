@@ -1486,6 +1486,7 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     sysPrompt = complArgs.systemPrompt;
   }
   const apiJson = JSON.stringify(run.context.api_interactions, null, 2);
+  const msgJson = JSON.stringify(run.context.interactions, null, 2);
   const debug_html = div(
     { class: "accordion", id: "debugAccordion" },
     div(
@@ -1520,6 +1521,50 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
     div(
       { class: "accordion-item" },
       h2(
+        { class: "accordion-header", id: "debugHeadMessages" },
+        button(
+          {
+            class: "accordion-button",
+            type: "button",
+            "data-bs-toggle": "collapse",
+            "data-bs-target": "#debugCollapseMessages",
+            "aria-expanded": "true",
+            "aria-controls": "debugCollapseMessages",
+          },
+          "Messages",
+        ),
+      ),
+      div(
+        {
+          id: "debugCollapseMessages",
+          class: "accordion-collapse collapse show",
+          "aria-labelledby": "debugHeadMessages",
+          "data-bs-parent": "#debugAccordion",
+        },
+        div(
+          { class: "accordion-body" },
+          button(
+            {
+              class: "btn btn-sm btn-outline-secondary mb-2",
+              onclick: `
+                var t=document.getElementById('debugMessagesPre').textContent;
+                navigator.clipboard.writeText(t).then(function(){
+                  var b=event.target;b.textContent='Copied!';
+                  setTimeout(function(){b.textContent='Copy to clipboard'},1500)
+                })`,
+            },
+            "Copy to clipboard",
+          ),
+          pre(
+            { id: "debugMessagesPre", style: "white-space:pre-wrap" },
+            text(escapeHtml(msgJson)),
+          ),
+        ),
+      ),
+    ),
+    div(
+      { class: "accordion-item" },
+      h2(
         { class: "accordion-header", id: "debugHeadAPI" },
         button(
           {
@@ -1527,7 +1572,7 @@ const debug_info = async (table_id, viewname, config, body, { req, res }) => {
             type: "button",
             "data-bs-toggle": "collapse",
             "data-bs-target": "#debugCollapseAPI",
-            "aria-expanded": "true",
+            "aria-expanded": "false",
             "aria-controls": "debugCollapseAPI",
           },
           "API interactions",
