@@ -708,9 +708,29 @@ const run = async (
     stream ? div({ class: "next_response_scratch" }) : "",
     hasInputForm && input_form,
     style(agents_css),
-    script(domReady(`$( "#inputuserinput" ).autogrow({paddingBottom: 20});`)),
+    script(domReady(`
+      $("#inputuserinput" ).autogrow({paddingBottom: 20});
+      ensure_script_loaded("/static_assets/"+_sc_version_tag+"/mermaid.min.js", ()=>{
+        mermaid.initialize({ startOnLoad: false });
+        activate_mermaid()
+        })`)),
     script(
       `
+    function activate_mermaid() {
+      document.querySelectorAll('code.language-mermaid').forEach(async (el) => {
+        try {
+          // parse() throws if the syntax is invalid
+          await mermaid.parse(el.textContent);
+
+          // Valid — safe to render
+          // mermaid.run() works on a live NodeList, so target this element directly
+          mermaid.run({ nodes: [el] });
+        } catch (e) {
+          // Invalid — leave the <code> block completely untouched
+          console.warn('Mermaid syntax error (diagram left as-is):', e.message);
+        }
+      });
+    }
     function scrollAgentToBottom() {
       const container = document.getElementById('copilotinteractions');
       if (!container) return;
@@ -778,6 +798,7 @@ const run = async (
             $("#copilotinteractions").append(res.response);
             scrollAgentToBottom();
         }
+        activate_mermaid()
     }
     window.processCopilotResponse = processCopilotResponse;
     window.final_agent_response = () => {
