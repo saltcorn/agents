@@ -708,28 +708,43 @@ const run = async (
     stream ? div({ class: "next_response_scratch" }) : "",
     hasInputForm && input_form,
     style(agents_css),
-    script(domReady(`
+    script(
+      domReady(`
       $("#inputuserinput" ).autogrow({paddingBottom: 20});
       ensure_script_loaded("/static_assets/"+_sc_version_tag+"/mermaid.min.js", ()=>{
         mermaid.initialize({ startOnLoad: false });
         activate_mermaid()
-        })`)),
+        })`),
+    ),
     script(
       `
     function activate_mermaid() {
-      document.querySelectorAll('code.language-mermaid').forEach(async (el) => {
-        try {
-          // parse() throws if the syntax is invalid
-          await mermaid.parse(el.textContent);
+      console.log("activate_mermaid")
+      const mermaids = document.querySelectorAll('code.language-mermaid:not([data-processed])')
+      if(mermaids.length) {
+        
+        const el0 =document.querySelector('code.language-mermaid:not([data-processed])')
+        const parent = el0.closest("div.copy-to-clipboard-elem")        
+        if(!parent) return;
+        parent.setAttribute("data-copy-text", parent.innerText)
+        
+        let processed = false
+        parent.querySelectorAll('code.language-mermaid:not([data-processed])').forEach(async (el) => {
+          try {
+            // parse() throws if the syntax is invalid
+            await mermaid.parse(el.textContent);
 
-          // Valid — safe to render
-          // mermaid.run() works on a live NodeList, so target this element directly
-          mermaid.run({ nodes: [el] });
-        } catch (e) {
-          // Invalid — leave the <code> block completely untouched
-          console.warn('Mermaid syntax error (diagram left as-is):', e.message);
-        }
-      });
+            // Valid — safe to render
+            // mermaid.run() works on a live NodeList, so target this element directly
+            mermaid.run({ nodes: [el] });
+            processed = true
+          } catch (e) {
+            // Invalid — leave the <code> block completely untouched
+            console.warn('Mermaid syntax error (diagram left as-is):', e.message);
+          }
+        })
+        if(processed) activate_mermaid()
+      }
     }
     function scrollAgentToBottom() {
       const container = document.getElementById('copilotinteractions');
@@ -969,7 +984,7 @@ const run = async (
   e.preventDefault();
 
   try {
-    await navigator.clipboard.writeText(target.innerText);
+    await navigator.clipboard.writeText(target.getAttribute("data-copy-text") || target.innerText);
     target.classList.add('copy-success');
     setTimeout(() => target.classList.remove('copy-success'), 1000);
   } catch (err) {
