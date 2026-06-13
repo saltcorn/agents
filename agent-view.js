@@ -719,7 +719,6 @@ const run = async (
     script(
       `
     function activate_mermaid() {
-      console.log("activate_mermaid")
       const mermaids = document.querySelectorAll('code.language-mermaid:not([data-processed])')
       if(mermaids.length) {
         
