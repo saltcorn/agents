@@ -157,7 +157,11 @@ const getCompletionArguments = async (
     else if (skillTools) tools.push(skillTools);
   }
   if (tools.length === 0) tools = undefined;
-  const complArgs = { tools, systemPrompt: sysPrompts.join("\n\n") };
+  const complArgs = {
+    tools,
+    systemPrompt: sysPrompts.join("\n\n"),
+    ephemeralCacheControl: true,
+  };
   if (config.model) complArgs.model = config.model;
 
   if (overrides.alt_config || config.alt_config)
@@ -242,7 +246,7 @@ const wrapCard = (title, ...inners) =>
 const is_debug_mode = (config, user) => user?.role_id === 1;
 
 function extractText(html) {
-  return html.replace(/<[^>]*>/g, '');
+  return html.replace(/<[^>]*>/g, "");
 }
 
 // Strip markdown image syntax ![alt](url) from assistant text so that the LLM
@@ -368,7 +372,12 @@ const process_interaction = async (
       add_response(
         req?.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(stripMarkdownImages(answer.content)), agent_label, false, layout),
+          : wrapSegment(
+              md.render(stripMarkdownImages(answer.content)),
+              agent_label,
+              false,
+              layout,
+            ),
       );
   }
 
@@ -381,7 +390,12 @@ const process_interaction = async (
       add_response(
         req?.disable_markdown_render
           ? answer
-          : wrapSegment(md.render(stripMarkdownImages(answer.content)), agent_label, false, layout),
+          : wrapSegment(
+              md.render(stripMarkdownImages(answer.content)),
+              agent_label,
+              false,
+              layout,
+            ),
       );
     //const actions = [];
     let hasResult = false;
@@ -561,6 +575,7 @@ const process_interaction = async (
                   chat,
                   appendToChat: true,
                   systemPrompt,
+                  ephemeralCacheControl: true,
                   alt_config: use_alt_config,
                   ...opts,
                 });
@@ -717,7 +732,12 @@ const process_interaction = async (
     add_response(
       req?.disable_markdown_render
         ? answer
-        : wrapSegment(md.render(stripMarkdownImages(answer)), agent_label, false, layout),
+        : wrapSegment(
+            md.render(stripMarkdownImages(answer)),
+            agent_label,
+            false,
+            layout,
+          ),
     );
   if (dyn_updates && !is_sub_agent)
     getState().emitDynamicUpdate(
