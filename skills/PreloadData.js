@@ -99,7 +99,7 @@ class PreloadData {
   }
 
   static async configFields() {
-    const allTables = await Table.find();
+    const allTables = await Table.find({}, { cached: true });
 
     return [
       {

@@ -39,7 +39,7 @@ class RetrievalByEmbedding {
   }
 
   static async configFields() {
-    const allTables = await Table.find();
+    const allTables = await Table.find({}, { cached: true });
     const tableOpts = [];
     const relation_opts = {};
     const list_view_opts = {};
@@ -57,7 +57,7 @@ class RetrievalByEmbedding {
             t.id,
             ({ state_fields, viewrow }) =>
               viewrow.viewtemplate !== "Edit" &&
-              state_fields.every((sf) => !sf.required)
+              state_fields.every((sf) => !sf.required),
           );
           list_view_opts[relNm].push(...lviews.map((v) => v.name));
         }
@@ -132,7 +132,10 @@ class RetrievalByEmbedding {
   provideTools() {
     if (this.mode !== "Tool") return [];
     const table0 = Table.findOne(this.vec_field.split(".")[0]);
-    if(!table0) throw new Error(`Embedding Retrieval skill: cannot find table ${this.vec_field.split(".")[0]}`)
+    if (!table0)
+      throw new Error(
+        `Embedding Retrieval skill: cannot find table ${this.vec_field.split(".")[0]}`,
+      );
 
     const table_docs = this.doc_relation
       ? Table.findOne(table0.getField(this.doc_relation).reftable_name)
@@ -144,7 +147,7 @@ class RetrievalByEmbedding {
         const table = Table.findOne({ name: table_name });
         if (!table)
           throw new Error(
-            `Table ${table_name} not found in vector_similarity_search action`
+            `Table ${table_name} not found in vector_similarity_search action`,
           );
         const embedF = getState().functions.llm_embedding;
         const opts = {};
@@ -159,7 +162,7 @@ class RetrievalByEmbedding {
               target: JSON.stringify(qembed),
             },
             limit: this.doc_relation ? 5 * selLimit : selLimit,
-          }
+          },
         );
         rows.forEach((r) => {
           delete r[field_name];
@@ -204,7 +207,7 @@ class RetrievalByEmbedding {
                   in: rows.map((r) => r[table_docs.pk_name]),
                 },
               },
-              { req }
+              { req },
             );
             return viewRes;
           } else return "";

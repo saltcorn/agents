@@ -29,14 +29,14 @@ class TableToSkill {
   }
 
   static async configFields() {
-    const allTables = await Table.find();
+    const allTables = await Table.find({}, { cached: true });
     const list_view_opts = {};
     for (const t of allTables) {
       const lviews = await View.find_table_views_where(
         t.id,
         ({ state_fields, viewrow }) =>
           viewrow.viewtemplate !== "Edit" &&
-          state_fields.every((sf) => !sf.required)
+          state_fields.every((sf) => !sf.required),
       );
       list_view_opts[t.name] = ["", ...lviews.map((v) => v.name)];
     }
@@ -87,7 +87,8 @@ class TableToSkill {
 
   provideTools() {
     const table = Table.findOne(this.table_name);
-    if(!table) throw new Error(`Table skill: cannot find table ${this.table_name}`)
+    if (!table)
+      throw new Error(`Table skill: cannot find table ${this.table_name}`);
     const tools = [];
     let queryProperties = {};
     let required = [];
@@ -114,7 +115,7 @@ class TableToSkill {
             const language = scState.pg_ts_config;
             const use_websearch = scState.getConfig(
               "search_use_websearch",
-              false
+              false,
             );
             rows = await table.getRows({
               _fts: {
@@ -156,7 +157,7 @@ class TableToSkill {
             if (view) {
               const viewRes = await view.run(
                 { [table.pk_name]: { in: rows.map((r) => r[table.pk_name]) } },
-                { req }
+                { req },
               );
               return viewRes;
             } else return "";
@@ -218,7 +219,7 @@ class TableToSkill {
             if (view) {
               const viewRes = await view.run(
                 { [table.pk_name]: { in: created_ids } },
-                { req }
+                { req },
               );
               return viewRes;
             } else return "";
