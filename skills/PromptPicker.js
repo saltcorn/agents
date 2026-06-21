@@ -1,5 +1,6 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
+const Table = require("@saltcorn/data/models/table");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const { select, option } = require("@saltcorn/markup/tags");
 const { eval_expression } = require("@saltcorn/data/models/expression");
@@ -13,6 +14,10 @@ class PromptPicker {
   }
   constructor(cfg) {
     Object.assign(this, cfg);
+    if (this.source === "Table") {
+      this.formname = validID("pp" + Object.keys(this.table));
+      return;
+    }
     if (this.options_array) {
       this.options = {};
       this.options_array.forEach((o) => {
@@ -42,7 +47,7 @@ class PromptPicker {
         label: "Source",
         type: "String",
         required: true,
-        attributes: { options: ["Predefined", "Table values"] },
+        attributes: { options: ["Predefined", "Table"] },
       },
       {
         name: "run_on_select",
@@ -113,17 +118,34 @@ class PromptPicker {
     ];
   }
   async formWidget({ user, klass }) {
+    let options;
+    if (this.source === "Table") {
+      const table = Table.findOne({ name: this.table });
+      const rows = await table.getRows(
+        this.query
+          ? eval_expression(this.query, {}, user, "PromptPicker query")
+          : {},
+      );
+      options = rows.map((r) =>
+        option({ value: r[this.value_field] }, r[this.label_field]),
+      );
+    } else options = Object.keys(this.options).map((o) => option(o));
+
     return select(
       {
         class: ["form-select form-select-sm w-unset", klass],
         name: this.formname,
+        onchange: this.run_on_select
+          ? `$("textarea[name=userinput]").val(this.value).closest("form").submit(); $(this).prop("selectedIndex", 0).blur()`
+          : undefined,
       },
-      this.placeholder && option({ disabled: true }, this.placeholder),
-      Object.keys(this.options).map((o) => option(o)),
+      this.placeholder && option({ disabled: true, selected: true }, this.placeholder),
+      options,
     );
   }
   systemPrompt(body) {
-    if (body[this.formname]) return this.options[body[this.formname]];
+    if (body[this.formname] && !this.run_on_select)
+      return this.options[body[this.formname]];
   }
 }
 
