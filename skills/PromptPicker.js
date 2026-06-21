@@ -23,16 +23,70 @@ class PromptPicker {
         this.options_obj,
         {},
         null,
-        "Prompt picker options"
+        "Prompt picker options",
       );
     this.formname = validID("pp" + Object.keys(this.options));
   }
   static async configFields() {
+    const allTables = await Table.find({}, { cached: true });
+    const stringFieldOptions = {};
+    for (const table of allTables) {
+      stringFieldOptions[table.name] = table.fields
+        .filter((f) => f?.type?.name === "String")
+        .map((f) => f.name);
+    }
     return [
       { name: "placeholder", label: "Placeholder", type: "String" },
+      {
+        name: "source",
+        label: "Source",
+        type: "String",
+        required: true,
+        attributes: { options: ["Predefined", "Table values"] },
+      },
+      {
+        name: "run_on_select",
+        label: "Run on select",
+        type: "Bool",
+        sublabel:
+          "If checked, selection will start generation. If unchecked, the selected value will be added to the system prompt",
+      },
+      {
+        name: "table",
+        label: "Table",
+        type: "String",
+        required: true,
+        showIf: { source: "Table" },
+        attributes: { options: allTables.map((t) => t.name) },
+      },
+      {
+        name: "label_field",
+        label: "Label field",
+        type: "String",
+        required: true,
+        showIf: { source: "Table" },
+        attributes: { calcOptions: ["table", stringFieldOptions] },
+      },
+      {
+        name: "prompt_field",
+        label: "Prompt field",
+        type: "String",
+        required: true,
+        showIf: { source: "Table" },
+        attributes: { calcOptions: ["table", stringFieldOptions] },
+      },
+      {
+        name: "query",
+        label: "Query",
+        type: "String",
+        class: "validate-expression",
+        showIf: { source: "Table" },
+        sublabel: "Optional. Only use rows that match this query",
+      },
       features.nested_fieldrepeats
         ? new FieldRepeat({
             name: "options_array",
+            showIf: { source: "Predefined" },
             fields: [
               {
                 name: "promptpicker_label",
@@ -53,6 +107,7 @@ class PromptPicker {
             sublabel: `JavaScript object where the keys are the options and values are added to system prompt. Example:<br><code>{"Pirate":"Speak like a pirate", "Pop star":"Speak like a pop star"}</code>`,
             type: "String",
             fieldview: "textarea",
+            showIf: { source: "Predefined" },
             required: true,
           },
     ];
@@ -64,7 +119,7 @@ class PromptPicker {
         name: this.formname,
       },
       this.placeholder && option({ disabled: true }, this.placeholder),
-      Object.keys(this.options).map((o) => option(o))
+      Object.keys(this.options).map((o) => option(o)),
     );
   }
   systemPrompt(body) {
