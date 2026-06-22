@@ -177,9 +177,16 @@ const configuration_workflow = (req) =>
               },
               {
                 name: "image_upload",
-                label: "Upload images",
-                sublabel: "Allow the user to upload images",
+                label: "Upload files",
+                sublabel: "Allow the user to upload files",
                 type: "Bool",
+              },
+              {
+                name: "file_accept",
+                label: "File restriction",
+                sublabel: `File restriction (<a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/accept" target="_blank">input accept</a> format) e.g. <code>image/*,.csv</code>`,
+                showIf: { image_upload: true },
+                type: "String",
               },
               /*{
                 name: "audio_recorder",
@@ -190,7 +197,7 @@ const configuration_workflow = (req) =>
               {
                 name: "image_base64",
                 label: "base64 encode",
-                sublabel: "Use base64 encoding in the OpenAI API",
+                sublabel: "base64 encode files",
                 type: "Bool",
                 showIf: { image_upload: true },
               },
@@ -212,7 +219,7 @@ const get_state_fields = async (table_id) =>
       ]
     : [];
 
-const uploadForm = (viewname, req) =>
+const uploadForm = (viewname, req, file_accept) =>
   span(
     {
       class: "attach_agent_image_wrap",
@@ -226,7 +233,7 @@ const uploadForm = (viewname, req) =>
       name: "file",
       type: "file",
       class: "d-none",
-      accept: "image/*",
+      accept: file_accept || "image/*",
       multiple: true,
       onchange: `agent_file_attach(event)`,
     }),
@@ -302,6 +309,7 @@ const run = async (
     layout,
     shared,
     input_mode,
+    file_accept,
   },
   state,
   { res, req },
@@ -562,7 +570,7 @@ const run = async (
         { class: "submit-button p-2", onclick: "$('form.copilot').submit()" },
         i({ id: "sendbuttonicon", class: "far fa-paper-plane" }),
       ),
-      image_upload && uploadForm(viewname, req),
+      image_upload && uploadForm(viewname, req, file_accept),
       debugMode &&
         i({
           onclick: "press_agent_debug_button()",
@@ -1385,12 +1393,16 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       badges.push(
         div(
           { class: "bg-secondary-subtle p-2 m-2 rounded-2" },
-          img({
-            src: `/files/resize/${50}/${50}/${file.path_to_serve}`,
-            class: "d-block",
-            onclick: `expand_thumbnail('${file.path_to_serve}', '${path.basename(file.path_to_serve)}')`,
-          }),
-          file.filename,
+          file.mime_super === "image"
+            ? img({
+                src: `/files/resize/${50}/${50}/${file.path_to_serve}`,
+                class: "d-block",
+                onclick: `expand_thumbnail('${file.path_to_serve}', '${path.basename(file.path_to_serve)}')`,
+              }) + file.filename
+            : a(
+                { href: `/files/serve/${file.path_to_serve}`, target: "_blank" },
+                text(file.filename),
+              ),
         ),
       );
       const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
