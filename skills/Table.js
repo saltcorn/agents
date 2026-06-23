@@ -106,7 +106,7 @@ class TableToSkill {
     if (this.query)
       tools.push({
         type: "function",
-        process: async (q) => {
+        process: async (q, { req }) => {
           console.log("Table search", q);
 
           let rows = [];
@@ -117,18 +117,29 @@ class TableToSkill {
               "search_use_websearch",
               false,
             );
-            rows = await table.getRows({
-              _fts: {
-                fields: table.fields,
-                searchTerm: q.query?.full_text_search || q.full_text_search,
-                language,
-                use_websearch,
-                table: table.name,
-                schema: db.isSQLite ? undefined : db.getTenantSchema(),
+            rows = await table.getRows(
+              {
+                _fts: {
+                  fields: table.fields,
+                  searchTerm: q.query?.full_text_search || q.full_text_search,
+                  language,
+                  use_websearch,
+                  table: table.name,
+                  schema: db.isSQLite ? undefined : db.getTenantSchema(),
+                },
               },
-            });
+              { forUser: req.user, forPublic: !req.user },
+            );
           } else {
-            rows = await table.getRows(q.query || q);
+            rows = await table.getRows(
+              q.query || q,
+              req
+                ? {
+                    forUser: req.user,
+                    forPublic: !req.user,
+                  }
+                : {},
+            );
           }
           if (this.hidden_fields) {
             const hidden_fields = this.hidden_fields

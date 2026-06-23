@@ -180,6 +180,12 @@ class RetrievalByEmbedding {
               target: JSON.stringify(qembed),
             },
             limit: this.doc_relation ? 5 * selLimit : selLimit,
+            ...(req
+              ? {
+                  forUser: req.user,
+                  forPublic: !req.user,
+                }
+              : {}),
           },
         );
         rows.forEach((r) => {
@@ -206,7 +212,15 @@ class RetrievalByEmbedding {
           rows.forEach((vrow) => {
             if (ids.length < selLimit) ids.push(vrow[this.doc_relation]);
           });
-          const docsUnsorted = await relTable.getRows({ id: { in: ids } });
+          const docsUnsorted = await relTable.getRows(
+            { id: { in: ids } },
+            req
+              ? {
+                  forUser: req.user,
+                  forPublic: !req.user,
+                }
+              : {},
+          );
           //ensure order
           const docs = ids
             .map((id) => docsUnsorted.find((d) => d.id == id))

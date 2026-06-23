@@ -124,16 +124,24 @@ class RetrievalByFullTextSearch {
               ? [arg.query?.phrase]
               : []);
         for (const phrase of phrases) {
-          const my_rows = await table.getRows({
-            _fts: {
-              fields: table.fields,
-              searchTerm: phrase,
-              language,
-              use_websearch,
-              table: table.name,
-              schema: db.isSQLite ? undefined : db.getTenantSchema(),
+          const my_rows = await table.getRows(
+            {
+              _fts: {
+                fields: table.fields,
+                searchTerm: phrase,
+                language,
+                use_websearch,
+                table: table.name,
+                schema: db.isSQLite ? undefined : db.getTenantSchema(),
+              },
             },
-          });
+            req
+              ? {
+                  forUser: req.user,
+                  forPublic: !req.user,
+                }
+              : {},
+          );
           if (this.hidden_fields) {
             const hidden_fields = this.hidden_fields
               .split(",")

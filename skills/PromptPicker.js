@@ -125,6 +125,7 @@ class PromptPicker {
         this.query
           ? eval_expression(this.query, {}, user, "PromptPicker query")
           : {},
+        { forUser: user, forPublic: !user },
       );
       options = rows.map((r) =>
         option({ value: r[this.prompt_field] }, r[this.label_field]),
@@ -139,7 +140,8 @@ class PromptPicker {
           ? `$("textarea[name=userinput]").val(this.value).closest("form").submit(); $(this).prop("selectedIndex", 0).blur()`
           : undefined,
       },
-      this.placeholder && option({ disabled: true, selected: true }, this.placeholder),
+      this.placeholder &&
+        option({ disabled: true, selected: true }, this.placeholder),
       options,
     );
   }
