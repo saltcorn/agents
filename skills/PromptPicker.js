@@ -127,7 +127,7 @@ class PromptPicker {
           : {},
       );
       options = rows.map((r) =>
-        option({ value: r[this.value_field] }, r[this.label_field]),
+        option({ value: r[this.prompt_field] }, r[this.label_field]),
       );
     } else options = Object.keys(this.options).map((o) => option(o));
 
