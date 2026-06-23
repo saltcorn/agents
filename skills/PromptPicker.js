@@ -140,8 +140,11 @@ class PromptPicker {
           ? `$("textarea[name=userinput]").val(this.value).closest("form").submit(); $(this).prop("selectedIndex", 0).blur()`
           : undefined,
       },
-      this.placeholder &&
-        option({ disabled: true, selected: true }, this.placeholder),
+      (this.placeholder || this.run_on_select) &&
+        option(
+          { disabled: true, selected: true },
+          this.placeholder || "Select a prompt",
+        ),
       options,
     );
   }
