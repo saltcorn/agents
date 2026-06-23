@@ -63,6 +63,10 @@ class RetrievalByEmbedding {
         }
       }
     }
+    const llm_cfg_fun = getState().functions.llm_get_configuration;
+    const alt_config_options = llm_cfg_fun
+      ? llm_cfg_fun.run().alt_config_names || []
+      : [];
     return [
       {
         name: "mode",
@@ -122,6 +126,17 @@ class RetrievalByEmbedding {
         sublabel:
           "Format of text to send to LLM, use <code>{{ }}</code> to access variables in the document table. If not set, document will be sent as JSON",
       },
+      ...(alt_config_options.length
+        ? [
+            {
+              name: "alt_config_embedding",
+              label: "Embedding configuration",
+              sublabel: "Use this configuration for calculating embeddings",
+              type: "String",
+              attributes: { options: alt_config_options },
+            },
+          ]
+        : []),
     ];
   }
 
@@ -151,6 +166,9 @@ class RetrievalByEmbedding {
           );
         const embedF = getState().functions.llm_embedding;
         const opts = {};
+        if (this.alt_config_embedding) {
+          opts.alt_config = this.alt_config_embedding;
+        }
         const qembed = await embedF.run(phrase_or_question, opts);
         const selLimit = +(this.limit || 10);
         const rows = await table.getRows(
