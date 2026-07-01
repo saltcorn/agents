@@ -1385,7 +1385,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
       : [req.files.file];
     const badges = [];
     for (const rawFile of rawFiles) {
-      const file = await File.from_req_files(
+      let file = await File.from_req_files(
         rawFile,
         req.user ? req.user.id : null,
         100,
@@ -1400,26 +1400,57 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
                 onclick: `expand_thumbnail('${file.path_to_serve}', '${path.basename(file.path_to_serve)}')`,
               }) + file.filename
             : a(
-                { href: `/files/serve/${file.path_to_serve}`, target: "_blank" },
+                {
+                  href: `/files/serve/${file.path_to_serve}`,
+                  target: "_blank",
+                },
                 text(file.filename),
               ),
         ),
       );
-      const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
-      let imageurl;
-      if (
-        !config.image_base64 &&
-        baseUrl &&
-        !baseUrl.includes("http://localhost:")
-      ) {
-        imageurl = `${baseUrl}/files/serve/${file.path_to_serve}`;
-      } else {
-        const b64 = await file.get_contents("base64");
-        imageurl = `data:${file.mimetype};base64,${b64}`;
+      let handled = false;
+      const skills = get_skill_instances(action.configuration);
+
+      for (const skill of skills) {
+        const handres = await skill.fileHandler?.({
+          file,
+          req,
+          user: req.user,
+          triggering_row,
+        });
+        if (handres) {
+          if (typeof handres === "string") {
+            await addToContext(run, {
+              interactions: [
+                ...(run.context.interactions || []),
+                { role: "user", content: handres },
+              ],
+            });
+            handled = true;
+            break;
+          } else if (handres.constructor?.name === "File") {
+            file = handres;
+            break;
+          }
+        }
       }
-      await getState().functions.llm_add_message.run("image", imageurl, {
-        chat: run.context.interactions || [],
-      });
+      if (!handled) {
+        const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
+        let imageurl;
+        if (
+          !config.image_base64 &&
+          baseUrl &&
+          !baseUrl.includes("http://localhost:")
+        ) {
+          imageurl = `${baseUrl}/files/serve/${file.path_to_serve}`;
+        } else {
+          const b64 = await file.get_contents("base64");
+          imageurl = `data:${file.mimetype};base64,${b64}`;
+        }
+        await getState().functions.llm_add_message.run("image", imageurl, {
+          chat: run.context.interactions || [],
+        });
+      }
     }
     await saveInteractions(run);
     fileBadges = div({ class: "d-flex" }, badges);
