@@ -1435,6 +1435,32 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
         }
       }
       if (!handled) {
+        const ext = path.extname(file.filename.toLowerCase()).slice(1);
+        if (
+          [
+            "md",
+            "txt",
+            "json",
+            "xml",
+            "html",
+            "yaml",
+            "yml",
+            "sh",
+            "py",
+            "js",
+          ].includes(ext)
+        ) {
+          const contents = await file.get_contents("utf8");
+          await addToContext(run, {
+            interactions: [
+              ...(run.context.interactions || []),
+              { role: "user", content: contents },
+            ],
+          });
+          handled = true;
+        }
+      }
+      if (!handled) {
         const baseUrl = getState().getConfig("base_url").replace(/\/$/, "");
         let imageurl;
         if (
