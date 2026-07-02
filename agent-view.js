@@ -1448,6 +1448,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
             "sh",
             "py",
             "js",
+            "csv"
           ].includes(ext)
         ) {
           const contents = await file.get_contents("utf8");
