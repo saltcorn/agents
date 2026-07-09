@@ -113,6 +113,14 @@ const configuration_workflow = (req) =>
                 },
               },
               {
+                name: "search_runs",
+                label: "Search runs",
+                type: "Bool",
+                showIf: {
+                  show_prev_runs: true,
+                },
+              },
+              {
                 name: "stream",
                 label: "Stream response",
                 type: "Bool",
@@ -301,6 +309,7 @@ const run = async (
     agent_action,
     show_prev_runs,
     prev_runs_closed,
+    search_runs,
     placeholder,
     explainer,
     image_upload,
@@ -643,6 +652,29 @@ const run = async (
                 i({ class: "fas fa-redo fa-sm" }),
               ),
             ),
+        form(
+          { onsubmit: "submit_search_chat(event); return false;" },
+          div(
+            { class: "input-group mb-3" },
+            input({
+              type: "search",
+              class: "form-control form-control-sm",
+              placeholder: "Search",
+              name: "_chatq",
+              "aria-label": "Search",
+              "aria-describedby": "button-addon2",
+              value: state._chatq || undefined
+            }),
+            button(
+              {
+                class: "btn btn-sm btn-outline-secondary",
+                type: "submit",
+                id: "button-addon2",
+              },
+              i({ class: "fas fa-search" }),
+            ),
+          ),
+        ),
         prevRuns.map((run) => {
           const isActive = state.run_id && +state.run_id === run.id;
           const previewHtml =
@@ -785,6 +817,12 @@ const run = async (
     function get_run_id(elem) {
         return $("input[name=run_id").val()
     }
+    function submit_search_chat(e) {
+      e.stopPropagation()
+      console.log("sumit search", $("input[name=_chatq]").val() )
+      set_state_field("_chatq",$("input[name=_chatq]").val() )
+    }
+
     function processCopilotResponse(res, not_final) {        
         console.log("processCopilotResponse", res)
         const fileInput = $("input#attach_agent_image")[0];
@@ -1448,7 +1486,7 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
             "sh",
             "py",
             "js",
-            "csv"
+            "csv",
           ].includes(ext)
         ) {
           const contents = await file.get_contents("utf8");
