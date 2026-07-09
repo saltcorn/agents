@@ -333,7 +333,7 @@ const run = async (
       //triggering_row = await table.getRow({ [pk]: state[pk] });
       triggering_row_id = state[pk];
   }
-  const prevRuns = show_prev_runs
+  let prevRuns = show_prev_runs
     ? (
         await WorkflowRun.find(
           {
@@ -343,11 +343,22 @@ const run = async (
               ? { context: { json: ["triggering_row_id", triggering_row_id] } }
               : {}),
           },
-          { orderBy: "started_at", orderDesc: true, limit: 30 },
+          {
+            orderBy: "started_at",
+            orderDesc: true,
+            limit: state._chatq ? undefined : 30,
+          },
         )
       ).filter((r) => r.context.interactions || r.context.html_interactions)
     : null;
-
+  if (state._chatq) {
+    const lc_target = state._chatq.toLowerCase();
+    prevRuns = prevRuns.filter((run) =>
+      JSON.stringify(run.context.interactions)
+        .toLowerCase()
+        .includes(lc_target),
+    );
+  }
   const cfgMsg = incompleteCfgMsg();
   if (cfgMsg) return cfgMsg;
   let runInteractions = "";
@@ -663,7 +674,7 @@ const run = async (
               name: "_chatq",
               "aria-label": "Search",
               "aria-describedby": "button-addon2",
-              value: state._chatq || undefined
+              value: state._chatq || undefined,
             }),
             button(
               {
