@@ -692,7 +692,9 @@ const run = async (
             (run.context.interactions || []).find(
               (ix) => typeof ix?.content === "string",
             )?.content || extractText(run.context.html_interactions[0] || "");
-          const preview = escapeHtml(previewHtml?.substring?.(0, 80));
+          const preview = escapeHtml(
+            run.context.chat_name || previewHtml?.substring?.(0, 80),
+          );
           return isModernSidebar
             ? div(
                 {
@@ -715,7 +717,16 @@ const run = async (
                     onclick: `delprevrun(event, ${run.id})`,
                   }),
                 ),
-                p({ class: "prevrun_content mb-0" }, preview),
+                div(
+                  {
+                    class: "d-flex justify-content-between align-items-center",
+                  },
+                  p({ class: "prevrun_content mb-0" }, preview),
+                  i({
+                    class: "far fa-edit text-muted",
+                    onclick: `renameprevrun(event, ${run.id})`,
+                  }),
+                ),
               )
             : div(
                 {
@@ -943,6 +954,16 @@ const run = async (
         e.stopPropagation();
         view_post('${viewname}', 'delprevrun', {run_id:runid})
         $(e.target).closest(".prevcopilotrun").remove()
+        return false;
+    }
+    function renameprevrun(e, runid) {
+        e.preventDefault();
+        e.stopPropagation();
+        const name = window.prompt("${req.__("Rename")}")
+        if(name)
+          view_post('${viewname}', 'renameprevrun', {run_id:runid, name}, ()=>{
+            location.reload()  
+          })
         return false;
     }
     function processExecuteResponse(res) {
@@ -1594,6 +1615,24 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
   return;
 };
 
+const renameprevrun = async (
+  table_id,
+  viewname,
+  config,
+  body,
+  { req, res },
+) => {
+  const { run_id, name } = body;
+  let run;
+
+  run = await WorkflowRun.findOne({ id: +run_id });
+  if (req.user?.role_id === 1 || req.user?.id === run.started_by) {
+    await run.update({ context: { ...run.context, chat_name: name } });
+  }
+
+  return;
+};
+
 const cancel = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id } = body;
   const run = await WorkflowRun.findOne({ id: +run_id });
@@ -1977,6 +2016,7 @@ module.exports = {
     cancel,
     tts,
     share_chat,
+    renameprevrun,
   },
   mobile_render_server_side: true,
 };

@@ -362,7 +362,14 @@ p.prevrun_content {
   display: none;
   font-size: 0.8em;
 }
+.modern-sessions .modern-session-item i.fa-edit {
+  display: none;
+  font-size: 0.8em;
+}
 .modern-sessions .modern-session-item:hover i.fa-trash-alt {
+  display: inline;
+}
+.modern-sessions .modern-session-item:hover i.fa-edit {
   display: inline;
 }
 .modern-sessions .modern-session-item .prevrun_content {
