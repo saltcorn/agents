@@ -51,10 +51,18 @@ class PromptPicker {
       },
       {
         name: "run_on_select",
-        label: "Run on select",
+        label: "To user input",
         type: "Bool",
         sublabel:
-          "If checked, selection will start generation. If unchecked, the selected value will be added to the system prompt",
+          "If checked, selection will be added to the user input. If unchecked, the selected value will be added to the system prompt",
+      },
+      {
+        name: "editable",
+        label: "Editable",
+        type: "Bool",
+        showIf: { run_on_select: true },
+        sublabel:
+          "If checked, the prompt can be edited by the user who can ten submit. Unchecked get sent immediately",
       },
       {
         name: "table",
@@ -137,7 +145,7 @@ class PromptPicker {
         class: ["form-select form-select-sm w-unset", klass],
         name: this.formname,
         onchange: this.run_on_select
-          ? `$("textarea[name=userinput]").val(this.value).closest("form").submit(); $(this).prop("selectedIndex", 0).blur()`
+          ? `$('textarea[name=userinput]').val($('textarea[name=userinput]').val()+this.value)${this.editable ? ".focus()" : `.closest('form').submit(); $(this).prop('selectedIndex', 0).blur()`}`
           : undefined,
       },
       (this.placeholder || this.run_on_select) &&
