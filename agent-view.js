@@ -636,7 +636,7 @@ const run = async (
                   title: "New chat",
                 },
                 i({ class: "fas fa-plus me-1" }),
-                "New",
+                req.__("New"),
               ),
             )
           : div(
@@ -670,7 +670,7 @@ const run = async (
             input({
               type: "search",
               class: "form-control form-control-sm",
-              placeholder: "Search",
+              placeholder: req.__("Search"),
               name: "_chatq",
               "aria-label": "Search",
               "aria-describedby": "button-addon2",

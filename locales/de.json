@@ -1,1 +1,8 @@
-{ "Sessions": "Sitzungen", "Approve": "Freigeben", "Approved": "Freigegeben", "Rename": "Umbenennen" }
+{
+  "Sessions": "Sitzungen",
+  "Approve": "Freigeben",
+  "Approved": "Freigegeben",
+  "Rename": "Umbenennen",
+  "New": "Neu",
+  "Search": "Suche"
+}
