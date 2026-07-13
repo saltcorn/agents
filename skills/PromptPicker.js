@@ -145,7 +145,7 @@ class PromptPicker {
         class: ["form-select form-select-sm w-unset", klass],
         name: this.formname,
         onchange: this.run_on_select
-          ? `$('textarea[name=userinput]').val($('textarea[name=userinput]').val()+this.value)${this.editable ? ".focus()" : `.closest('form').submit(); $(this).prop('selectedIndex', 0).blur()`}`
+          ? `$('textarea[name=userinput]').val($('textarea[name=userinput]').val()+this.value)${this.editable ? ".focus().trigger('update.autogrow');" : `.closest('form').submit(); $(this).prop('selectedIndex', 0).blur()`}`
           : undefined,
       },
       (this.placeholder || this.run_on_select) &&
