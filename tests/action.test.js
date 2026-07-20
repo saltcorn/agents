@@ -38,7 +38,7 @@ beforeAll(async () => {
   });
 
   await getState().refresh_triggers(false);
-  await getState().setConfig("log_level", 6);
+  await getState().setConfig("log_level", 1);
 });
 
 jest.setTimeout(40000);
@@ -72,8 +72,8 @@ for (const nameconfig of require("./configs")) {
       expect(cfgFldsNoTable.length).toBe(3);
       const cfgFldsWithTable = await action.configFields({
         table: Table.findOne("books"),
-      });
-      expect(cfgFldsWithTable.length).toBe(4);
+      });      
+      expect(cfgFldsWithTable.length).toBe(5);
     });
     it("generates text", async () => {
       const result = await action.run({

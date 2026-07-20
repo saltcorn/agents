@@ -257,6 +257,100 @@ function stripMarkdownImages(s) {
   return s.replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim();
 }
 
+const isToolResultMessage = (msg) =>
+  !!msg &&
+  typeof msg === "object" &&
+  (msg.role === "tool" ||
+    msg.type === "function_call_output" ||
+    (Array.isArray(msg.content) &&
+      msg.content.some(
+        (part) => part?.type === "tool-result" || part?.type === "tool-error",
+      )));
+
+// Find tool calls in the chat that have no matching tool result. The shape of
+// the chat depends on the LLM backend, so all the known shapes are inspected.
+const pendingToolCalls = (chat) => {
+  const calls = new Map(); // tool_call_id -> {tool_name, index}
+  const answered = new Set();
+  (chat || []).forEach((msg, index) => {
+    if (!msg || typeof msg !== "object") return;
+
+    // OpenAI responses API
+    if (msg.type === "function_call" && msg.call_id)
+      calls.set(msg.call_id, { tool_name: msg.name, index });
+    if (msg.type === "function_call_output" && msg.call_id)
+      answered.add(msg.call_id);
+
+    // OpenAI chat completions API
+    if (Array.isArray(msg.tool_calls))
+      for (const tc of msg.tool_calls)
+        if (tc?.id)
+          calls.set(tc.id, {
+            tool_name: tc.function?.name || tc.name,
+            index,
+          });
+    if (msg.role === "tool" && msg.tool_call_id) answered.add(msg.tool_call_id);
+
+    // AI SDK
+    if (Array.isArray(msg.content))
+      for (const part of msg.content) {
+        if (part?.type === "tool-call" && part.toolCallId)
+          calls.set(part.toolCallId, { tool_name: part.toolName, index });
+        if (
+          (part?.type === "tool-result" || part?.type === "tool-error") &&
+          part.toolCallId
+        )
+          answered.add(part.toolCallId);
+      }
+  });
+  const pending = [];
+  calls.forEach(({ tool_name, index }, tool_call_id) => {
+    if (!answered.has(tool_call_id))
+      pending.push({ tool_call_id, tool_name, index });
+  });
+  return pending;
+};
+
+// Guarantee that every tool call in the chat has a tool result. A tool call
+// without a result makes every subsequent LLM interaction fail, so any call
+// that was not answered - because the tool no longer exists, because a skill
+// requested a stop, or because processing errored - gets a synthetic result.
+const ensureToolResults = async (
+  run,
+  message = "The tool call was not completed.",
+) => {
+  const chat = run.context.interactions;
+  if (!Array.isArray(chat)) return false;
+  let repaired = false;
+  // one call is repaired per pass, as inserting a result shifts the positions
+  // of the messages after it
+  for (let pass = 0; pass < 100; pass++) {
+    const [pendingCall] = pendingToolCalls(chat);
+    if (!pendingCall) break;
+    const { tool_call_id, tool_name, index } = pendingCall;
+    getState().log(
+      2,
+      `Missing tool result for ${tool_name || "unknown tool"} (${tool_call_id}), inserting placeholder`,
+    );
+    // the result must directly follow the message with the call, after any
+    // results already given for the other calls in that same message
+    let insertAt = index + 1;
+    while (insertAt < chat.length && isToolResultMessage(chat[insertAt]))
+      insertAt += 1;
+
+    const buffer = [];
+    await getState().functions.llm_add_message.run("tool_response", message, {
+      chat: buffer,
+      tool_call: { tool_call_id, tool_name: tool_name || "unknown_tool" },
+    });
+    if (!buffer.length) break; // cannot construct a result, do not spin
+    chat.splice(insertAt, 0, ...buffer);
+    repaired = true;
+  }
+  if (repaired) await addToContext(run, { interactions: chat });
+  return repaired;
+};
+
 const process_interaction = async (
   run,
   config,
@@ -300,6 +394,9 @@ const process_interaction = async (
       }
     };
   }
+
+  // never send a chat with unanswered tool calls to the LLM
+  await ensureToolResults(run);
 
   const lastInteract =
     run.context.interactions[run.context.interactions.length - 1];
@@ -399,6 +496,10 @@ const process_interaction = async (
       );
     //const actions = [];
     let hasResult = false;
+    // a stop from any skill ends this agent turn, but it must never prevent a
+    // tool call from getting a result
+    let stopRequested = false;
+    const stoppedCalls = new Set();
     if ((answer.mcp_calls || []).length && !answer.content) hasResult = true;
     const toolResults = {};
     if (answer.hasToolCalls)
@@ -411,11 +512,15 @@ const process_interaction = async (
           },
         });
 
-        const tool = find_tool(tool_call.tool_name, config);
+        let tool;
+        try {
+          tool = find_tool(tool_call.tool_name, config);
+        } catch (e) {
+          getState().log(2, `Error finding tool ${tool_call.tool_name}: ${e}`);
+        }
 
         if (tool) {
-          let stop = false,
-            myHasResult = false;
+          let myHasResult = false;
           if (stream && viewname) {
             let content =
               (tool.skill.skill_label || tool.skill.constructor.skill_name) +
@@ -451,9 +556,12 @@ const process_interaction = async (
           } catch (e) {
             result = { error: e?.message || String(e) };
           }
-          const tool_response = result.add_response || result;
+          const tool_response = (result && result.add_response) || result;
           toolResults[tool_call.tool_call_id] = result;
-          if (result?.stop) stop = true;
+          if (result?.stop) {
+            stopRequested = true;
+            stoppedCalls.add(tool_call.tool_call_id);
+          }
           let add_user_action_html = "";
           if (result?.add_user_action) {
             const user_actions = Array.isArray()
@@ -542,18 +650,49 @@ const process_interaction = async (
             interactions: run.context.interactions,
           });
 
-          if (myHasResult && !stop && !tool.tool.postProcess) hasResult = true;
+          if (myHasResult && !tool.tool.postProcess) hasResult = true;
+        } else {
+          // the tool is not available. The call must still be answered,
+          // otherwise all subsequent LLM interactions fail
+          await sysState.functions.llm_add_message.run(
+            "tool_response",
+            `Error: the tool ${tool_call.tool_name} is not available`,
+            {
+              chat: run.context.interactions,
+              tool_call,
+            },
+          );
+          await addToContext(run, {
+            interactions: run.context.interactions,
+          });
+          hasResult = true;
         }
       }
+
+    // all tool calls now have a response. Insert placeholders for any that
+    // were missed, for instance because the answer had tool calls that were
+    // not reported by getToolCalls()
+    await ensureToolResults(run);
+
+    const follow_up_prompts = [];
+    let anyPostProcessRan = false;
 
     // postprocess - now all tool calls have responses
     if (answer.hasToolCalls)
       for (const tool_call of answer.getToolCalls()) {
-        const tool = find_tool(tool_call.tool_name, config);
+        let tool;
+        try {
+          tool = find_tool(tool_call.tool_name, config);
+        } catch (e) {
+          getState().log(2, `Error finding tool ${tool_call.tool_name}: ${e}`);
+        }
         if (tool) {
-          let stop = false,
-            myHasResult = false;
-          if (tool.tool.postProcess && !stop) {
+          // a skill that requested a stop when processing the call does not
+          // also get to postprocess it
+          if (
+            tool.tool.postProcess &&
+            !stoppedCalls.has(tool_call.tool_call_id)
+          ) {
             let result = toolResults[tool_call.tool_call_id];
             const response_label = is_sub_agent
               ? agent_label
@@ -603,11 +742,17 @@ const process_interaction = async (
             } catch (e) {
               postprocres = { error: e?.message || String(e) };
             }
-            if (generateUsed)
+            if (!postprocres || typeof postprocres !== "object")
+              postprocres = {};
+            if (generateUsed) {
+              // a generate() in postProcess can leave the chat with unanswered
+              // tool calls
+              await ensureToolResults(run);
               await addToContext(run, {
                 interactions: run.context.interactions,
               });
-            if (postprocres.stop) stop = true;
+            }
+            if (postprocres.stop) stopRequested = true;
             if (postprocres.add_system_prompt)
               await addToContext(run, {
                 interactions: [
@@ -671,27 +816,12 @@ const process_interaction = async (
               });
             }
             if (!postprocres.stop) {
-              const lastInteract =
-                run.context.interactions[run.context.interactions.length - 1];
-
-              if (
-                postprocres.follow_up_prompt ||
-                !(
-                  lastInteract?.role === "user" || lastInteract?.role === "tool"
-                )
-              ) {
-                await sysState.functions.llm_add_message.run(
-                  "user",
-                  postprocres.follow_up_prompt || "Continue with the query",
-                  {
-                    chat: run.context.interactions,
-                  },
-                );
-                await addToContext(run, {
-                  interactions: run.context.interactions,
-                });
-              }
-              myHasResult = true;
+              // the follow-up prompt is added after all tool calls have been
+              // postprocessed, and only if no skill asked us to stop
+              if (postprocres.follow_up_prompt)
+                follow_up_prompts.push(postprocres.follow_up_prompt);
+              anyPostProcessRan = true;
+              hasResult = true;
             }
             if (postprocres.add_user_action && viewname) {
               const user_actions = Array.isArray()
@@ -720,13 +850,39 @@ const process_interaction = async (
               );
             }
           }
-          if (myHasResult && !stop) hasResult = true;
         }
       }
+
+    if (anyPostProcessRan && !stopRequested) {
+      const lastInteract =
+        run.context.interactions[run.context.interactions.length - 1];
+      if (
+        follow_up_prompts.length ||
+        !(lastInteract?.role === "user" || lastInteract?.role === "tool")
+      ) {
+        await sysState.functions.llm_add_message.run(
+          "user",
+          follow_up_prompts.length
+            ? nubBy((s) => s, follow_up_prompts).join("\n\n")
+            : "Continue with the query",
+          {
+            chat: run.context.interactions,
+          },
+        );
+        await addToContext(run, {
+          interactions: run.context.interactions,
+        });
+      }
+    }
+
+    // the chat is left in a state where the next interaction, which may be
+    // started by the user rather than here, can always be sent to the LLM
+    await ensureToolResults(run);
+
     //await db.commitAndBeginNewTransaction();
     const freshRun = await WorkflowRun.findOne({ id: run.id });
 
-    if (hasResult && freshRun.status !== "Cancel")
+    if (hasResult && !stopRequested && freshRun.status !== "Cancel")
       return await process_interaction(
         run,
         config,
@@ -787,6 +943,8 @@ module.exports = {
   wrapCard,
   wrapSegment,
   process_interaction,
+  pendingToolCalls,
+  ensureToolResults,
   find_image_tool,
   is_debug_mode,
   get_initial_interactions,
