@@ -442,10 +442,15 @@ const process_interaction = async (
             });
           }
           myHasResult = true;
-          let result = await tool.tool.process(tool_call.input, {
-            req,
-            run,
-          });
+          let result;
+          try {
+            result = await tool.tool.process(tool_call.input, {
+              req,
+              run,
+            });
+          } catch (e) {
+            result = { error: e?.message || String(e) };
+          }
           const tool_response = result.add_response || result;
           toolResults[tool_call.tool_call_id] = result;
           if (result?.stop) stop = true;
@@ -561,38 +566,43 @@ const process_interaction = async (
               triggering_row,
               req?.body,
             );
-            const postprocres = await tool.tool.postProcess({
-              tool_call,
-              result,
-              chat,
-              req,
-              run,
-              agent_view_config: agentsViewCfg,
-              dyn_updates,
-              async generate(prompt, opts = {}) {
-                generateUsed = true;
-                return await sysState.functions.llm_generate.run(prompt, {
-                  chat,
-                  appendToChat: true,
-                  systemPrompt,
-                  ephemeralCacheControl: true,
-                  alt_config: use_alt_config,
-                  ...opts,
-                });
-              },
-              emit_update(s) {
-                if (!stream || !viewname) return;
-                const view = View.findOne({ name: viewname });
-                const pageLoadTag = req?.body?.page_load_tag;
-                if (pageLoadTag)
-                  view.emitRealTimeEvent(
-                    `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
-                    {
-                      content: s + "&nbsp;",
-                    },
-                  );
-              },
-            });
+            let postprocres;
+            try {
+              postprocres = await tool.tool.postProcess({
+                tool_call,
+                result,
+                chat,
+                req,
+                run,
+                agent_view_config: agentsViewCfg,
+                dyn_updates,
+                async generate(prompt, opts = {}) {
+                  generateUsed = true;
+                  return await sysState.functions.llm_generate.run(prompt, {
+                    chat,
+                    appendToChat: true,
+                    systemPrompt,
+                    ephemeralCacheControl: true,
+                    alt_config: use_alt_config,
+                    ...opts,
+                  });
+                },
+                emit_update(s) {
+                  if (!stream || !viewname) return;
+                  const view = View.findOne({ name: viewname });
+                  const pageLoadTag = req?.body?.page_load_tag;
+                  if (pageLoadTag)
+                    view.emitRealTimeEvent(
+                      `STREAM_CHUNK?page_load_tag=${pageLoadTag}`,
+                      {
+                        content: s + "&nbsp;",
+                      },
+                    );
+                },
+              });
+            } catch (e) {
+              postprocres = { error: e?.message || String(e) };
+            }
             if (generateUsed)
               await addToContext(run, {
                 interactions: run.context.interactions,
