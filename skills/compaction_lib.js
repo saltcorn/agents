@@ -619,7 +619,7 @@ Continue the task from here, using the summary as if you remembered it.`,
 //
 
 const OVERFLOW_RE =
-  /context.{0,25}(length|window)|maximum context|context_length_exceeded|prompt is too long|too many tokens|exceeds?.{0,20}(token|context) limit/i;
+  /context.{0,25}(length|window)|maximum context|context_length_exceeded|prompt is too long|too many tokens|exceeds?.{0,20}(token|context) limit|exceeds?.{0,20}maximum number of tokens/i;
 
 const isContextOverflow = (err) => {
   if (!err) return false;
