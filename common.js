@@ -371,6 +371,7 @@ const process_interaction = async (
     req?.body,
   );
   complArgs.appendToChat = true;
+  complArgs.respond_object = true;
   complArgs.chat = run.context.interactions;
   const use_alt_config = complArgs.alt_config;
   //complArgs.debugResult = true;
@@ -900,6 +901,17 @@ const process_interaction = async (
         ? answer
         : wrapSegment(
             md.render(stripMarkdownImages(answer)),
+            agent_label,
+            false,
+            layout,
+          ),
+    );
+    else if (typeof answer.content)
+    add_response(
+      req?.disable_markdown_render
+        ? answer.content
+        : wrapSegment(
+            md.render(stripMarkdownImages(answer.content)),
             agent_label,
             false,
             layout,
