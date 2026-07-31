@@ -6,6 +6,8 @@ const { interpolate } = require("@saltcorn/data/utils");
 const db = require("@saltcorn/data/db");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 
+const { isContextOverflow } = require("./skills/compaction_lib");
+
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt({ html: true, breaks: true, linkify: true });
 
@@ -45,6 +47,7 @@ const get_skills = () => {
     require("./skills/ExternalSkill"),
     require("./skills/PlanApproval"),
     require("./skills/LongTermMemory"),
+    require("./skills/Compaction"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
@@ -65,6 +68,47 @@ const get_skill_instances = (config) => {
     }
   }
   return instances;
+};
+
+// Run a hook, if it is defined, on every enabled skill. Hooks let a skill act
+// around the LLM call itself rather than provide a tool. A failing hook must
+// never abort the run.
+const runSkillHook = async (config, hook, args) => {
+  const results = [];
+  let skills;
+  try {
+    skills = get_skill_instances(config);
+  } catch (e) {
+    getState().log(2, `Error instantiating skills for hook ${hook}: ${e}`);
+    return results;
+  }
+  for (const skill of skills) {
+    if (typeof skill[hook] !== "function") continue;
+    try {
+      results.push(await skill[hook](args));
+    } catch (e) {
+      getState().log(
+        1,
+        `Error in ${hook} hook of skill ${
+          skill.constructor.skill_name || "unknown"
+        }: ${e?.message || e}`,
+      );
+    }
+  }
+  return results;
+};
+
+// The size of the next request is largely the usage reported for the previous
+// one, so what the backend reported is kept on the run for skills that need to
+// estimate how full the context window is. Only some backends report usage.
+const tokenUsageOf = (answer, chat, model) => {
+  const usage = answer?.total_usage;
+  if (!usage || typeof usage !== "object") return;
+  const token_usage = { ...usage, at: new Date().toISOString() };
+  if (Array.isArray(chat)) token_usage.at_message_count = chat.length;
+  const usedModel = answer.model || model;
+  if (usedModel) token_usage.model = usedModel;
+  return token_usage;
 };
 
 const find_tool = (name, config) => {
@@ -399,24 +443,76 @@ const process_interaction = async (
   // never send a chat with unanswered tool calls to the LLM
   await ensureToolResults(run);
 
-  const lastInteract =
-    run.context.interactions[run.context.interactions.length - 1];
-
-  const answer = await sysState.functions.llm_generate.run(
-    lastInteract?.role === "user" || lastInteract?.role === "tool"
-      ? ""
-      : "Continue",
+  // skills get a chance to act on the chat immediately before it is sent to
+  // the LLM, for instance to compact it if it has grown too large
+  await runSkillHook(config, "beforeGenerate", {
+    run,
+    chat: complArgs.chat,
+    config,
+    req,
+    usage: run.context.token_usage,
     complArgs,
-  );
+    triggering_row,
+  });
+  // a hook may have replaced the interactions array rather than mutating it
+  complArgs.chat = run.context.interactions;
+
+  // the prompt is empty when the chat already ends with something the model
+  // has to answer, and has to be recomputed if the chat changes underneath
+  const generatePrompt = () => {
+    const lastInteract = complArgs.chat[complArgs.chat.length - 1];
+    return lastInteract?.role === "user" || lastInteract?.role === "tool"
+      ? ""
+      : "Continue";
+  };
+
+  let answer;
+  try {
+    answer = await sysState.functions.llm_generate.run(
+      generatePrompt(),
+      complArgs,
+    );
+  } catch (e) {
+    // the estimate is wrong somewhere sooner or later. If the provider says
+    // the chat is too large, compact it as hard as the configuration allows
+    // and retry the turn exactly once - the guard lives on the run because
+    // this function recurses
+    const recoveredAt = run.context.compaction?.overflow_recovered_at;
+    if (!isContextOverflow(e) || recoveredAt === complArgs.chat.length) throw e;
+    const recovery = await runSkillHook(config, "recoverContextOverflow", {
+      run,
+      chat: complArgs.chat,
+      config,
+      req,
+      usage: run.context.token_usage,
+      error: e,
+    });
+    if (!recovery.some((r) => r?.compacted)) throw e;
+    complArgs.chat = run.context.interactions;
+    answer = await sysState.functions.llm_generate.run(
+      generatePrompt(),
+      complArgs,
+    );
+  }
 
   //console.log("answer", answer);
+
+  await runSkillHook(config, "afterGenerate", {
+    run,
+    answer,
+    chat: complArgs.chat,
+    config,
+    req,
+  });
 
   if (debugMode)
     await addToContext(run, {
       api_interactions: [debugCollector],
     });
+  const token_usage = tokenUsageOf(answer, complArgs.chat, complArgs.model);
   await addToContext(run, {
     interactions: complArgs.chat,
+    ...(token_usage ? { token_usage } : {}),
   });
   const responses = [];
   const raw_responses = [];
@@ -718,14 +814,25 @@ const process_interaction = async (
                 dyn_updates,
                 async generate(prompt, opts = {}) {
                   generateUsed = true;
-                  return await sysState.functions.llm_generate.run(prompt, {
+                  const genAnswer = await sysState.functions.llm_generate.run(
+                    prompt,
+                    {
+                      chat,
+                      appendToChat: true,
+                      systemPrompt,
+                      ephemeralCacheControl: true,
+                      alt_config: use_alt_config,
+                      ...opts,
+                    },
+                  );
+                  const gen_usage = tokenUsageOf(
+                    genAnswer,
                     chat,
-                    appendToChat: true,
-                    systemPrompt,
-                    ephemeralCacheControl: true,
-                    alt_config: use_alt_config,
-                    ...opts,
-                  });
+                    opts.model || complArgs.model,
+                  );
+                  if (gen_usage)
+                    await addToContext(run, { token_usage: gen_usage });
+                  return genAnswer;
                 },
                 emit_update(s) {
                   if (!stream || !viewname) return;
@@ -906,7 +1013,7 @@ const process_interaction = async (
             layout,
           ),
     );
-    else if (typeof answer.content)
+  else if (typeof answer.content)
     add_response(
       req?.disable_markdown_render
         ? answer.content
@@ -949,6 +1056,8 @@ module.exports = {
   incompleteCfgMsg,
   find_tool,
   get_skill_instances,
+  runSkillHook,
+  tokenUsageOf,
   getCompletionArguments,
   addToContext,
   saveInteractions,
