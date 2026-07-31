@@ -6,6 +6,8 @@ const { interpolate } = require("@saltcorn/data/utils");
 const db = require("@saltcorn/data/db");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 
+const { isContextOverflow } = require("./skills/compaction_lib");
+
 const MarkdownIt = require("markdown-it"),
   md = new MarkdownIt({ html: true, breaks: true, linkify: true });
 
@@ -45,6 +47,7 @@ const get_skills = () => {
     require("./skills/ExternalSkill"),
     require("./skills/PlanApproval"),
     require("./skills/LongTermMemory"),
+    require("./skills/Compaction"),
     //require("./skills/AdaptiveFeedback"),
     ...exchange_skills,
   ];
@@ -454,14 +457,43 @@ const process_interaction = async (
   // a hook may have replaced the interactions array rather than mutating it
   complArgs.chat = run.context.interactions;
 
-  const lastInteract = complArgs.chat[complArgs.chat.length - 1];
-
-  const answer = await sysState.functions.llm_generate.run(
-    lastInteract?.role === "user" || lastInteract?.role === "tool"
+  // the prompt is empty when the chat already ends with something the model
+  // has to answer, and has to be recomputed if the chat changes underneath
+  const generatePrompt = () => {
+    const lastInteract = complArgs.chat[complArgs.chat.length - 1];
+    return lastInteract?.role === "user" || lastInteract?.role === "tool"
       ? ""
-      : "Continue",
-    complArgs,
-  );
+      : "Continue";
+  };
+
+  let answer;
+  try {
+    answer = await sysState.functions.llm_generate.run(
+      generatePrompt(),
+      complArgs,
+    );
+  } catch (e) {
+    // the estimate is wrong somewhere sooner or later. If the provider says
+    // the chat is too large, compact it as hard as the configuration allows
+    // and retry the turn exactly once - the guard lives on the run because
+    // this function recurses
+    const recoveredAt = run.context.compaction?.overflow_recovered_at;
+    if (!isContextOverflow(e) || recoveredAt === complArgs.chat.length) throw e;
+    const recovery = await runSkillHook(config, "recoverContextOverflow", {
+      run,
+      chat: complArgs.chat,
+      config,
+      req,
+      usage: run.context.token_usage,
+      error: e,
+    });
+    if (!recovery.some((r) => r?.compacted)) throw e;
+    complArgs.chat = run.context.interactions;
+    answer = await sysState.functions.llm_generate.run(
+      generatePrompt(),
+      complArgs,
+    );
+  }
 
   //console.log("answer", answer);
 

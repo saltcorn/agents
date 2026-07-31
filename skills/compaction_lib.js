@@ -727,12 +727,13 @@ const compactChat = async ({
     return { ...report, reason: "too little to summarize" };
 
   const previousSummary = extractSummary(chat) || state?.summary;
+  const serialized = serializeForSummary(
+    toSummarize,
+    numOr(cfg?.tool_result_max_chars, DEFAULTS.tool_result_max_chars),
+    numOr(cfg?.summary_input_max_chars, DEFAULTS.summary_input_max_chars),
+  );
   const prompt = buildSummaryPrompt(
-    serializeForSummary(
-      toSummarize,
-      numOr(cfg?.tool_result_max_chars, DEFAULTS.tool_result_max_chars),
-      numOr(cfg?.summary_input_max_chars, DEFAULTS.summary_input_max_chars),
-    ),
+    serialized,
     previousSummary,
     cfg?.summary_instructions,
   );
@@ -758,6 +759,8 @@ const compactChat = async ({
   report.compacted = true;
   report.summarized = true;
   report.summary = summary;
+  // what was handed to the summarizer, for the archive: already bounded
+  report.serialized = serialized;
   report.messages_removed = cut - headStart - inserted.length;
   report.tokens_after = estimateChatTokens(chat);
   log(
