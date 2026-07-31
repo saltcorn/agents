@@ -67,6 +67,47 @@ const get_skill_instances = (config) => {
   return instances;
 };
 
+// Run a hook, if it is defined, on every enabled skill. Hooks let a skill act
+// around the LLM call itself rather than provide a tool. A failing hook must
+// never abort the run.
+const runSkillHook = async (config, hook, args) => {
+  const results = [];
+  let skills;
+  try {
+    skills = get_skill_instances(config);
+  } catch (e) {
+    getState().log(2, `Error instantiating skills for hook ${hook}: ${e}`);
+    return results;
+  }
+  for (const skill of skills) {
+    if (typeof skill[hook] !== "function") continue;
+    try {
+      results.push(await skill[hook](args));
+    } catch (e) {
+      getState().log(
+        1,
+        `Error in ${hook} hook of skill ${
+          skill.constructor.skill_name || "unknown"
+        }: ${e?.message || e}`,
+      );
+    }
+  }
+  return results;
+};
+
+// The size of the next request is largely the usage reported for the previous
+// one, so what the backend reported is kept on the run for skills that need to
+// estimate how full the context window is. Only some backends report usage.
+const tokenUsageOf = (answer, chat, model) => {
+  const usage = answer?.total_usage;
+  if (!usage || typeof usage !== "object") return;
+  const token_usage = { ...usage, at: new Date().toISOString() };
+  if (Array.isArray(chat)) token_usage.at_message_count = chat.length;
+  const usedModel = answer.model || model;
+  if (usedModel) token_usage.model = usedModel;
+  return token_usage;
+};
+
 const find_tool = (name, config) => {
   const skills = get_skill_instances(config);
   for (const skill of skills) {
@@ -399,8 +440,21 @@ const process_interaction = async (
   // never send a chat with unanswered tool calls to the LLM
   await ensureToolResults(run);
 
-  const lastInteract =
-    run.context.interactions[run.context.interactions.length - 1];
+  // skills get a chance to act on the chat immediately before it is sent to
+  // the LLM, for instance to compact it if it has grown too large
+  await runSkillHook(config, "beforeGenerate", {
+    run,
+    chat: complArgs.chat,
+    config,
+    req,
+    usage: run.context.token_usage,
+    complArgs,
+    triggering_row,
+  });
+  // a hook may have replaced the interactions array rather than mutating it
+  complArgs.chat = run.context.interactions;
+
+  const lastInteract = complArgs.chat[complArgs.chat.length - 1];
 
   const answer = await sysState.functions.llm_generate.run(
     lastInteract?.role === "user" || lastInteract?.role === "tool"
@@ -411,12 +465,22 @@ const process_interaction = async (
 
   //console.log("answer", answer);
 
+  await runSkillHook(config, "afterGenerate", {
+    run,
+    answer,
+    chat: complArgs.chat,
+    config,
+    req,
+  });
+
   if (debugMode)
     await addToContext(run, {
       api_interactions: [debugCollector],
     });
+  const token_usage = tokenUsageOf(answer, complArgs.chat, complArgs.model);
   await addToContext(run, {
     interactions: complArgs.chat,
+    ...(token_usage ? { token_usage } : {}),
   });
   const responses = [];
   const raw_responses = [];
@@ -718,14 +782,25 @@ const process_interaction = async (
                 dyn_updates,
                 async generate(prompt, opts = {}) {
                   generateUsed = true;
-                  return await sysState.functions.llm_generate.run(prompt, {
+                  const genAnswer = await sysState.functions.llm_generate.run(
+                    prompt,
+                    {
+                      chat,
+                      appendToChat: true,
+                      systemPrompt,
+                      ephemeralCacheControl: true,
+                      alt_config: use_alt_config,
+                      ...opts,
+                    },
+                  );
+                  const gen_usage = tokenUsageOf(
+                    genAnswer,
                     chat,
-                    appendToChat: true,
-                    systemPrompt,
-                    ephemeralCacheControl: true,
-                    alt_config: use_alt_config,
-                    ...opts,
-                  });
+                    opts.model || complArgs.model,
+                  );
+                  if (gen_usage)
+                    await addToContext(run, { token_usage: gen_usage });
+                  return genAnswer;
                 },
                 emit_update(s) {
                   if (!stream || !viewname) return;
@@ -949,6 +1024,8 @@ module.exports = {
   incompleteCfgMsg,
   find_tool,
   get_skill_instances,
+  runSkillHook,
+  tokenUsageOf,
   getCompletionArguments,
   addToContext,
   saveInteractions,
