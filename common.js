@@ -981,7 +981,7 @@ const process_interaction = async (
             layout,
           ),
     );
-    else if (typeof answer.content)
+  else if (typeof answer.content)
     add_response(
       req?.disable_markdown_render
         ? answer.content
