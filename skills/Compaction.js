@@ -12,7 +12,9 @@ const manualCommand = (chat) => {
   if (last?.role !== "user" || typeof last.content !== "string") return;
   if (!MANUAL_COMMAND.test(last.content)) return;
   return {
-    index: chat.length - 1,
+    // the message itself, not its position: compaction removes messages from
+    // the middle of the chat, so any index taken now is stale afterwards
+    message: last,
     focus: last.content.replace(MANUAL_COMMAND, "").trim(),
   };
 };
@@ -205,13 +207,17 @@ class CompactionSkill {
     });
 
     if (manual) {
-      // the command itself is not a question for the model
-      chat[manual.index] = {
-        role: "user",
-        content: report.compacted
-          ? "The conversation above has been shortened. Carry on from where we were."
-          : "There was not enough to shorten. Carry on from where we were.",
-      };
+      // the command itself is not a question for the model. The newest message
+      // is always retained by the cut, so it is still in the chat - but not
+      // necessarily at the position it was at before compaction
+      const at = chat.indexOf(manual.message);
+      if (at >= 0)
+        chat[at] = {
+          role: "user",
+          content: report.compacted
+            ? "The conversation above has been shortened. Carry on from where we were."
+            : "There was not enough to shorten. Carry on from where we were.",
+        };
     }
     if (!report.compacted) {
       if (report.reason && report.reason !== "under threshold")

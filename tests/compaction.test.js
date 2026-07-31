@@ -174,6 +174,11 @@ const clearOnly = {
 
 const stubSummary = async () => "## Objective\nCount the books";
 
+// Writing past the end of the chat leaves holes, which reach the provider as
+// undefined messages and are rejected before the request is made. Array
+// methods skip holes, so the array has to be materialized to see them.
+const holes = (chat) => Array.from(chat).filter((msg) => !msg).length;
+
 //
 // -------------------------------------------------------------- the tests
 //
@@ -729,10 +734,39 @@ describe("the Compaction skill", () => {
     expect(prompts[0].prompt).toContain("keep the book ids");
     expect(prompts[0].opts.systemPrompt).toContain("summarizing");
     expect(prompts[0].opts.tools).toBeUndefined();
+    // summarizing shortens the chat, so the command is no longer where it was
+    expect(holes(chat)).toBe(0);
+    expect(JSON.stringify(chat)).not.toContain("/compact");
     const last = chat[chat.length - 1];
     expect(last.role).toBe("user");
     expect(last.content).not.toContain("/compact");
     expect(extractSummary(chat)).toContain("Count the books");
+  });
+
+  it("replaces the /compact command when nothing was compacted", async () => {
+    getState().functions.llm_generate = {
+      run: async () => {
+        throw new Error("should not be called");
+      },
+    };
+    // nothing but plain messages, so there is no tool output to clear
+    const chat = [
+      { role: "user", content: "hello" },
+      { role: "assistant", content: "hello, what can I do for you?" },
+      { role: "user", content: "/compact" },
+    ];
+    const run = fakeRun(chat);
+    const skill = new CompactionSkill({ strategy: "Clear old tool results" });
+    const report = await skill.beforeGenerate({
+      run,
+      chat,
+      config: {},
+      req: mockReqRes.req,
+    });
+    expect(report.compacted).toBe(false);
+    expect(holes(chat)).toBe(0);
+    expect(JSON.stringify(chat)).not.toContain("/compact");
+    expect(chat[chat.length - 1].content).toContain("not enough to shorten");
   });
 
   it("summarizes with the configured alternative configuration", async () => {
