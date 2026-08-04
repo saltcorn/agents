@@ -468,9 +468,11 @@ const process_interaction = async (
 
   // lets "cancel" stop this generate call right away, not just before the next pass
   const abortController = new AbortController();
-  const unregisterAbort = sysState.registerNodeHandle(`llm:${run.id}`, () =>
-    abortController.abort(),
-  );
+  const unregisterAbort = sysState.registerNodeHandle
+    ? sysState.registerNodeHandle(`llm:${run.id}`, () =>
+        abortController.abort(),
+      )
+    : () => {};
   complArgs.abortSignal = abortController.signal;
 
   let answer;

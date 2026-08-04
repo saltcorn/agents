@@ -1641,7 +1641,7 @@ const cancel = async (table_id, viewname, config, body, { req, res }) => {
   await run.update({ status: "Cancel" });
   // stops a long-running fetch to the LLM right away, instead of
   // waiting for the next between-pass check
-  getState().sendToNodeHandle(`llm:${run.id}`);
+  getState().sendToNodeHandle?.(`llm:${run.id}`);
   return;
 };
 
