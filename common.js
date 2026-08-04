@@ -466,33 +466,43 @@ const process_interaction = async (
       : "Continue";
   };
 
+  // lets "cancel" stop this generate call right away, not just before the next pass
+  const abortController = new AbortController();
+  const unregisterAbort = sysState.registerNodeHandle(`llm:${run.id}`, () =>
+    abortController.abort(),
+  );
+  complArgs.abortSignal = abortController.signal;
+
   let answer;
   try {
-    answer = await sysState.functions.llm_generate.run(
-      generatePrompt(),
-      complArgs,
-    );
-  } catch (e) {
-    // the estimate is wrong somewhere sooner or later. If the provider says
-    // the chat is too large, compact it as hard as the configuration allows
-    // and retry the turn exactly once - the guard lives on the run because
-    // this function recurses
-    const recoveredAt = run.context.compaction?.overflow_recovered_at;
-    if (!isContextOverflow(e) || recoveredAt === complArgs.chat.length) throw e;
-    const recovery = await runSkillHook(config, "recoverContextOverflow", {
-      run,
-      chat: complArgs.chat,
-      config,
-      req,
-      usage: run.context.token_usage,
-      error: e,
-    });
-    if (!recovery.some((r) => r?.compacted)) throw e;
-    complArgs.chat = run.context.interactions;
-    answer = await sysState.functions.llm_generate.run(
-      generatePrompt(),
-      complArgs,
-    );
+    try {
+      answer = await sysState.functions.llm_generate.run(
+        generatePrompt(),
+        complArgs,
+      );
+    } catch (e) {
+      // if the provider says the chat is too large, compact it and retry
+      // once (recoveredAt on the run stops repeated retries)
+      const recoveredAt = run.context.compaction?.overflow_recovered_at;
+      if (!isContextOverflow(e) || recoveredAt === complArgs.chat.length)
+        throw e;
+      const recovery = await runSkillHook(config, "recoverContextOverflow", {
+        run,
+        chat: complArgs.chat,
+        config,
+        req,
+        usage: run.context.token_usage,
+        error: e,
+      });
+      if (!recovery.some((r) => r?.compacted)) throw e;
+      complArgs.chat = run.context.interactions;
+      answer = await sysState.functions.llm_generate.run(
+        generatePrompt(),
+        complArgs,
+      );
+    }
+  } finally {
+    unregisterAbort();
   }
 
   //console.log("answer", answer);
