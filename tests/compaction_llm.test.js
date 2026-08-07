@@ -187,5 +187,40 @@ for (const nameconfig of require("./configs")) {
       expect(after.json.success).toBe("ok");
       expect(after.json.response).toContain("3122");
     });
+
+    it("continues a compacted chat that was left with empty messages", async () => {
+      // A run compacted by an older version of the skill has nulls in its
+      // stored chat: the command was written back at the index it had before
+      // the chat was shortened, which left holes past the end of it. The
+      // provider is sent one message per entry, so every later question fails
+      // while the request is being built and the run is unusable.
+      const cfg = compaction_agent_cfg({
+        trigger_tokens: 3000,
+        strategy: "Both",
+        min_clear_tokens: 0,
+        protect_tool_output_tokens: 0,
+        keep_recent_tokens: 500,
+      });
+      const first = await ask("What is the peak value of sensor alpha?", cfg);
+      const run_id = first.json.run_id;
+      await ask("Now look up sensor beta and give me its peak.", cfg, run_id);
+      expect((await contextOf(run_id)).compaction.count).toBeGreaterThan(0);
+
+      const run = await WorkflowRuns.findOne({ id: run_id });
+      const poisoned = [...run.context.interactions];
+      poisoned.splice(poisoned.length - 1, 0, null, null, null);
+      await run.update({
+        context: { ...run.context, interactions: poisoned },
+      });
+      expect((await chatOf(run_id)).filter((msg) => !msg).length).toBe(3);
+
+      const after = await ask("And now sensor gamma, please.", cfg, run_id);
+      expect(after.json.success).toBe("ok");
+      expect(after.json.response).toContain("8054");
+
+      const chat = await chatOf(run_id);
+      expect(chat.filter((msg) => !msg).length).toBe(0);
+      expect(pendingToolCalls(chat)).toEqual([]);
+    });
   });
 }

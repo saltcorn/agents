@@ -20,7 +20,11 @@ const {
   shouldCompact,
   toolResultIdsIn,
 } = require("../skills/compaction_lib");
-const { pendingToolCalls, process_interaction } = require("../common");
+const {
+  dropEmptyMessages,
+  pendingToolCalls,
+  process_interaction,
+} = require("../common");
 const CompactionSkill = require("../skills/Compaction");
 
 /*
@@ -872,5 +876,151 @@ describe("recovery from a context overflow", () => {
       process_interaction(run, { skills: [] }, mockReqRes.req),
     ).rejects.toThrow(/maximum context length/);
     expect(calls).toBe(1);
+  });
+});
+
+//
+// Continuing a run that was compacted. A chat is shortened in place, so an
+// index taken before the compaction points past the end of it afterwards, and
+// writing there leaves holes. They survive into the database as nulls, the
+// provider is sent one message per entry, and the run can never be chatted
+// with again - the reported symptom is a TypeError reading a property of null
+// while the request is being built.
+//
+
+describe("continuing a compacted chat", () => {
+  const restore = getState().functions?.llm_generate;
+  afterAll(() => {
+    if (restore) getState().functions.llm_generate = restore;
+  });
+
+  // A chat that has been summarized: the first user message, the summary and
+  // its acknowledgement, then the retained tail.
+  const compactedChat = () => [
+    { role: "user", content: "how many books are there?" },
+    {
+      role: "user",
+      content: `The earlier part of this conversation has been removed to free up context. This is the record of it:\n\n${SUMMARY_OPEN}\n## Objective\nCount the books\n</conversation-summary>\n\nContinue the task from here.`,
+    },
+    {
+      role: "assistant",
+      content: "I have read the summary of the earlier conversation",
+    },
+    { role: "user", content: "and how many authors?" },
+    {
+      role: "assistant",
+      content: [
+        { type: "tool-call", toolCallId: "c9", toolName: "foo", input: {} },
+      ],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "c9",
+          toolName: "foo",
+          output: { type: "text", value: "3 authors" },
+        },
+      ],
+    },
+    { role: "assistant", content: [{ type: "text", text: "there are 3" }] },
+  ];
+
+  // How the holes are made: an index taken before the chat was shortened.
+  const withHoleAt = (chat, at, msg) => {
+    chat[at] = msg;
+    return chat;
+  };
+
+  // What the run looks like when it is read back: a hole is stored as a null.
+  const asStored = (chat) => JSON.parse(JSON.stringify(chat));
+
+  it("stores a hole as a null message", () => {
+    const chat = withHoleAt(compactedChat(), 12, {
+      role: "user",
+      content: "carry on",
+    });
+    expect(holes(chat)).toBe(5);
+    const stored = asStored(chat);
+    expect(stored.length).toBe(13);
+    expect(stored[7]).toBe(null);
+    expect(holes(stored)).toBe(5);
+  });
+
+  const askAgain = async (chat) => {
+    const sent = [];
+    getState().functions.llm_generate = {
+      run: async (prompt, opts) => {
+        // what the LLM plugin would hand to the provider
+        sent.push(Array.from(opts.chat || []));
+        return "there are 12 books";
+      },
+    };
+    const run = fakeRun(chat);
+    const result = await process_interaction(
+      run,
+      { skills: [] },
+      mockReqRes.req,
+    );
+    return { run, result, sent };
+  };
+
+  it("answers when the stored chat has nulls in it", async () => {
+    const stored = asStored(
+      withHoleAt(compactedChat(), 12, {
+        role: "user",
+        content: "does it rain more in spain or in france?",
+      }),
+    );
+    const { run, result, sent } = await askAgain(stored);
+
+    expect(result.json.success).toBe("ok");
+    expect(result.json.response).toContain("there are 12 books");
+    // nothing empty ever reaches the model
+    expect(sent.length).toBe(1);
+    expect(holes(sent[0])).toBe(0);
+    expect(sent[0].length).toBe(8);
+    // and what was in the chat is still there, in order
+    expect(extractSummary(sent[0])).toContain("Count the books");
+    expect(sent[0][sent[0].length - 1].content).toContain("rain more in spain");
+    expect(pendingToolCalls(sent[0])).toEqual([]);
+    // the run is repaired for good, not just for this turn
+    expect(holes(run.context.interactions)).toBe(0);
+    const saved = run.updates.filter((u) => u.context);
+    expect(saved.length).toBeGreaterThan(0);
+    expect(holes(saved[saved.length - 1].context.interactions)).toBe(0);
+  });
+
+  it("answers when the chat still has the holes rather than nulls", async () => {
+    const { result, sent } = await askAgain(
+      withHoleAt(compactedChat(), 12, { role: "user", content: "carry on" }),
+    );
+    expect(result.json.success).toBe("ok");
+    expect(holes(sent[0])).toBe(0);
+    expect(sent[0][sent[0].length - 1].content).toBe("carry on");
+  });
+
+  it("does not separate a tool result from its call", async () => {
+    // the hole falls between the call and its result
+    const chat = compactedChat();
+    const [call, result] = chat.splice(4, 2);
+    chat.push(call, null, result);
+    const { sent } = await askAgain(asStored(chat));
+    expect(holes(sent[0])).toBe(0);
+    expect(pendingToolCalls(sent[0])).toEqual([]);
+    expect(toolResultIdsIn(sent[0][sent[0].length - 1])).toEqual(["c9"]);
+  });
+
+  it("leaves a chat with nothing wrong with it alone", async () => {
+    const run = fakeRun(compactedChat());
+    expect(await dropEmptyMessages(run)).toBe(false);
+    expect(run.updates.length).toBe(0);
+    expect(run.context.interactions.length).toBe(7);
+  });
+
+  it("copes with a run that has no chat at all", async () => {
+    const run = fakeRun(undefined);
+    expect(await dropEmptyMessages(run)).toBe(false);
   });
 });

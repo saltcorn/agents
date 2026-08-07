@@ -355,6 +355,31 @@ const pendingToolCalls = (chat) => {
   return pending;
 };
 
+// Remove anything from the chat that is not a message: nulls, and the holes a
+// write past the end of the array leaves behind, which are stored as nulls
+// when the run is saved. The provider is sent one message per entry, so a
+// single empty one fails every subsequent interaction and leaves the run
+// impossible to chat with. Compaction moves messages about, so this is where a
+// run that was shortened by an older version of it gets repaired.
+const dropEmptyMessages = async (run) => {
+  const chat = run.context.interactions;
+  if (!Array.isArray(chat)) return false;
+  // array methods skip holes, so the chat has to be materialized to see them
+  const messages = Array.from(chat);
+  const kept = messages.filter((msg) => msg && typeof msg === "object");
+  if (kept.length === messages.length) return false;
+  getState().log(
+    2,
+    `Dropping ${messages.length - kept.length} empty messages from the chat`,
+  );
+  // the array is the one that is about to be sent to the LLM, so it is
+  // repaired in place rather than replaced
+  chat.length = 0;
+  for (const msg of kept) chat.push(msg);
+  await addToContext(run, { interactions: chat });
+  return true;
+};
+
 // Guarantee that every tool call in the chat has a tool result. A tool call
 // without a result makes every subsequent LLM interaction fail, so any call
 // that was not answered - because the tool no longer exists, because a skill
@@ -440,7 +465,8 @@ const process_interaction = async (
     };
   }
 
-  // never send a chat with unanswered tool calls to the LLM
+  // never send a chat with empty messages or unanswered tool calls to the LLM
+  await dropEmptyMessages(run);
   await ensureToolResults(run);
 
   // skills get a chance to act on the chat immediately before it is sent to
@@ -1066,6 +1092,7 @@ module.exports = {
   process_interaction,
   pendingToolCalls,
   ensureToolResults,
+  dropEmptyMessages,
   find_image_tool,
   is_debug_mode,
   get_initial_interactions,
