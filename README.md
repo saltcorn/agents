@@ -23,6 +23,7 @@ Some examples of skills:
 * Subagent - hand over to a different agent that has a different set of tools
 * Web search - tool to search the internet for relevant information
 * Plan approval - presents the user with a plan for solving the problem with an approval buttton in the chat. When approved, a user-defined system prompt is injected.
+* Ask user question - lets the agent put a multiple-choice question to the user and wait for the answer before it carries on
 
 
 The agents can be run either by attaching them to events (table inserts, inbound API calls etc; in chich case an initial prompt, based on the variables in the triggering row has to be specified) or by building a view based on the Agent chat viewpatterns which is configured by picking an agent action, giving the user an interactive chat interface similar to the chatgpt interface. Previous chats can be accessed on the left in this interface, and chats can be shared with other users
@@ -32,6 +33,47 @@ is shown as HTML. This is useful for tool results that come back as HTML, for
 example a wiki page or a web page fetched by a skill.
 
 ## Skills
+
+### Ask user question
+
+An agent working on a task often reaches a point where it has to know something
+only the user can decide: which of two tables to write to, whether to include
+last year's figures, which of three customers with the same name was meant. An
+agent without this skill has to guess, or write the question into its reply and
+hope the user notices and answers it.
+
+With this skill the agent can instead put the question to the user as a set of
+buttons, one for each answer it will accept. **The agent stops there.** Nothing
+else happens, no further tools are run and no reply is written, until the user
+presses one of the buttons. What they press is then sent back to the agent as if
+they had typed it, and the agent carries on from there.
+
+The agent decides when to ask and what the options are; it cannot be forced to
+ask, but it can be told when it should, in the *Additional system prompt*
+setting - for example "always ask which department a new record belongs to,
+never guess".
+
+**Discussing instead of answering**
+
+Sometimes the offered options are not right, or the user needs to know more
+before they can pick one. The agent can add an extra button, labelled *Discuss
+instead* by default, which tells it to stop and talk the question through rather
+than treat any option as chosen. Whether that button appears is up to the agent,
+which is asked to offer it when the options may not cover every case.
+
+The user is never forced to press a button in any case: they can always simply
+type into the chat as normal, and the agent takes that as the answer. The
+buttons are a shortcut, not a lock. Once one of them is pressed all the buttons
+for that question disappear, so the same question cannot be answered twice.
+
+**Settings**
+
+| Setting | Meaning |
+|---|---|
+| Additional system prompt | Optional. When this agent should ask a question, in your own words. The standard explanation of how the tool works is always included, so this only needs to say what is particular to your agent. |
+| Prompt on answer | Optional. The message the agent receives when the user picks an option. Write `{{ question }}`, `{{ answer }}` and `{{ answer_description }}` where those should appear. |
+| Discuss button label | Optional. The wording on the extra button that declines to answer, if the agent offers one. |
+| Prompt on discuss | Optional. The message the agent receives when that button is pressed. Write `{{ question }}` where the question should appear. |
 
 ### Compaction
 

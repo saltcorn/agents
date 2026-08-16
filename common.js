@@ -45,6 +45,7 @@ const get_skills = () => {
     require("./skills/Subagent"),
     require("./skills/ExternalSkill"),
     require("./skills/PlanApproval"),
+    require("./skills/AskUserQuestion"),
     require("./skills/LongTermMemory"),
     require("./skills/Compaction"),
     //require("./skills/AdaptiveFeedback"),
@@ -686,7 +687,7 @@ const process_interaction = async (
           }
           let add_user_action_html = "";
           if (result?.add_user_action) {
-            const user_actions = Array.isArray()
+            const user_actions = Array.isArray(result.add_user_action)
               ? result.add_user_action
               : [result.add_user_action];
             for (const uact of user_actions) {
@@ -697,12 +698,13 @@ const process_interaction = async (
               user_actions,
             });
             add_user_action_html = div(
-              { class: "d-flex mb-2" },
+              { class: "d-flex flex-wrap gap-2 mb-2" },
               user_actions.map((ua) =>
                 button(
                   {
                     "data-useraction-id": ua.rndid,
-                    class: "btn btn-primary", //press_store_button(this, true);
+                    class: ua.class || "btn btn-primary", //press_store_button(this, true);
+                    ...(ua.title ? { title: ua.title } : {}),
                     onclick: `view_post(${viewname ? `'${viewname}'` : `$(this).closest('[data-sc-embed-viewname]').attr('data-sc-embed-viewname')`}, 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
                   },
                   ua.label,
@@ -957,7 +959,7 @@ const process_interaction = async (
               hasResult = true;
             }
             if (postprocres.add_user_action && viewname) {
-              const user_actions = Array.isArray()
+              const user_actions = Array.isArray(postprocres.add_user_action)
                 ? postprocres.add_user_action
                 : [postprocres.add_user_action];
               for (const uact of user_actions) {
@@ -969,11 +971,13 @@ const process_interaction = async (
               });
               add_response(
                 div(
-                  { class: "d-flex mb-2" },
+                  { class: "d-flex flex-wrap gap-2 mb-2" },
                   user_actions.map((ua) =>
                     button(
                       {
-                        class: "btn btn-primary", //press_store_button(this, true);
+                        "data-useraction-id": ua.rndid,
+                        class: ua.class || "btn btn-primary", //press_store_button(this, true);
+                        ...(ua.title ? { title: ua.title } : {}),
                         onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
                       },
                       ua.label,

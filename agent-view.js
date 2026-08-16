@@ -1876,10 +1876,25 @@ const execute_user_action = async (
   //console.log({ instance });
 
   if (!instance) return;
-  const uadata = (run.context.user_actions || []).find(
-    (ua) => ua.rndid === rndid,
-  );
+  const all_user_actions = run.context.user_actions || [];
+  const uadata = all_user_actions.find((ua) => ua.rndid === rndid);
   if (!uadata) return;
+  // the buttons offered by one tool call belong together: pressing any of them
+  // (answering a multiple-choice question, for instance) takes them all away
+  const group = uadata.tool_call?.tool_call_id
+    ? all_user_actions.filter(
+        (ua) => ua.tool_call?.tool_call_id === uadata.tool_call.tool_call_id,
+      )
+    : [uadata];
+  if (uadata.single_use) {
+    // a second press, or a press on a sibling button, is ignored
+    if (group.some((ua) => ua.answered)) return { json: { success: "ok" } };
+    const answered = new Date().toISOString();
+    group.forEach((ua) => {
+      ua.answered = answered;
+    });
+    await run.update({ context: run.context });
+  }
   const result = await instance.userActions[uaname]({
     user: req.user,
     ...uadata.tool_call.input,
@@ -1900,19 +1915,29 @@ const execute_user_action = async (
       const resp = JSON.stringify(
         wrapSegment(uadata.click_replace_text, "You", true, layout, req?.user),
       );
+      const removeButtons = group
+        .map(
+          (ua) =>
+            `$("button[data-useraction-id=${ua.rndid}]").replaceWith("");`,
+        )
+        .join("");
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
         {
-          eval_js: `spin_send_button();$("button[data-useraction-id=${uadata.rndid}]").replaceWith("");processCopilotResponse({response: ${resp}, run_id: ${run.id}}, true)`,
+          eval_js: `spin_send_button();${removeButtons}processCopilotResponse({response: ${resp}, run_id: ${run.id}}, true)`,
           page_load_tag: req?.headers?.["page-load-tag"],
         },
         [req.user.id],
       );
       // remove from html_interactions
       run.context.html_interactions = run.context.html_interactions.map((hi) =>
-        hi.replace(
-          `button data-useraction-id="${uadata.rndid}"`,
-          `button style="display: none;" data-useraction-id="${uadata.rndid}"`,
+        group.reduce(
+          (h, ua) =>
+            h.replace(
+              `button data-useraction-id="${ua.rndid}"`,
+              `button style="display: none;" data-useraction-id="${ua.rndid}"`,
+            ),
+          hi,
         ),
       );
       run.context.html_interactions.push(
