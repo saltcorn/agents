@@ -1,4 +1,5 @@
 const { div } = require("@saltcorn/markup/tags");
+const { sanitizeFragment } = require("../render-md");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
@@ -244,7 +245,8 @@ class RetrievalByEmbedding {
             return viewRes;
           } else return "";
         }
-        return div(responseText);
+        // responseText is built from table content, which is not trusted
+        return div(sanitizeFragment(responseText));
       },
       function: {
         name: this.toolName,

@@ -8,8 +8,7 @@ const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 
 const { isContextOverflow } = require("./skills/compaction_lib");
 
-const MarkdownIt = require("markdown-it"),
-  md = new MarkdownIt({ html: true, breaks: true, linkify: true });
+const { renderMd } = require("./render-md");
 
 const nubBy = (f, xs) => {
   const vs = new Set();
@@ -593,7 +592,7 @@ const process_interaction = async (
         req?.disable_markdown_render
           ? answer
           : wrapSegment(
-              md.render(stripMarkdownImages(answer.content)),
+              renderMd(stripMarkdownImages(answer.content)),
               agent_label,
               false,
               layout,
@@ -611,7 +610,7 @@ const process_interaction = async (
         req?.disable_markdown_render
           ? answer
           : wrapSegment(
-              md.render(stripMarkdownImages(answer.content)),
+              renderMd(stripMarkdownImages(answer.content)),
               agent_label,
               false,
               layout,
@@ -740,7 +739,7 @@ const process_interaction = async (
                     wrapCard(
                       response_label,
                       typeof rendered_tool_call === "string"
-                        ? md.render(rendered_tool_call)
+                        ? renderMd(rendered_tool_call)
                         : rendered_tool_call,
                     ),
                   rendered_tool_response,
@@ -906,9 +905,9 @@ const process_interaction = async (
               raw_responses.push(content);
               if (add_resp.md_response !== null) {
                 const renderedAddResponse = add_resp.md_response
-                  ? md.render(add_resp.md_response)
+                  ? renderMd(add_resp.md_response)
                   : typeof content === "string"
-                    ? md.render(content)
+                    ? renderMd(content)
                     : content;
                 add_response(
                   wrapSegment(
@@ -1033,7 +1032,7 @@ const process_interaction = async (
       req?.disable_markdown_render
         ? answer
         : wrapSegment(
-            md.render(stripMarkdownImages(answer)),
+            renderMd(stripMarkdownImages(answer)),
             agent_label,
             false,
             layout,
@@ -1044,7 +1043,7 @@ const process_interaction = async (
       req?.disable_markdown_render
         ? answer.content
         : wrapSegment(
-            md.render(stripMarkdownImages(answer.content)),
+            renderMd(stripMarkdownImages(answer.content)),
             agent_label,
             false,
             layout,

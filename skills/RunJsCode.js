@@ -1,4 +1,5 @@
 const { div, pre, a } = require("@saltcorn/markup/tags");
+const { sanitizeFragment } = require("../render-md");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
@@ -209,11 +210,14 @@ class RunJsCodeSkill {
       },*/
       renderToolResponse: this.display_result
         ? async (response, { req }) => {
+            // the code output is HTML shown to the user but is not trusted
             return div(
               { class: "border border-success p-2 m-2" },
-              typeof response === "string"
-                ? response
-                : JSON.stringify(response),
+              sanitizeFragment(
+                typeof response === "string"
+                  ? response
+                  : JSON.stringify(response),
+              ),
             );
           }
         : undefined,

@@ -30,6 +30,12 @@ module.exports = {
     {
       script: `/plugins/public/agents@${
         require("./package.json").version
+      }/purify.min.js`,
+      onlyViews: ["Agent Chat", "Saltcorn Agent copilot"],
+    },
+    {
+      script: `/plugins/public/agents@${
+        require("./package.json").version
       }/jquery.autogrow-textarea.js`,
       onlyViews: ["Agent Chat", "Saltcorn Agent copilot"],
     },

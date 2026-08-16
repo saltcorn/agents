@@ -532,3 +532,11 @@ p.prevrun_content {
 .agent-generated-image:hover .agent-image-download,
 .agent-image-download:focus { opacity: 1; }
 @media (hover: none) { .agent-image-download { opacity: 1; } }
+
+/* Message content is sanitized and re-serialized server-side, so it can no
+   longer leak structural markup out of the bubble. Oversized images are the
+   remaining way content can push the chat layout wide. */
+div.interaction-segment img,
+.modern-chat-layout .chat-bubble img {
+  max-width: 100%;
+}

@@ -27,6 +27,9 @@ Some examples of skills:
 
 The agents can be run either by attaching them to events (table inserts, inbound API calls etc; in chich case an initial prompt, based on the variables in the triggering row has to be specified) or by building a view based on the Agent chat viewpatterns which is configured by picking an agent action, giving the user an interactive chat interface similar to the chatgpt interface. Previous chats can be accessed on the left in this interface, and chats can be shared with other users
 
+Messages in the chat are written in markdown, and HTML written inside a message
+is shown as HTML. This is useful for tool results that come back as HTML, for
+example a wiki page or a web page fetched by a skill.
 
 ## Skills
 

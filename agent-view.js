@@ -52,8 +52,7 @@ const {
   extractText,
   stripMarkdownImages,
 } = require("./common");
-const MarkdownIt = require("markdown-it"),
-  md = new MarkdownIt({ html: true, breaks: true, linkify: true });
+const { renderMd } = require("./render-md");
 const { isWeb, escapeHtml } = require("@saltcorn/data/utils");
 const path = require("path");
 const fs = require("fs");
@@ -254,6 +253,16 @@ const realTimeCollabScript = (viewname, rndid, layout) => {
     domReady(`
       const md = markdownit({html: true, breaks: true, linkify: true})
       window['stream scratch ${viewname} ${rndid}'] = []
+      // streamed chunks are untrusted and, mid-stream, incomplete: sanitizing
+      // strips scripts and handlers and re-serializes, so a half-received tag
+      // can never reach the live DOM open. Without DOMPurify, show text only.
+      const renderStreamed = (src) => window.DOMPurify
+        ? DOMPurify.sanitize(md.render(src), {
+            FORBID_TAGS: ["style", "script", "iframe", "form", "object", "embed"],
+            FORBID_ATTR: ["style"],
+            ADD_ATTR: ["target"],
+          })
+        : $("<div>").text(src).html()
   const callback = () => {
     const collabCfg = {
       events: {
@@ -262,7 +271,7 @@ const realTimeCollabScript = (viewname, rndid, layout) => {
         )}' + \`?page_load_tag=\${_sc_pageloadtag}\`]: async (data) => {
           $(".agent-waiting-indicator").remove();
           window['stream scratch ${viewname} ${rndid}'].push(data.content)
-          const rendered = md.render(window['stream scratch ${viewname} ${rndid}'].join(""));
+          const rendered = renderStreamed(window['stream scratch ${viewname} ${rndid}'].join(""));
           $('div.next_response_scratch').html(
             (${JSON.stringify(layout || "")} || "").startsWith("Modern chat")
               ? '<div class="chat-message chat-assistant"><div class="chat-avatar"><i class="fas fa-robot"></i></div><div class="chat-bubble">' + rendered + '</div></div>'
@@ -410,7 +419,7 @@ const run = async (
                 );
             } else
               interactMarkups.push(
-                wrapSegment(md.render(interact.content), "You", true, layout),
+                wrapSegment(renderMd(interact.content), "You", true, layout),
               );
             break;
           case "assistant":
@@ -432,7 +441,12 @@ const run = async (
                         wrapCard(
                           toolSkill.skill.skill_label ||
                             toolSkill.skill.constructor.skill_name,
-                          rendered,
+                          // as in the live path in common.js: a string is
+                          // content, not trusted markup, so render it as
+                          // (sanitized) markdown
+                          typeof rendered === "string"
+                            ? renderMd(rendered)
+                            : rendered,
                         ),
                         action.name,
                         false,
@@ -476,9 +490,9 @@ const run = async (
               interactMarkups.push(
                 wrapSegment(
                   typeof interact.content === "string"
-                    ? md.render(stripMarkdownImages(interact.content))
+                    ? renderMd(stripMarkdownImages(interact.content))
                     : typeof interact.content?.content === "string"
-                      ? md.render(stripMarkdownImages(interact.content.content))
+                      ? renderMd(stripMarkdownImages(interact.content.content))
                       : interact.content,
                   action.name,
                   false,
@@ -499,7 +513,7 @@ const run = async (
                     },
                   );
               } catch {
-                markupContent = pre(interact.content);
+                markupContent = pre(escapeHtml(interact.content));
               }
               if (markupContent)
                 interactMarkups.push(

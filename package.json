@@ -5,12 +5,13 @@
   "main": "index.js",
   "dependencies": {
     "@saltcorn/data": "^0.9.0",
-    "underscore": "1.13.6",
-    "node-sql-parser": "4.15.0",
     "markdown-it": "14.1.0",
-    "style-to-object": "1.0.8",
+    "node-fetch": "2.6.9",
     "node-html-parser": "7.0.1",
-    "node-fetch": "2.6.9"
+    "node-sql-parser": "4.15.0",
+    "sanitize-html": "2.14.0",
+    "style-to-object": "1.0.8",
+    "underscore": "1.13.6"
   },
   "author": "Tom Nielsen",
   "license": "MIT",

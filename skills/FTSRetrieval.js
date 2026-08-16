@@ -1,4 +1,5 @@
 const { div, pre } = require("@saltcorn/markup/tags");
+const { sanitizeFragment } = require("../render-md");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
@@ -186,7 +187,11 @@ class RetrievalByFullTextSearch {
             return viewRes;
           } else return "";
         }
-        return div({ class: "border border-success p-2 m-2" }, responseText);
+        // responseText is built from table content, which is not trusted
+        return div(
+          { class: "border border-success p-2 m-2" },
+          sanitizeFragment(responseText),
+        );
       },
       function: {
         name: this.toolName,

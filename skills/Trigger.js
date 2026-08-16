@@ -1,4 +1,5 @@
 const { div, pre, a } = require("@saltcorn/markup/tags");
+const { sanitizeFragment } = require("../render-md");
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
@@ -85,7 +86,10 @@ class TriggerToSkill {
         return div({ class: "border border-primary p-2 m-2" }, phrase);
       },*/
       renderToolResponse: async (response, { req }) => {
-        return div({ class: "border border-success p-2 m-2" }, response);
+        return div(
+          { class: "border border-success p-2 m-2" },
+          typeof response === "string" ? sanitizeFragment(response) : response,
+        );
       },
       function: {
         name: trigger.name,
