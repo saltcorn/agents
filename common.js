@@ -10,6 +10,8 @@ const { isContextOverflow } = require("./skills/compaction_lib");
 
 const { renderMd } = require("./render-md");
 
+const { user_actions_html } = require("./user_actions");
+
 const nubBy = (f, xs) => {
   const vs = new Set();
   return xs.filter((x) => {
@@ -697,19 +699,10 @@ const process_interaction = async (
             await addToContext(run, {
               user_actions,
             });
-            add_user_action_html = div(
-              { class: "d-flex flex-wrap gap-2 mb-2" },
-              user_actions.map((ua) =>
-                button(
-                  {
-                    "data-useraction-id": ua.rndid,
-                    class: ua.class || "btn btn-primary", //press_store_button(this, true);
-                    ...(ua.title ? { title: ua.title } : {}),
-                    onclick: `view_post(${viewname ? `'${viewname}'` : `$(this).closest('[data-sc-embed-viewname]').attr('data-sc-embed-viewname')`}, 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
-                  },
-                  ua.label,
-                ),
-              ),
+            add_user_action_html = user_actions_html(
+              user_actions,
+              viewname,
+              run,
             );
           }
           let rendered_tool_response = "";
@@ -969,22 +962,7 @@ const process_interaction = async (
               await addToContext(run, {
                 user_actions,
               });
-              add_response(
-                div(
-                  { class: "d-flex flex-wrap gap-2 mb-2" },
-                  user_actions.map((ua) =>
-                    button(
-                      {
-                        "data-useraction-id": ua.rndid,
-                        class: ua.class || "btn btn-primary", //press_store_button(this, true);
-                        ...(ua.title ? { title: ua.title } : {}),
-                        onclick: `view_post('${viewname}', 'execute_user_action', {uaname: "${ua.name}",rndid: "${ua.rndid}", run_id: ${run.id}}, processExecuteResponse)`,
-                      },
-                      ua.label,
-                    ),
-                  ),
-                ),
-              );
+              add_response(user_actions_html(user_actions, viewname, run));
             }
           }
         }

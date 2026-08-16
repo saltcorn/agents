@@ -1895,11 +1895,32 @@ const execute_user_action = async (
     });
     await run.update({ context: run.context });
   }
+  // input collected in the browser (the option picked in a radio group). Only
+  // the fields the skill asked for are passed on, so what is posted here can
+  // never overwrite the tool call
+  const client_input = {};
+  for (const key of uadata.client_input_fields || [])
+    if (typeof body.ua_input?.[key] !== "undefined")
+      client_input[key] = body.ua_input[key];
   const result = await instance.userActions[uaname]({
     user: req.user,
     ...uadata.tool_call.input,
     ...uadata.input,
+    ...client_input,
   });
+  // nothing came of it (a radio group submitted without a choice): let the
+  // user try again rather than leave the question unanswerable
+  if (uadata.single_use && !result?.generate_prompt) {
+    group.forEach((ua) => {
+      delete ua.answered;
+    });
+    await run.update({ context: run.context });
+  }
+  // what the user pressed is shown in the chat as if they had written it. With
+  // a radio group that is not known until it is answered, so the skill can
+  // give it here instead
+  const click_replace_text =
+    result.click_replace_text || uadata.click_replace_text;
   if (result.generate_prompt) {
     const action =
       config.agent_action || (await Trigger.findOne({ id: config.action_id }));
@@ -1909,17 +1930,15 @@ const execute_user_action = async (
     });
     const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
 
-    if (dyn_updates && uadata.click_replace_text) {
+    if (dyn_updates && click_replace_text) {
       const { layout } = config;
 
       const resp = JSON.stringify(
-        wrapSegment(uadata.click_replace_text, "You", true, layout, req?.user),
+        wrapSegment(click_replace_text, "You", true, layout, req?.user),
       );
+      // a user action is a button, or the whole radio group it is answered with
       const removeButtons = group
-        .map(
-          (ua) =>
-            `$("button[data-useraction-id=${ua.rndid}]").replaceWith("");`,
-        )
+        .map((ua) => `$("[data-useraction-id=${ua.rndid}]").replaceWith("");`)
         .join("");
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
@@ -1934,20 +1953,14 @@ const execute_user_action = async (
         group.reduce(
           (h, ua) =>
             h.replace(
-              `button data-useraction-id="${ua.rndid}"`,
-              `button style="display: none;" data-useraction-id="${ua.rndid}"`,
+              `data-useraction-id="${ua.rndid}"`,
+              `style="display: none;" data-useraction-id="${ua.rndid}"`,
             ),
           hi,
         ),
       );
       run.context.html_interactions.push(
-        wrapSegment(
-          uadata.click_replace_text,
-          "You",
-          true,
-          config.layout,
-          req?.user,
-        ),
+        wrapSegment(click_replace_text, "You", true, config.layout, req?.user),
       );
       await run.update({ context: run.context });
     }
@@ -1968,7 +1981,7 @@ const execute_user_action = async (
       config,
       dyn_updates,
     );
-    const { generate_prompt, ...restResult } = result;
+    const { generate_prompt, click_replace_text: _crt, ...restResult } = result;
     return {
       json: {
         success: "ok",

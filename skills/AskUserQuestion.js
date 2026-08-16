@@ -5,10 +5,19 @@ const { div, ul, li, strong, text_attr } = require("@saltcorn/markup/tags");
 // option, which arrives as a new user message.
 const AWAITING_RESPONSE = (question, labels) =>
   `The question "${question}" has been put to the user, who can answer by ` +
-  `pressing one of these buttons: ${labels.map((l) => `"${l}"`).join(", ")}. ` +
+  `choosing one of: ${labels.map((l) => `"${l}"`).join(", ")}. ` +
   `The conversation is paused until they answer. Their answer, or a request ` +
   `to discuss the question instead, will arrive as the next user message. ` +
   `Do not proceed, and do not guess what they will pick.`;
+
+// A row of buttons only works while the labels are short. Past either of these
+// the question is put as a radio group with a submit button instead.
+const MAX_BUTTON_LABEL_CHARS = 15;
+const MAX_BUTTON_TOTAL_CHARS = 40;
+
+const useRadioGroup = (options) =>
+  options.some((o) => o.label.length > MAX_BUTTON_LABEL_CHARS) ||
+  options.reduce((tot, o) => tot + o.label.length, 0) > MAX_BUTTON_TOTAL_CHARS;
 
 const DEFAULT_SYS_PROMPT = `When you need a decision that only the user can make, and there is a small number of concrete alternatives, ask them with the ask_user_question tool rather than writing the question in your reply. The conversation stops until the user picks one of the options you supply, and their choice comes back to you as a new user message. Use it for choices, not for open-ended questions or for anything you can work out yourself. Never call it more than once at a time.`;
 
@@ -116,17 +125,36 @@ class AskUserQuestionSkill {
       .join("\n\n");
   }
 
+  get discussLabel() {
+    return this.question_discuss_label?.trim() || DEFAULT_DISCUSS_LABEL;
+  }
+
   get userActions() {
     return {
-      answer_question: async ({ question, options, answer_index, discuss }) => {
-        if (discuss)
+      answer_question: async ({
+        question,
+        options,
+        answer_index,
+        discuss,
+        choice,
+      }) => {
+        // a button carries its answer in answer_index or discuss, a radio group
+        // reports the value picked in the browser as choice
+        let index = answer_index;
+        let is_discuss = !!discuss;
+        if (typeof choice !== "undefined" && choice !== null && choice !== "") {
+          if (choice === "discuss") is_discuss = true;
+          else index = parseInt(choice, 10);
+        }
+        if (is_discuss)
           return {
             generate_prompt: fillTemplate(
               this.question_discuss_prompt?.trim() || DEFAULT_DISCUSS_PROMPT,
               { question: question || "" },
             ),
+            click_replace_text: text_attr(this.discussLabel),
           };
-        const opt = normalizeOptions(options)[answer_index];
+        const opt = normalizeOptions(options)[index];
         if (!opt) return {};
         return {
           generate_prompt: fillTemplate(
@@ -137,6 +165,7 @@ class AskUserQuestionSkill {
               answer_description: opt.description || "",
             },
           ),
+          click_replace_text: text_attr(opt.label),
         };
       },
     };
@@ -153,6 +182,41 @@ class AskUserQuestionSkill {
             error:
               "No options given. Call ask_user_question again with at least two options, each with a label.",
           };
+        const discuss_label = this.question_discuss_label?.trim()
+          ? this.discussLabel
+          : __(DEFAULT_DISCUSS_LABEL);
+        const answer = {
+          stop: true,
+          add_response: AWAITING_RESPONSE(
+            row.question || "",
+            options.map((o) => o.label),
+          ),
+        };
+        if (useRadioGroup(options)) {
+          // long options do not fit on buttons: one radio group answered with a
+          // submit button, the picked value comes back from the browser
+          answer.add_user_action = {
+            name: "answer_question",
+            type: "radio_group",
+            options: [
+              ...options.map((opt, ix) => ({
+                value: `${ix}`,
+                label: text_attr(opt.label),
+                ...(opt.description
+                  ? { description: text_attr(opt.description) }
+                  : {}),
+              })),
+              ...(row.allow_discussion
+                ? [{ value: "discuss", label: text_attr(discuss_label) }]
+                : []),
+            ],
+            submit_label: __("Answer"),
+            single_use: true,
+            client_input_fields: ["choice"],
+            input: {},
+          };
+          return answer;
+        }
         // one button per option. The user action is shared, the option is
         // identified by the index carried in the button's input
         const user_actions = options.map((opt, ix) => ({
@@ -168,24 +232,14 @@ class AskUserQuestionSkill {
           user_actions.push({
             name: "answer_question",
             type: "button",
-            label: text_attr(
-              this.question_discuss_label?.trim() || __(DEFAULT_DISCUSS_LABEL),
-            ),
+            label: text_attr(discuss_label),
             class: "btn btn-outline-secondary",
-            click_replace_text: text_attr(
-              this.question_discuss_label?.trim() || __(DEFAULT_DISCUSS_LABEL),
-            ),
+            click_replace_text: text_attr(discuss_label),
             single_use: true,
             input: { discuss: true },
           });
-        return {
-          stop: true,
-          add_response: AWAITING_RESPONSE(
-            row.question || "",
-            options.map((o) => o.label),
-          ),
-          add_user_action: user_actions,
-        };
+        answer.add_user_action = user_actions;
+        return answer;
       },
       renderToolCall({ question, options }) {
         const opts = normalizeOptions(options);

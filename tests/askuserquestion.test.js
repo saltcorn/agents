@@ -1,7 +1,10 @@
 const { describe, it, expect } = require("@jest/globals");
 
+const { parse } = require("node-html-parser");
+
 const AskUserQuestion = require("../skills/AskUserQuestion");
 const { normalizeOptions, fillTemplate } = AskUserQuestion;
+const { user_actions_html } = require("../user_actions");
 
 const req = { __: (s) => s };
 const skill = (cfg) => new AskUserQuestion(cfg || {});
@@ -105,20 +108,38 @@ describe("ask_user_question tool", () => {
     expect(result.add_user_action).toBeUndefined();
   });
 
-  it("escapes labels and descriptions coming from the model", async () => {
+  it("escapes button labels and descriptions coming from the model", async () => {
+    const result = await tool().process(
+      { question, options: [{ label: "<b>x</b>", description: 'a " quote' }] },
+      { req },
+    );
+    const ua = result.add_user_action[0];
+    expect(ua.label).not.toContain("<b>");
+    expect(ua.click_replace_text).not.toContain("<b>");
+    // an unescaped quote in the title attribute would end it
+    expect(ua.title).not.toContain('"');
+  });
+
+  it("escapes radio labels and descriptions coming from the model", async () => {
     const result = await tool().process(
       {
         question,
         options: [
           { label: "<img src=x onerror=alert(1)>", description: 'a " quote' },
+          { label: "something else entirely" },
         ],
       },
       { req },
     );
-    const ua = result.add_user_action[0];
-    expect(ua.label).not.toContain("<img");
-    expect(ua.click_replace_text).not.toContain("<img");
-    expect(ua.title).not.toContain('"');
+    const opt = result.add_user_action.options[0];
+    expect(opt.label).not.toContain("<img");
+    expect(opt.description).not.toContain('"');
+    const html = user_actions_html(
+      [{ ...result.add_user_action, rndid: "r0" }],
+      "myview",
+      { id: 7 },
+    );
+    expect(parse(html).querySelectorAll("img").length).toBe(0);
   });
 
   it("renders the question and the option descriptions", () => {
@@ -126,6 +147,136 @@ describe("ask_user_question tool", () => {
     expect(html).toContain(question);
     expect(html).toContain("Best for production");
     expect(html).not.toContain("<script");
+  });
+});
+
+describe("switch to a radio group", () => {
+  const kind = async (opts, rest) => {
+    const result = await tool().process(
+      { question, options: opts, ...(rest || {}) },
+      { req },
+    );
+    const uas = Array.isArray(result.add_user_action)
+      ? result.add_user_action
+      : [result.add_user_action];
+    return { type: uas[0].type, uas, result };
+  };
+
+  it("keeps buttons for short options", async () => {
+    // 3 + 2 = 5 characters, nothing over 15
+    expect((await kind(["Yes", "No"])).type).toBe("button");
+    // 4 x 10 = 40 characters, exactly on the limit
+    expect(
+      (await kind(["0123456789", "123456789A", "23456789AB", "3456789ABC"]))
+        .type,
+    ).toBe("button");
+  });
+
+  it("switches when one option is longer than 15 characters", async () => {
+    expect((await kind(["Yes", "0123456789012345"])).type).toBe("radio_group");
+    expect((await kind(["Yes", "012345678901234"])).type).toBe("button");
+  });
+
+  it("switches when all the options together are longer than 40 characters", async () => {
+    // 4 options of 10 and a 1: 41 characters, none of them long on its own
+    expect(
+      (
+        await kind([
+          "0123456789",
+          "123456789A",
+          "23456789AB",
+          "3456789ABC",
+          "x",
+        ])
+      ).type,
+    ).toBe("radio_group");
+  });
+
+  it("puts every option, and the discussion choice, in one group", async () => {
+    const { uas } = await kind(
+      [
+        { label: "Quarterly revenue by region", description: "Takes a minute" },
+        { label: "Year-to-date summary" },
+      ],
+      { allow_discussion: true },
+    );
+    expect(uas.length).toBe(1);
+    const ua = uas[0];
+    expect(ua.name).toBe("answer_question");
+    expect(ua.single_use).toBe(true);
+    expect(ua.client_input_fields).toEqual(["choice"]);
+    expect(ua.options.map((o) => o.value)).toEqual(["0", "1", "discuss"]);
+    expect(ua.options[0].description).toBe("Takes a minute");
+    expect(ua.options[2].label).toBe("Discuss instead");
+  });
+
+  it("has no discussion choice unless the agent asks for one", async () => {
+    const { uas } = await kind([
+      "Quarterly revenue by region",
+      "Something else",
+    ]);
+    expect(uas[0].options.map((o) => o.value)).toEqual(["0", "1"]);
+  });
+});
+
+describe("user action markup", () => {
+  const render = async (row) => {
+    const result = await tool().process({ question, ...row }, { req });
+    const uas = (
+      Array.isArray(result.add_user_action)
+        ? result.add_user_action
+        : [result.add_user_action]
+    ).map((ua, ix) => ({ ...ua, rndid: `r${ix}` }));
+    return parse(user_actions_html(uas, "myview", { id: 7 }));
+  };
+
+  it("survives HTML parsing with the handler intact", async () => {
+    // the onclick sits in a double-quoted attribute: a double quote inside it
+    // truncates the handler and the button does nothing when pressed
+    const root = await render({ options: ["Yes", "No"] });
+    const onclicks = root
+      .querySelectorAll("button")
+      .map((b) => b.getAttribute("onclick"));
+    expect(onclicks.length).toBe(2);
+    onclicks.forEach((onclick) => {
+      expect(onclick).toContain("execute_user_action");
+      expect(onclick).toContain("processExecuteResponse)");
+      expect(onclick).toContain("run_id: 7");
+    });
+    expect(root.querySelectorAll("button[data-useraction-id]").length).toBe(2);
+  });
+
+  it("renders one radio per option, all in the same group", async () => {
+    const root = await render({
+      options: [
+        { label: "Quarterly revenue by region", description: "Takes a minute" },
+        { label: "Year-to-date summary" },
+      ],
+      allow_discussion: true,
+    });
+    const radios = root.querySelectorAll("input[type=radio]");
+    expect(radios.map((r) => r.getAttribute("value"))).toEqual([
+      "0",
+      "1",
+      "discuss",
+    ]);
+    expect(new Set(radios.map((r) => r.getAttribute("name"))).size).toBe(1);
+    // every radio is labelled, and the labels point at the inputs
+    expect(
+      root.querySelectorAll("label").map((l) => l.getAttribute("for")),
+    ).toEqual(radios.map((r) => r.getAttribute("id")));
+    // the group as a whole is what gets taken away once it is answered
+    expect(root.querySelectorAll("[data-useraction-id]").length).toBe(1);
+  });
+
+  it("sends the picked value, and does nothing until one is picked", async () => {
+    const root = await render({
+      options: ["Quarterly revenue by region", "Year-to-date summary"],
+    });
+    const onclick = root.querySelector("button").getAttribute("onclick");
+    expect(onclick).toContain("input:checked");
+    expect(onclick).toContain("ua_input: {choice:");
+    expect(onclick).toContain("return false");
   });
 });
 
@@ -138,6 +289,25 @@ describe("answering", () => {
     expect(result.generate_prompt).toBe(
       `In answer to the question "${question}", I choose: Postgres`,
     );
+    expect(result.click_replace_text).toBe("Postgres");
+  });
+
+  it("accepts the value picked in a radio group", async () => {
+    const result = await answer({}, { choice: "1" });
+    expect(result.generate_prompt).toBe(
+      `In answer to the question "${question}", I choose: SQLite`,
+    );
+    expect(result.click_replace_text).toBe("SQLite");
+  });
+
+  it("takes the discussion choice out of a radio group", async () => {
+    const result = await answer({}, { choice: "discuss" });
+    expect(result.generate_prompt).toContain("do not want to pick");
+    expect(result.click_replace_text).toBe("Discuss instead");
+  });
+
+  it("does nothing if the radio group was submitted empty", async () => {
+    expect(await answer({}, { choice: "" })).toEqual({});
   });
 
   it("sends the discussion prompt when the question is not answered", async () => {

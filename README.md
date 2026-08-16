@@ -43,10 +43,16 @@ agent without this skill has to guess, or write the question into its reply and
 hope the user notices and answers it.
 
 With this skill the agent can instead put the question to the user as a set of
-buttons, one for each answer it will accept. **The agent stops there.** Nothing
-else happens, no further tools are run and no reply is written, until the user
-presses one of the buttons. What they press is then sent back to the agent as if
-they had typed it, and the agent carries on from there.
+answers to choose from. **The agent stops there.** Nothing else happens, no
+further tools are run and no reply is written, until the user chooses. What they
+chose is then sent back to the agent as if they had typed it, and the agent
+carries on from there.
+
+Short answers appear as a row of buttons, one press and the answer is given.
+Longer answers do not fit on buttons, so the question is presented as a list of
+radio buttons with an *Answer* button underneath instead. That switch is
+automatic and needs no setting: the list is used as soon as any one answer is
+longer than 15 characters, or all the answers together come to more than 40.
 
 The agent decides when to ask and what the options are; it cannot be forced to
 ask, but it can be told when it should, in the *Additional system prompt*
@@ -55,16 +61,16 @@ never guess".
 
 **Discussing instead of answering**
 
-Sometimes the offered options are not right, or the user needs to know more
-before they can pick one. The agent can add an extra button, labelled *Discuss
+Sometimes the offered answers are not right, or the user needs to know more
+before they can pick one. The agent can add an extra choice, labelled *Discuss
 instead* by default, which tells it to stop and talk the question through rather
-than treat any option as chosen. Whether that button appears is up to the agent,
-which is asked to offer it when the options may not cover every case.
+than treat any answer as chosen. Whether that choice appears is up to the agent,
+which is asked to offer it when the answers may not cover every case.
 
-The user is never forced to press a button in any case: they can always simply
-type into the chat as normal, and the agent takes that as the answer. The
-buttons are a shortcut, not a lock. Once one of them is pressed all the buttons
-for that question disappear, so the same question cannot be answered twice.
+The user is never forced to choose in any case: they can always simply type into
+the chat as normal, and the agent takes that as the answer. The buttons are a
+shortcut, not a lock. Once the question has been answered it disappears from the
+chat, so the same question cannot be answered twice.
 
 **Settings**
 
@@ -72,7 +78,7 @@ for that question disappear, so the same question cannot be answered twice.
 |---|---|
 | Additional system prompt | Optional. When this agent should ask a question, in your own words. The standard explanation of how the tool works is always included, so this only needs to say what is particular to your agent. |
 | Prompt on answer | Optional. The message the agent receives when the user picks an option. Write `{{ question }}`, `{{ answer }}` and `{{ answer_description }}` where those should appear. |
-| Discuss button label | Optional. The wording on the extra button that declines to answer, if the agent offers one. |
+| Discuss button label | Optional. The wording on the extra choice that declines to answer, if the agent offers one. |
 | Prompt on discuss | Optional. The message the agent receives when that button is pressed. Write `{{ question }}` where the question should appear. |
 
 ### Compaction
