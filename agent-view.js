@@ -1609,6 +1609,8 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
         db.getTenantSchema(),
         {
           error: e?.message || e,
+          // resets the send button/textarea, same as on success
+          eval_js: `final_agent_response()`,
           page_load_tag: req?.headers?.["page-load-tag"],
         },
         [req.user.id],
@@ -1651,6 +1653,9 @@ const cancel = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id } = body;
   const run = await WorkflowRun.findOne({ id: +run_id });
   await run.update({ status: "Cancel" });
+  // stops a long-running fetch to the LLM right away, instead of
+  // waiting for the next between-pass check
+  getState().sendToNodeHandle?.(`llm:${run.id}`);
   return;
 };
 
