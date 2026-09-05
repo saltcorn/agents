@@ -3,9 +3,11 @@ const View = require("@saltcorn/data/models/view");
 const Trigger = require("@saltcorn/data/models/trigger");
 const Table = require("@saltcorn/data/models/table");
 const Plugin = require("@saltcorn/data/models/plugin");
+const WorkflowRun = require("@saltcorn/data/models/workflow_run");
+const User = require("@saltcorn/data/models/user");
 
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
-const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
+const { afterAll, beforeAll, describe, it, expect, jest } = require("@saltcorn/db-common/test_expect");
 
 /* 
  
@@ -87,3 +89,128 @@ for (const nameconfig of require("./configs")) {
   });
   break; //only need to test one config iteration
 }
+
+// cancel/skillroute/execute_user_action didn't check run.started_by, unlike
+// delprevrun/renameprevrun/share_chat. Called directly here - no LLM needed.
+describe("agent view route ownership checks", () => {
+  const { routes } = require("../agent-view");
+  const other_user_id = 999999; // never persisted, only compared - no real user needed
+  let owner_id, trigger;
+
+  beforeAll(async () => {
+    const owner = await User.findOne({ email: "staff@foo.com" });
+    owner_id = owner.id;
+    trigger = await Trigger.create({
+      name: "OwnershipTestTrigger",
+      action: "Agent",
+      when_trigger: "Never",
+      configuration: {},
+    });
+  });
+
+  const mkRun = async (extra) =>
+    await WorkflowRun.create({
+      trigger_id: trigger.id,
+      context: {},
+      started_by: owner_id,
+      status: "Running",
+      ...extra,
+    });
+
+  it("cancel blocks a non-owner and allows the owner", async () => {
+    const run = await mkRun();
+    await routes.cancel(
+      null,
+      "AgentView",
+      {},
+      { run_id: run.id },
+      { req: { user: { id: other_user_id } }, res: {} }
+    );
+    expect((await WorkflowRun.findOne({ id: run.id })).status).toBe(
+      "Running"
+    );
+
+    await routes.cancel(
+      null,
+      "AgentView",
+      {},
+      { run_id: run.id },
+      { req: { user: { id: owner_id } }, res: {} }
+    );
+    expect((await WorkflowRun.findOne({ id: run.id })).status).toBe(
+      "Cancel"
+    );
+  });
+
+  it("cancel allows a non-owner when the view is configured as shared", async () => {
+    const run = await mkRun();
+    await routes.cancel(
+      null,
+      "AgentView",
+      { shared: true },
+      { run_id: run.id },
+      { req: { user: { id: other_user_id } }, res: {} }
+    );
+    expect((await WorkflowRun.findOne({ id: run.id })).status).toBe(
+      "Cancel"
+    );
+  });
+
+  // action.configuration lacks `skills` on purpose: reaching get_skill_instances
+  // throws, so a throw proves the owner got past the ownership check.
+  it("skillroute blocks a non-owner before touching the skill config", async () => {
+    const run = await mkRun();
+    const config = { agent_action: { configuration: {} } };
+    await expect(
+      routes.skillroute(
+        null,
+        "AgentView",
+        config,
+        { run_id: run.id, skillid: "x" },
+        { req: { user: { id: other_user_id } }, res: {} }
+      )
+    ).resolves.toBe(undefined);
+  });
+
+  it("skillroute proceeds past the ownership check for the owner", async () => {
+    const run = await mkRun();
+    const config = { agent_action: { configuration: {} } };
+    await expect(
+      routes.skillroute(
+        null,
+        "AgentView",
+        config,
+        { run_id: run.id, skillid: "x" },
+        { req: { user: { id: owner_id } }, res: {} }
+      )
+    ).rejects.toThrow();
+  });
+
+  it("execute_user_action blocks a non-owner before touching the skill config", async () => {
+    const run = await mkRun({ context: { user_actions: [] } });
+    const config = { agent_action: { configuration: {} } };
+    await expect(
+      routes.execute_user_action(
+        null,
+        "AgentView",
+        config,
+        { run_id: run.id, rndid: "r1", uaname: "ua" },
+        { req: { user: { id: other_user_id } }, res: {} }
+      )
+    ).resolves.toBe(undefined);
+  });
+
+  it("execute_user_action proceeds past the ownership check for the owner", async () => {
+    const run = await mkRun({ context: { user_actions: [] } });
+    const config = { agent_action: { configuration: {} } };
+    await expect(
+      routes.execute_user_action(
+        null,
+        "AgentView",
+        config,
+        { run_id: run.id, rndid: "r1", uaname: "ua" },
+        { req: { user: { id: owner_id } }, res: {} }
+      )
+    ).rejects.toThrow();
+  });
+});

@@ -1,4 +1,4 @@
-const { describe, it, expect } = require("@jest/globals");
+const { describe, it, expect } = require("@saltcorn/db-common/test_expect");
 
 const { renderMd, sanitizeFragment, balanceHtml } = require("../render-md");
 

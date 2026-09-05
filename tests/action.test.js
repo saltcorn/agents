@@ -6,7 +6,7 @@ const Plugin = require("@saltcorn/data/models/plugin");
 const Trigger = require("@saltcorn/data/models/trigger");
 
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
-const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
+const { afterAll, beforeAll, describe, it, expect, jest } = require("@saltcorn/db-common/test_expect");
 
 /* 
  

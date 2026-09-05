@@ -1786,6 +1786,7 @@ const renameprevrun = async (
 const cancel = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id } = body;
   const run = await WorkflowRun.findOne({ id: +run_id });
+  if (!run || (run.started_by != req.user?.id && !config.shared)) return;
   await run.update({ status: "Cancel" });
   // stops a long-running fetch to the LLM right away, instead of
   // waiting for the next between-pass check
@@ -1975,7 +1976,7 @@ const skillroute = async (table_id, viewname, config, body, { req, res }) => {
     if (table) triggering_row = await table.getRow({ [pk]: triggering_row_id });
   }
   const run = await WorkflowRun.findOne({ id: +run_id });
-  if (!run) return;
+  if (!run || (run.started_by != req.user?.id && !config.shared)) return;
 
   const instances = get_skill_instances(action.configuration);
   const instance = instances.find((i) => i.skillid === skillid);
@@ -2009,7 +2010,7 @@ const execute_user_action = async (
   const run = await WorkflowRun.findOne({ id: +run_id });
   //console.log("run uas",run.context.user_actions );
 
-  if (!run) return;
+  if (!run || (run.started_by != req.user?.id && !config.shared)) return;
   const instances = get_skill_instances(action.configuration);
   const instance = instances.find((i) => i.userActions?.[uaname]);
   //console.log({ instance });

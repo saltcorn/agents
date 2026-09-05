@@ -113,6 +113,22 @@ const tokenUsageOf = (answer, chat, model) => {
   return token_usage;
 };
 
+// Unlike token_usage (latest call only), cumulative_usage sums the whole run - what "tokens used" reporting wants.
+const sumTokenUsage = (prev = {}, delta = {}) => ({
+  inputTokens: (prev.inputTokens || 0) + (delta.inputTokens || 0),
+  outputTokens: (prev.outputTokens || 0) + (delta.outputTokens || 0),
+  totalTokens: (prev.totalTokens || 0) + (delta.totalTokens || 0),
+});
+
+const recordTokenUsage = async (run, token_usage) => {
+  if (!token_usage) return;
+  const cumulative_usage = sumTokenUsage(
+    run?.context?.cumulative_usage,
+    token_usage,
+  );
+  await addToContext(run, { token_usage, cumulative_usage });
+};
+
 const find_tool = (name, config) => {
   const skills = get_skill_instances(config);
   for (const skill of skills) {
@@ -585,10 +601,8 @@ const process_interaction_inner = async (
       api_interactions: [debugCollector],
     });
   const token_usage = tokenUsageOf(answer, complArgs.chat, complArgs.model);
-  await addToContext(run, {
-    interactions: complArgs.chat,
-    ...(token_usage ? { token_usage } : {}),
-  });
+  await addToContext(run, { interactions: complArgs.chat });
+  await recordTokenUsage(run, token_usage);
   const responses = [];
   const raw_responses = [];
 
@@ -897,8 +911,7 @@ const process_interaction_inner = async (
                     chat,
                     opts.model || complArgs.model,
                   );
-                  if (gen_usage)
-                    await addToContext(run, { token_usage: gen_usage });
+                  await recordTokenUsage(run, gen_usage);
                   return genAnswer;
                 },
                 emit_update(s) {
@@ -915,6 +928,13 @@ const process_interaction_inner = async (
                 },
               });
             } catch (e) {
+              // Log it - otherwise a postProcess failure is silently swallowed and the run still finishes as Done.
+              getState().log(
+                2,
+                `postProcess failed for tool ${tool_call.tool_name}: ${
+                  e?.stack || e?.message || e
+                }`,
+              );
               postprocres = { error: e?.message || String(e) };
             }
             if (!postprocres || typeof postprocres !== "object")

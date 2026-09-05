@@ -1,5 +1,5 @@
 const { getState } = require("@saltcorn/data/db/state");
-const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
+const { afterAll, beforeAll, describe, it, expect } = require("@saltcorn/db-common/test_expect");
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
 
 const {
