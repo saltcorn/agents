@@ -14,13 +14,37 @@ const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 const { interpolate } = require("@saltcorn/data/utils");
 const { getState } = require("@saltcorn/data/db/state");
 
+const configuration_workflow = () =>
+  new Workflow({
+    steps: [
+      {
+        name: "Audit trail",
+        form: async (context) => {
+          return new Form({
+            fields: [
+              {
+                name: "audit_trail",
+                label: "Audit trail",
+                sublabel: "Create a table for ",
+                type: "String",
+                required: true,
+                fieldview: "password",
+              },
+            ],
+          });
+        },
+      },
+    ],
+  });
+
 module.exports = {
   sc_plugin_api_version: 1,
-  dependencies: ["@saltcorn/large-language-model"],
-  viewtemplates: [require("./agent-view")],
+  configuration_workflow,
+  dependencies: ["@saltcorn/large-language-model", "@saltcorn/json"],
+  viewtemplates: (modcfg) => [require("./agent-view")(modcfg)],
   plugin_name: "agents",
   ready_for_mobile: true,
-  headers: [
+  headers: () => [
     {
       script: `/plugins/public/agents@${
         require("./package.json").version
@@ -40,11 +64,11 @@ module.exports = {
       onlyViews: ["Agent Chat", "Saltcorn Agent copilot"],
     },
   ],
-  actions: {
+  actions: () => ({
     Agent: require("./action"),
     consolidate_agent_memory: require("./consolidate_agent_memory"),
-  },
-  functions: {
+  }),
+  functions: () => ({
     inspect_agent: {
       run: async (agent, user, row) => {
         const action = agent.runWithoutRow
@@ -130,7 +154,7 @@ module.exports = {
         { name: "prompt", type: "String" },
       ],
     },
-  },
+  }),
 };
 
 /* 

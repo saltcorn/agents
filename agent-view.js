@@ -1461,7 +1461,7 @@ const run = async (
     : main_chat;
 };
 
-const interact = async (table_id, viewname, config, body, { req, res }) => {
+const interact = modcfg => async (table_id, viewname, config, body, { req, res }) => {
   const { userinput, run_id, triggering_row_id } = body;
   const action =
     config.agent_action || (await Trigger.findOne({ id: config.action_id }));
@@ -1641,6 +1641,8 @@ const interact = async (table_id, viewname, config, body, { req, res }) => {
     triggering_row,
     config,
     dyn_updates,
+    false,
+    modcfg
   );
   if (dyn_updates) {
     process_promise.catch((e) => {
@@ -2191,7 +2193,7 @@ const tts = async (table_id, viewname, config, body, { req, res }) => {
   return;
 };
 
-module.exports = {
+module.exports = modcfg => ({
   name: "Agent Chat",
   configuration_workflow,
   display_state_form: false,
@@ -2200,7 +2202,7 @@ module.exports = {
   table_optional: true,
   run,
   routes: {
-    interact,
+    interact: interact(modcfg),
     delprevrun,
     debug_info,
     skillroute,
@@ -2212,4 +2214,4 @@ module.exports = {
     renameprevrun,
   },
   mobile_render_server_side: true,
-};
+});

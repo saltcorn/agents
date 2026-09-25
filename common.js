@@ -479,6 +479,7 @@ const process_interaction_inner = async (
   agentsViewCfg = { stream: false },
   dyn_updates = false,
   is_sub_agent = false,
+  modcfg = {}
 ) => {
   const { stream, viewname, layout } = agentsViewCfg;
   const sysState = getState();
