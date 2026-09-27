@@ -35,7 +35,7 @@ beforeAll(async () => {
 jest.setTimeout(180000);
 
 const user = { id: 1, role_id: 1 };
-const action = require("../action");
+const action = require("../action")({});
 
 // A tool that returns far more than anyone wants to read, with one fact buried
 // in it that the agent has to remember across the compaction.

@@ -44,7 +44,7 @@ beforeAll(async () => {
 jest.setTimeout(40000);
 
 const user = { id: 1, role_id: 1 };
-const action = require("../action");
+const action = require("../action")({});
 
 const getLastInteraction = async ({ run_id }) => {
   const run = await WorkflowRuns.findOne({ id: run_id });

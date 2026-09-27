@@ -52,6 +52,10 @@ const {
   extractText,
   stripMarkdownImages,
 } = require("./common");
+const {
+  createAuditTrailRun,
+  logToAuditTrailTable,
+} = require("./audit-trail");
 const { renderMd, balanceHtml } = require("./render-md");
 const { isWeb, escapeHtml } = require("@saltcorn/data/utils");
 const path = require("path");
@@ -1491,6 +1495,7 @@ const interact = modcfg => async (table_id, viewname, config, body, { req, res }
         triggering_row_id,
       },
     });
+    await createAuditTrailRun({ modcfg, run, user: req.user, action });
     if (table_id && config.run_id_field && triggering_row_id) {
       const table = Table.findOne(table_id);
       await table.updateRow(
@@ -1502,6 +1507,9 @@ const interact = modcfg => async (table_id, viewname, config, body, { req, res }
   } else {
     run = await WorkflowRun.findOne({ id: +run_id });
   }
+  // uploaded files are added to the chat as user messages too, and are
+  // logged to the audit trail with the message they were sent with
+  const userStart = (run.context.interactions || []).length;
   let fileBadges = "";
   if (config.image_upload && req.files?.file) {
     const rawFiles = Array.isArray(req.files.file)
@@ -1621,6 +1629,15 @@ const interact = modcfg => async (table_id, viewname, config, body, { req, res }
     html_interactions: [userInteractions],
     status: "Running",
   });
+  await logToAuditTrailTable({
+    modcfg,
+    run,
+    user: req.user,
+    action,
+    role: "user",
+    interaction: run.context.interactions.slice(userStart),
+    html: userInteractions,
+  });
   const dyn_updates = getState().getConfig("enable_dynamic_updates", true);
   if (dyn_updates) {
     getState().emitDynamicUpdate(
@@ -1665,7 +1682,13 @@ const interact = modcfg => async (table_id, viewname, config, body, { req, res }
 // Pick up a run that was interrupted - typically because the server was
 // restarted while the agent was generating or running a tool. No new user
 // message is added: the chat is continued from wherever it stopped.
-const resume = async (table_id, viewname, config, body, { req, res }) => {
+const resume = (modcfg) => async (
+  table_id,
+  viewname,
+  config,
+  body,
+  { req, res },
+) => {
   const { run_id, triggering_row_id } = body;
   const action =
     config.agent_action || (await Trigger.findOne({ id: config.action_id }));
@@ -1707,21 +1730,24 @@ const resume = async (table_id, viewname, config, body, { req, res }) => {
   const needsPrompt =
     !lastInteract ||
     !(lastInteract.role === "user" || lastInteract.role === "tool");
+  const resumePrompt = {
+    role: "user",
+    content:
+      "You were interrupted. Continue with the query, or ask me for what you need to continue.",
+  };
   await addToContext(run, {
-    ...(needsPrompt
-      ? {
-          interactions: [
-            ...interactions,
-            {
-              role: "user",
-              content:
-                "You were interrupted. Continue with the query, or ask me for what you need to continue.",
-            },
-          ],
-        }
-      : {}),
+    ...(needsPrompt ? { interactions: [...interactions, resumePrompt] } : {}),
     status: "Running",
   });
+  if (needsPrompt)
+    await logToAuditTrailTable({
+      modcfg,
+      run,
+      user: req.user,
+      action,
+      role: "user",
+      interaction: [resumePrompt],
+    });
   // the status is already Running, so writing the context did not touch the
   // time it was last set. Claiming the run now stops a second click, or
   // another tab, from resuming it a second time
@@ -1737,6 +1763,8 @@ const resume = async (table_id, viewname, config, body, { req, res }) => {
     triggering_row,
     config,
     dyn_updates,
+    false,
+    modcfg,
   );
   if (dyn_updates) {
     process_promise.catch((e) => {
@@ -1998,7 +2026,7 @@ const skillroute = async (table_id, viewname, config, body, { req, res }) => {
   };
 };
 
-const execute_user_action = async (
+const execute_user_action = (modcfg) => async (
   table_id,
   viewname,
   config,
@@ -2106,6 +2134,17 @@ const execute_user_action = async (
       );
       await run.update({ context: run.context });
     }
+    await logToAuditTrailTable({
+      modcfg,
+      run,
+      user: req.user,
+      action,
+      role: "user",
+      interaction: [run.context.interactions[run.context.interactions.length - 1]],
+      html:
+        click_replace_text &&
+        wrapSegment(click_replace_text, "You", true, config.layout, req?.user),
+    });
     let row = {};
     if (run.context.triggering_row_id) {
       const table = Table.findOne(table_id);
@@ -2122,6 +2161,8 @@ const execute_user_action = async (
       row,
       config,
       dyn_updates,
+      false,
+      modcfg,
     );
     const { generate_prompt, click_replace_text: _crt, ...restResult } = result;
     return {
@@ -2206,9 +2247,9 @@ module.exports = modcfg => ({
     delprevrun,
     debug_info,
     skillroute,
-    execute_user_action,
+    execute_user_action: execute_user_action(modcfg),
     cancel,
-    resume,
+    resume: resume(modcfg),
     tts,
     share_chat,
     renameprevrun,

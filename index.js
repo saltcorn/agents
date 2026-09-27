@@ -8,7 +8,14 @@ const {
   getCompletionArguments,
   process_interaction,
   get_skill_instances,
+  wrapSegment,
 } = require("./common");
+const {
+  createAuditTrailRun,
+  logToAuditTrailTable,
+} = require("./audit-trail");
+const { p } = require("@saltcorn/markup/tags");
+const { escapeHtml } = require("@saltcorn/data/utils");
 const { applyAsync } = require("@saltcorn/data/utils");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 const { interpolate } = require("@saltcorn/data/utils");
@@ -25,10 +32,9 @@ const configuration_workflow = () =>
               {
                 name: "audit_trail",
                 label: "Audit trail",
-                sublabel: "Create a table for ",
-                type: "String",
-                required: true,
-                fieldview: "password",
+                sublabel:
+                  "Record every agent run and every message from the user and the LLM in the agentsAuditTrailRun and agentsAuditTrailMsg tables",
+                type: "Bool",
               },
             ],
           });
@@ -115,18 +121,35 @@ module.exports = {
           ],
           funcalls: {},
         };
-        if (opts.run_id === null || (!opts.run_id && opts.run === null))
+        let newRun = false;
+        if (opts.run_id === null || (!opts.run_id && opts.run === null)) {
           run = { context };
-        else if (opts.run) run = opts.run;
+          newRun = true;
+        } else if (opts.run) run = opts.run;
         else if (opts.run_id)
           run = await WorkflowRun.findOne({ id: +opts.run_id });
-        else
+        else {
           run = await WorkflowRun.create({
             status: "Running",
             started_by: opts.user?.id,
             trigger_id: action.id,
             context,
           });
+          newRun = true;
+        }
+        // the prompt is only in the chat of a new run
+        if (newRun) {
+          await createAuditTrailRun({ modcfg, run, user: opts.user, action });
+          await logToAuditTrailTable({
+            modcfg,
+            run,
+            user: opts.user,
+            action,
+            role: "user",
+            interaction: [{ role: "user", content: prompt }],
+            html: wrapSegment(p(escapeHtml(prompt)), "You", true),
+          });
+        }
         const result = await process_interaction(
           run,
           action.configuration,
@@ -139,6 +162,12 @@ module.exports = {
                 : !opts?.render_markdown,
           },
           null,
+          [],
+          {},
+          { stream: false },
+          false,
+          false,
+          modcfg,
         );
         return {
           text: result.json.response,
