@@ -50,6 +50,13 @@ const getAuditTrailTables = async () => {
             min_role_read: 1,
             min_role_write: 1,
         });
+         await Field.create({
+            table: tableMsg,
+            name: "audit_run",
+            label: "Audit run",
+            type: "Key to agentsAuditTrailRun",
+            required: true,
+        });
         await Field.create({
             table: tableMsg,
             name: "created_at",
