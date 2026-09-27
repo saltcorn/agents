@@ -40,7 +40,7 @@ const configuration_workflow = () =>
 module.exports = {
   sc_plugin_api_version: 1,
   configuration_workflow,
-  dependencies: ["@saltcorn/large-language-model", "@saltcorn/json"],
+  dependencies: ["@saltcorn/large-language-model", "@saltcorn/json","@saltcorn/html"],
   viewtemplates: (modcfg) => [require("./agent-view")(modcfg)],
   plugin_name: "agents",
   ready_for_mobile: true,
@@ -64,11 +64,11 @@ module.exports = {
       onlyViews: ["Agent Chat", "Saltcorn Agent copilot"],
     },
   ],
-  actions: () => ({
-    Agent: require("./action"),
+  actions: (modcfg) => ({
+    Agent: require("./action")(modcfg),
     consolidate_agent_memory: require("./consolidate_agent_memory"),
   }),
-  functions: () => ({
+  functions: (modcfg) => ({
     inspect_agent: {
       run: async (agent, user, row) => {
         const action = agent.runWithoutRow
