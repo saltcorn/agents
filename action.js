@@ -8,7 +8,7 @@ const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 const { interpolate, escapeHtml } = require("@saltcorn/data/utils");
 const { getState } = require("@saltcorn/data/db/state");
 
-module.exports = {
+module.exports = (modcfg) => ({
   disableInBuilder: true,
   disableInList: true,
   disableInWorkflow: true,
@@ -167,4 +167,4 @@ module.exports = {
       is_sub_agent,
     );
   },
-};
+});
