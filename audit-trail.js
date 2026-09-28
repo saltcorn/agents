@@ -13,7 +13,7 @@ const runFields = [
   { name: "run_id", label: "Run ID", type: "Integer" },
   { name: "action_name", label: "Action name", type: "String" },
   { name: "action_id", label: "Action ID", type: "Integer" },
-  { name: "run_by", label: "Run by", type: "Integer" },
+  { name: "run_by", label: "Run by", type: "Key to users" },
   { name: "created_at", label: "Created at", type: "Date", required: true },
 ];
 
