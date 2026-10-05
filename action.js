@@ -7,8 +7,13 @@ const { applyAsync } = require("@saltcorn/data/utils");
 const WorkflowRun = require("@saltcorn/data/models/workflow_run");
 const { interpolate, escapeHtml } = require("@saltcorn/data/utils");
 const { getState } = require("@saltcorn/data/db/state");
+const Trigger = require("@saltcorn/data/models/trigger");
+const {
+  createAuditTrailRun,
+  logToAuditTrailTable,
+} = require("./audit-trail");
 
-module.exports = {
+module.exports = (modcfg) => ({
   disableInBuilder: true,
   disableInList: true,
   disableInWorkflow: true,
@@ -112,6 +117,7 @@ module.exports = {
     let triggering_row_id;
     if (table && row) triggering_row_id = row[table.pk_name];
 
+    const newRun = !rest.run && !run_id;
     const run =
       rest.run ||
       (run_id
@@ -129,7 +135,10 @@ module.exports = {
             },
           }));
 
-    if (!rest.run && !run_id && table && configuration.run_id_field) {
+    const action = trigger_id ? await Trigger.findOne({ id: trigger_id }) : null;
+    if (newRun) await createAuditTrailRun({ modcfg, run, user, action });
+
+    if (newRun && table && configuration.run_id_field) {
       await table.updateRow(
         { [configuration.run_id_field]: run.id },
         row[table.pk_name],
@@ -144,16 +153,25 @@ module.exports = {
       if (agent_view)
         use_agent_view_config = { ...agent_view.configuration, stream: false };
     }
-    run.context.interactions.push({ role: "user", content: userinput });
-    run.context.html_interactions.push(
-      wrapSegment(
-        p(escapeHtml(userinput)),
-        "You",
-        true,
-        use_agent_view_config?.layout,
-        req?.user,
-      ),
+    const userMessage = { role: "user", content: userinput };
+    const userHtml = wrapSegment(
+      p(escapeHtml(userinput)),
+      "You",
+      true,
+      use_agent_view_config?.layout,
+      req?.user,
     );
+    run.context.interactions.push(userMessage);
+    run.context.html_interactions.push(userHtml);
+    await logToAuditTrailTable({
+      modcfg,
+      run,
+      user,
+      action,
+      role: "user",
+      interaction: [userMessage],
+      html: userHtml,
+    });
 
     return await process_interaction(
       run,
@@ -165,6 +183,7 @@ module.exports = {
       use_agent_view_config || { stream: false },
       dyn_updates,
       is_sub_agent,
+      modcfg,
     );
   },
-};
+});

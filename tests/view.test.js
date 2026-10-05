@@ -93,7 +93,7 @@ for (const nameconfig of require("./configs")) {
 // cancel/skillroute/execute_user_action didn't check run.started_by, unlike
 // delprevrun/renameprevrun/share_chat. Called directly here - no LLM needed.
 describe("agent view route ownership checks", () => {
-  const { routes } = require("../agent-view");
+  const { routes } = require("../agent-view")({});
   const other_user_id = 999999; // never persisted, only compared - no real user needed
   let owner_id, trigger;
 

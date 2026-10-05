@@ -11,6 +11,7 @@ const { isContextOverflow } = require("./skills/compaction_lib");
 const { renderMd } = require("./render-md");
 
 const { user_actions_html } = require("./user_actions");
+const { logToAuditTrailTable } = require("./audit-trail");
 
 const nubBy = (f, xs) => {
   const vs = new Set();
@@ -479,6 +480,7 @@ const process_interaction_inner = async (
   agentsViewCfg = { stream: false },
   dyn_updates = false,
   is_sub_agent = false,
+  modcfg = {}
 ) => {
   const { stream, viewname, layout } = agentsViewCfg;
   const sysState = getState();
@@ -554,6 +556,21 @@ const process_interaction_inner = async (
     : () => {};
   complArgs.abortSignal = abortController.signal;
 
+  // everything added to the chat from here on - the reply, tool results and
+  // any follow-up prompts - is logged to the audit trail as this pass
+  let passStart = complArgs.chat.length;
+  const passHtml = [];
+  const auditPass = (extra = {}) =>
+    logToAuditTrailTable({
+      modcfg,
+      run,
+      user: req?.user,
+      role: "assistant",
+      interaction: run.context.interactions.slice(passStart),
+      html: passHtml.join(""),
+      ...extra,
+    });
+
   let answer;
   try {
     try {
@@ -577,11 +594,15 @@ const process_interaction_inner = async (
       });
       if (!recovery.some((r) => r?.compacted)) throw e;
       complArgs.chat = run.context.interactions;
+      passStart = complArgs.chat.length;
       answer = await sysState.functions.llm_generate.run(
         generatePrompt(),
         complArgs,
       );
     }
+  } catch (e) {
+    await auditPass({ error: e?.message || String(e) });
+    throw e;
   } finally {
     unregisterAbort();
   }
@@ -607,6 +628,7 @@ const process_interaction_inner = async (
   const raw_responses = [];
 
   const add_response = async (resp, not_final) => {
+    if (typeof resp === "string") passHtml.push(resp);
     if (dyn_updates)
       getState().emitDynamicUpdate(
         db.getTenantSchema(),
@@ -1064,7 +1086,8 @@ const process_interaction_inner = async (
     //await db.commitAndBeginNewTransaction();
     const freshRun = await WorkflowRun.findOne({ id: run.id });
 
-    if (hasResult && !stopRequested && freshRun.status !== "Cancel")
+    if (hasResult && !stopRequested && freshRun.status !== "Cancel") {
+      await auditPass();
       return await process_interaction(
         run,
         config,
@@ -1075,7 +1098,9 @@ const process_interaction_inner = async (
         agentsViewCfg,
         dyn_updates,
         is_sub_agent,
+        modcfg,
       );
+    }
   } else if (typeof answer === "string")
     add_response(
       req?.disable_markdown_render
@@ -1098,6 +1123,7 @@ const process_interaction_inner = async (
             layout,
           ),
     );
+  await auditPass();
   if (dyn_updates && !is_sub_agent)
     getState().emitDynamicUpdate(
       db.getTenantSchema(),
