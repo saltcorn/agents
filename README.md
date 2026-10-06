@@ -23,7 +23,7 @@ Some examples of skills:
 * Subagent - hand over to a different agent that has a different set of tools
 * Web search - tool to search the internet for relevant information
 * Plan approval - presents the user with a plan for solving the problem with an approval buttton in the chat. When approved, a user-defined system prompt is injected.
-* Ask user question - lets the agent put a multiple-choice question to the user and wait for the answer before it carries on
+* Ask user question - lets the agent put one or more questions to the user (pick one, tick several, or write an answer) and wait for the answers before it carries on
 
 
 The agents can be run either by attaching them to events (table inserts, inbound API calls etc; in chich case an initial prompt, based on the variables in the triggering row has to be specified) or by building a view based on the Agent chat viewpatterns which is configured by picking an agent action, giving the user an interactive chat interface similar to the chatgpt interface. Previous chats can be accessed on the left in this interface, and chats can be shared with other users
@@ -54,7 +54,28 @@ radio buttons with an *Answer* button underneath instead. That switch is
 automatic and needs no setting: the list is used as soon as any one answer is
 longer than 15 characters, or all the answers together come to more than 40.
 
-The agent decides when to ask and what the options are; it cannot be forced to
+**Kinds of question**
+
+The agent chooses the kind of each question it asks:
+
+* *Pick one* - the user chooses exactly one of the answers offered. This is the
+  kind described above, shown as buttons or as a list of radio buttons.
+* *Tick any* - the user ticks as many of the answers offered as apply, or none
+  at all, using checkboxes, then presses *Answer*.
+* *Written answer* - there are no answers to choose from; the user writes their
+  answer in a text box and presses *Answer*.
+
+**Several questions at once**
+
+When the agent needs several related answers before it can go on, it can ask
+all the questions together rather than one after the other. Each question then
+gets its own tab, labelled with a short name the agent gives it (such as
+"Database" or "Notes"); the full question is shown inside the tab. The user can
+move between the tabs in any order and presses *Answer* once, when they are
+done. If a pick-one question has been left unanswered, pressing *Answer* opens
+its tab instead of sending. All the answers are sent to the agent together.
+
+The agent decides when to ask, what kind of question to ask and what the options are; it cannot be forced to
 ask, but it can be told when it should, in the *Additional system prompt*
 setting - for example "always ask which department a new record belongs to,
 never guess".
@@ -77,9 +98,9 @@ chat, so the same question cannot be answered twice.
 | Setting | Meaning |
 |---|---|
 | Additional system prompt | Optional. When this agent should ask a question, in your own words. The standard explanation of how the tool works is always included, so this only needs to say what is particular to your agent. |
-| Prompt on answer | Optional. The message the agent receives when the user picks an option. Write `{{ question }}`, `{{ answer }}` and `{{ answer_description }}` where those should appear. |
+| Prompt on answer | Optional. The message the agent receives for each question the user answers. Write `{{ question }}`, `{{ answer }}` and `{{ answer_description }}` where those should appear. When several options are ticked, `{{ answer }}` lists them all. |
 | Discuss button label | Optional. The wording on the extra choice that declines to answer, if the agent offers one. |
-| Prompt on discuss | Optional. The message the agent receives when that button is pressed. Write `{{ question }}` where the question should appear. |
+| Prompt on discuss | Optional. The message the agent receives when that button is pressed. Write `{{ question }}` where the question should appear; with several questions, they are all included. |
 
 ### Compaction
 

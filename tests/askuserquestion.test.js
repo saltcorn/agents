@@ -3,7 +3,7 @@ const { describe, it, expect } = require("@saltcorn/db-common/test_expect");
 const { parse } = require("node-html-parser");
 
 const AskUserQuestion = require("../skills/AskUserQuestion");
-const { normalizeOptions, fillTemplate } = AskUserQuestion;
+const { normalizeOptions, normalizeQuestions, fillTemplate } = AskUserQuestion;
 const { user_actions_html } = require("../user_actions");
 
 const req = { __: (s) => s };
@@ -102,7 +102,10 @@ describe("ask_user_question tool", () => {
   });
 
   it("tells the agent to try again if there are no options", async () => {
-    const result = await tool().process({ question, options: [] }, { req });
+    const result = await tool().process(
+      { questions: [{ question, header: "DB", type: "single_select" }] },
+      { req },
+    );
     expect(result.error).toContain("ask_user_question");
     expect(result.stop).toBeUndefined();
     expect(result.add_user_action).toBeUndefined();
@@ -302,7 +305,7 @@ describe("answering", () => {
 
   it("takes the discussion choice out of a radio group", async () => {
     const result = await answer({}, { choice: "discuss" });
-    expect(result.generate_prompt).toContain("do not want to pick");
+    expect(result.generate_prompt).toContain("do not want to answer");
     expect(result.click_replace_text).toBe("Discuss instead");
   });
 
@@ -313,7 +316,7 @@ describe("answering", () => {
   it("sends the discussion prompt when the question is not answered", async () => {
     const result = await answer({}, { discuss: true });
     expect(result.generate_prompt).toContain(question);
-    expect(result.generate_prompt).toContain("do not want to pick");
+    expect(result.generate_prompt).toContain("do not want to answer");
   });
 
   it("uses the configured answer prompt", async () => {
@@ -331,6 +334,281 @@ describe("answering", () => {
 
   it("does nothing if the option no longer exists", async () => {
     expect(await answer({}, { answer_index: 7 })).toEqual({});
+  });
+});
+
+describe("normalizeQuestions", () => {
+  it("takes a single question at the top level as a single choice", () => {
+    expect(normalizeQuestions({ question, options: ["A", "B"] })).toEqual([
+      {
+        question,
+        type: "single_select",
+        options: [{ label: "A" }, { label: "B" }],
+        header: "Which database should I…",
+      },
+    ]);
+  });
+
+  it("reads a questions array, with other names for the types", () => {
+    const qs = normalizeQuestions({
+      questions: [
+        { question: "Q1", header: "One", type: "checkbox", options: ["A"] },
+        { question: "Q2", header: "Two", type: "text", options: ["ignored"] },
+        { question: "Q3", type: "radio", options: ["A"] },
+        { question: "Q4" },
+      ],
+    });
+    expect(qs.map((q) => q.type)).toEqual([
+      "multi_select",
+      "free_text",
+      "single_select",
+      "free_text",
+    ]);
+    expect(qs[1].options).toEqual([]);
+    expect(qs.map((q) => q.header)).toEqual(["One", "Two", "Q3", "Q4"]);
+  });
+
+  it("accepts the questions as a JSON string, and drops empty ones", () => {
+    const qs = normalizeQuestions({
+      questions: JSON.stringify([{ question: "  " }, { question: "Q" }]),
+    });
+    expect(qs.length).toBe(1);
+    expect(qs[0].question).toBe("Q");
+  });
+
+  it("shortens long headers", () => {
+    const [q] = normalizeQuestions({
+      questions: [{ question: "Q", header: "x".repeat(60) }],
+    });
+    expect(q.header.length).toBeLessThan(30);
+  });
+});
+
+const questions = [
+  {
+    question: "Which database should I use?",
+    header: "Database",
+    type: "single_select",
+    options: [
+      { label: "Postgres", description: "Best for production" },
+      "SQLite",
+    ],
+  },
+  {
+    question: "Which features do you want?",
+    header: "Features",
+    type: "multi_select",
+    options: ["Auth", "Search", "Billing"],
+  },
+  {
+    question: "Anything else I should know?",
+    header: "Notes",
+    type: "free_text",
+  },
+];
+
+describe("forms", () => {
+  const process = (row, cfg) => tool(cfg).process(row, { req });
+
+  it("asks several questions with one form", async () => {
+    const result = await process({ questions });
+    expect(result.stop).toBe(true);
+    questions.forEach((q) => expect(result.add_response).toContain(q.question));
+    expect(result.add_user_action.length).toBe(1);
+    const [ua] = result.add_user_action;
+    expect(ua.type).toBe("form");
+    expect(ua.single_use).toBe(true);
+    expect(ua.client_input_fields).toEqual(["answers"]);
+    expect(ua.questions.map((q) => q.type)).toEqual([
+      "single_select",
+      "multi_select",
+      "free_text",
+    ]);
+    expect(ua.questions.map((q) => q.header)).toEqual([
+      "Database",
+      "Features",
+      "Notes",
+    ]);
+  });
+
+  it("uses a form for a single question that is not single choice", async () => {
+    const r1 = await process({ questions: [questions[1]] });
+    expect(r1.add_user_action[0].type).toBe("form");
+    const r2 = await process({ questions: [questions[2]] });
+    expect(r2.add_user_action[0].type).toBe("form");
+    // but a single single-choice question still gets buttons
+    const r3 = await process({ questions: [questions[0]] });
+    expect(r3.add_user_action[0].type).toBe("button");
+  });
+
+  it("adds a discussion button next to the form when asked for", async () => {
+    const result = await process({ questions, allow_discussion: true });
+    expect(result.add_user_action.length).toBe(2);
+    expect(result.add_user_action[1].input).toEqual({ discuss: true });
+  });
+
+  it("tells the agent which question has no options", async () => {
+    const result = await process({
+      questions: [questions[2], { ...questions[1], options: [] }],
+    });
+    expect(result.error).toContain(questions[1].question);
+    expect(result.add_user_action).toBeUndefined();
+  });
+
+  it("escapes everything coming from the model", async () => {
+    const result = await process({
+      questions: [
+        {
+          question: "<img src=x onerror=alert(1)>",
+          header: "<b>h</b>",
+          type: "multi_select",
+          options: [{ label: "<script>x</script>", description: 'a " quote' }],
+        },
+        questions[2],
+      ],
+    });
+    const [ua] = result.add_user_action;
+    const html = user_actions_html([{ ...ua, rndid: "r0" }], "myview", {
+      id: 7,
+    });
+    const root = parse(html);
+    expect(root.querySelectorAll("img").length).toBe(0);
+    expect(root.querySelectorAll("script").length).toBe(0);
+    expect(root.querySelectorAll("b").length).toBe(0);
+  });
+
+  it("lists the questions by header in the tool call", () => {
+    const html = tool().renderToolCall({ questions });
+    expect(html).toContain("Database");
+    expect(html).toContain(questions[2].question);
+  });
+});
+
+describe("form markup", () => {
+  const render = async (row) => {
+    const result = await tool().process(row, { req });
+    const uas = result.add_user_action.map((ua, ix) => ({
+      ...ua,
+      rndid: `r${ix}`,
+    }));
+    return parse(user_actions_html(uas, "myview", { id: 7 }));
+  };
+
+  it("puts several questions in tabs, the first one showing", async () => {
+    const root = await render({ questions });
+    const tabs = root.querySelectorAll(".ua-question-tab");
+    expect(tabs.map((t) => t.text)).toEqual(["Database", "Features", "Notes"]);
+    // the full question is on the tab as a tooltip
+    expect(tabs[0].getAttribute("title")).toBe(questions[0].question);
+    expect(tabs[0].classList.contains("active")).toBe(true);
+    const panes = root.querySelectorAll(".ua-question-pane");
+    expect(panes.map((p) => p.classList.contains("d-none"))).toEqual([
+      false,
+      true,
+      true,
+    ]);
+    tabs.forEach((t) => expect(t.getAttribute("onclick")).toContain("d-none"));
+  });
+
+  it("renders radios, checkboxes and a text box", async () => {
+    const root = await render({ questions });
+    const panes = root.querySelectorAll(".ua-question-pane");
+    expect(panes[0].querySelectorAll("input[type=radio]").length).toBe(2);
+    expect(panes[1].querySelectorAll("input[type=checkbox]").length).toBe(3);
+    expect(panes[2].querySelectorAll("textarea").length).toBe(1);
+    // the inputs of one question share a name, different from the others
+    const names = panes.map((p) =>
+      p.querySelector("input, textarea").getAttribute("name"),
+    );
+    expect(new Set(names).size).toBe(3);
+    // every choice is labelled, and the labels point at the inputs
+    const inputs = root.querySelectorAll("input");
+    expect(
+      root.querySelectorAll("label").map((l) => l.getAttribute("for")),
+    ).toEqual(inputs.map((i) => i.getAttribute("id")));
+    // the whole form is what gets taken away once it is answered
+    expect(root.querySelectorAll("[data-useraction-id]").length).toBe(1);
+  });
+
+  it("has no tabs for a single question", async () => {
+    const root = await render({ questions: [questions[1]] });
+    expect(root.querySelectorAll(".ua-question-tab").length).toBe(0);
+    expect(root.querySelectorAll(".ua-question-pane.d-none").length).toBe(0);
+  });
+
+  it("sends all the answers with one button, with the handler intact", async () => {
+    const root = await render({ questions });
+    const submit = root.querySelectorAll("button").at(-1);
+    const onclick = submit.getAttribute("onclick");
+    expect(onclick).toContain("execute_user_action");
+    expect(onclick).toContain("ua_input: {answers: a}");
+    expect(onclick).toContain("processExecuteResponse)");
+    expect(onclick).toContain("return false");
+  });
+});
+
+describe("answering a form", () => {
+  const answer = (answers, cfg, qs) =>
+    skill(cfg).userActions.answer_question({
+      questions: qs || questions,
+      answers,
+    });
+
+  it("sends every answer back to the agent", async () => {
+    const result = await answer(["0", ["2", "0"], "Ship by Friday"]);
+    expect(result.generate_prompt).toBe(
+      [
+        `In answer to the question "Which database should I use?", I choose: Postgres`,
+        `In answer to the question "Which features do you want?", I choose: Auth, Billing`,
+        `In answer to the question "Anything else I should know?", I write: Ship by Friday`,
+      ].join("\n\n"),
+    );
+    expect(result.click_replace_text).toContain(
+      "<strong>Database</strong>: Postgres",
+    );
+    expect(result.click_replace_text).toContain("Auth, Billing");
+  });
+
+  it("accepts no options ticked and no text written", async () => {
+    const result = await answer(["1", [], "  "]);
+    expect(result.generate_prompt).toContain("I choose: none of the options");
+    expect(result.generate_prompt).toContain("I write: (no answer)");
+  });
+
+  it("accepts the answers as a JSON string", async () => {
+    const result = await answer(JSON.stringify(["1", ["1"], ""]));
+    expect(result.generate_prompt).toContain("I choose: SQLite");
+    expect(result.generate_prompt).toContain("I choose: Search");
+  });
+
+  it("ignores ticked options that do not exist", async () => {
+    const result = await answer(["0", ["7", "1", "1"], ""]);
+    expect(result.generate_prompt).toContain("I choose: Search\n");
+  });
+
+  it("does nothing if a single choice question is unanswered", async () => {
+    expect(await answer([null, [], ""])).toEqual({});
+    expect(await answer(["9", [], ""])).toEqual({});
+  });
+
+  it("does nothing if the answers do not match the questions", async () => {
+    expect(await answer(["0"])).toEqual({});
+    expect(await answer("not json")).toEqual({});
+  });
+
+  it("shows a single answer on its own, keeping line breaks", async () => {
+    const result = await answer(["<b>a</b>\nb"], {}, [questions[2]]);
+    expect(result.click_replace_text).toBe("&lt;b&gt;a&lt;/b&gt;<br>b");
+  });
+
+  it("names every question when the user wants to discuss", async () => {
+    const result = await skill().userActions.answer_question({
+      questions,
+      discuss: true,
+    });
+    questions.forEach((q) =>
+      expect(result.generate_prompt).toContain(q.question),
+    );
   });
 });
 
