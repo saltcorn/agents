@@ -1,4 +1,5 @@
 const { div, ul, li, strong, text_attr } = require("@saltcorn/markup/tags");
+const { get__ } = require("../utils");
 
 // The message the agent sees as the tool result. The run is stopped at this
 // point, so this is the last thing in the conversation until the user picks an
@@ -175,7 +176,8 @@ class AskUserQuestionSkill {
     return {
       type: "function",
       process: async (row, { req }) => {
-        const __ = req?.__ ? (s) => req.__(s) : (s) => s;
+        const __ = get__(req);
+
         const options = normalizeOptions(row.options);
         if (options.length < 1)
           return {
