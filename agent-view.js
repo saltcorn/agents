@@ -60,6 +60,7 @@ const { renderMd, balanceHtml } = require("./render-md");
 const { isWeb, escapeHtml } = require("@saltcorn/data/utils");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 
 const configuration_workflow = (req) =>
   new Workflow({
@@ -316,6 +317,45 @@ const realTimeCollabScript = (viewname, rndid, layout) => {
 // of, which nothing is generating for any more
 const STALE_RUN_MS = 15 * 60 * 1000;
 
+// Who may reach a run through a chat view. The POST routes look runs up by
+// their (sequential) id, so each of them has to ask.
+//
+// A run started by a visitor who is not logged in has no started_by, so it
+// cannot be told apart from any other anonymous run that way. The ids of the
+// runs such a visitor starts are kept in their session instead.
+const ANON_RUNS_KEPT = 50;
+const rememberAnonRun = (run, req) => {
+  if (req.user?.id || !req.session) return;
+  req.session.agent_run_ids = [
+    ...(req.session.agent_run_ids || []),
+    run.id,
+  ].slice(-ANON_RUNS_KEPT);
+};
+const anonRunIds = (req) => req.session?.agent_run_ids || [];
+
+const startedRun = (run, req) =>
+  req.user?.id
+    ? run.started_by == req.user.id
+    : !run.started_by && anonRunIds(req).includes(run.id);
+
+// only through a view of the agent that owns the run
+const runOfView = (run, config) => {
+  if (!run) return false;
+  const aid = config.agent_action?.id ?? config.action_id;
+  return aid == null || run.trigger_id == aid;
+};
+
+// continue or act on a run: whoever started it, or anyone if the view is shared
+const runWritable = (run, config, req) =>
+  runOfView(run, config) && (!!config.shared || startedRun(run, req));
+
+// a share link only ever lets you read
+const runReadable = (run, config, req, share_token) =>
+  runWritable(run, config, req) ||
+  (runOfView(run, config) &&
+    !!share_token &&
+    run.context?.share_token === share_token);
+
 const agents_css = fs.readFileSync(
   path.resolve(__dirname, "agents.css"),
   "utf8",
@@ -358,7 +398,11 @@ const run = async (
         await WorkflowRun.find(
           {
             trigger_id: action.id,
-            ...(shared ? {} : { started_by: req.user?.id }),
+            ...(shared
+              ? {}
+              : req.user?.id
+                ? { started_by: req.user.id }
+                : { started_by: null, id: { in: anonRunIds(req) } }),
             ...(triggering_row_id
               ? { context: { json: ["triggering_row_id", triggering_row_id] } }
               : {}),
@@ -383,6 +427,7 @@ const run = async (
   if (cfgMsg) return cfgMsg;
   let runInteractions = "";
   let hasInputForm = true;
+  let readOnly = false;
 
   const initial_q = state.run_id ? undefined : state._q;
   let run;
@@ -395,13 +440,10 @@ const run = async (
         id: state.run_id,
       });
 
-    if (
-      run &&
-      !shared &&
-      run.started_by != req.user?.id &&
-      run.context.share_token !== (state.share_token || "none")
-    )
-      run = null;
+    const access = { agent_action: action, shared };
+    if (!runReadable(run, access, req, state.share_token)) run = null;
+    // opened through a share link: shown, but not to be continued
+    else if (!runWritable(run, access, req)) readOnly = true;
   }
   if (run) {
     const interactMarkups = [];
@@ -819,7 +861,7 @@ const run = async (
     ),
     div({ id: "copilotinteractions" }, runInteractions),
     stream ? div({ class: "next_response_scratch" }) : "",
-    hasInputForm && input_form,
+    hasInputForm && !readOnly && input_form,
     style(agents_css),
     script(
       domReady(`
@@ -1240,7 +1282,7 @@ const run = async (
     window.share_agent_chat = function(btn, viewname) {
       const runid = $("input[name=run_id").val()
       view_post(viewname, 'share_chat', {run_id:runid}, async (data)=>{
-        console.log(data)        
+        if(!data || data.error) return;
         const clipboardItemData = {
           ["text/plain"]: window.location.origin+'/view/'+viewname+'?run_id='+runid+(data.share_token ? "&share_token="+data.share_token:"")
         };
@@ -1376,7 +1418,7 @@ const run = async (
           button(
             {
               type: "button",
-              style: run ? undefined : { display: "none" },
+              style: run && !readOnly ? undefined : { display: "none" },
               class: "btn btn-sm btn-outline-secondary modern-share",
               onclick: `share_agent_chat(this, '${viewname}')`,
               title: req.__("Share chat"),
@@ -1486,7 +1528,7 @@ const interact = modcfg => async (table_id, viewname, config, body, { req, res }
     run = await WorkflowRun.create({
       status: "Running",
       started_by: req.user?.id,
-      trigger_id: config.action_id,
+      trigger_id: action.id,
       context: {
         implemented_fcall_ids: [],
         interactions: [...ini_interacts],
@@ -1495,6 +1537,7 @@ const interact = modcfg => async (table_id, viewname, config, body, { req, res }
         triggering_row_id,
       },
     });
+    rememberAnonRun(run, req);
     await createAuditTrailRun({ modcfg, run, user: req.user, action });
     if (table_id && config.run_id_field && triggering_row_id) {
       const table = Table.findOne(table_id);
@@ -1506,6 +1549,13 @@ const interact = modcfg => async (table_id, viewname, config, body, { req, res }
     }
   } else {
     run = await WorkflowRun.findOne({ id: +run_id });
+    if (!runWritable(run, config, req))
+      return {
+        json: {
+          error: req.__("Not authorized"),
+          eval_js: "final_agent_response()",
+        },
+      };
   }
   // uploaded files are added to the chat as user messages too, and are
   // logged to the audit trail with the message they were sent with
@@ -1698,8 +1748,7 @@ const resume = (modcfg) => async (
   const notResumed = (msg) => ({
     json: { notify: req.__(msg), eval_js: "final_agent_response()" },
   });
-  if (!run || (run.started_by != req.user?.id && !config.shared))
-    return notResumed("Chat not found");
+  if (!runWritable(run, config, req)) return notResumed("Chat not found");
 
   // only a run the view would have offered to resume, so that a run which is
   // in fact still generating is not started a second time by a stale page or
@@ -1789,7 +1838,10 @@ const delprevrun = async (table_id, viewname, config, body, { req, res }) => {
   let run;
 
   run = await WorkflowRun.findOne({ id: +run_id });
-  if (req.user?.role_id === 1 || req.user?.id === run.started_by)
+  if (
+    runOfView(run, config) &&
+    (req.user?.role_id === 1 || startedRun(run, req))
+  )
     await run.delete();
 
   return;
@@ -1806,7 +1858,10 @@ const renameprevrun = async (
   let run;
 
   run = await WorkflowRun.findOne({ id: +run_id });
-  if (req.user?.role_id === 1 || req.user?.id === run.started_by) {
+  if (
+    runOfView(run, config) &&
+    (req.user?.role_id === 1 || startedRun(run, req))
+  ) {
     await run.update({ context: { ...run.context, chat_name: name } });
   }
 
@@ -1816,7 +1871,7 @@ const renameprevrun = async (
 const cancel = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id } = body;
   const run = await WorkflowRun.findOne({ id: +run_id });
-  if (!run || (run.started_by != req.user?.id && !config.shared)) return;
+  if (!runWritable(run, config, req)) return;
   await run.update({ status: "Cancel" });
   // stops a long-running fetch to the LLM right away, instead of
   // waiting for the next between-pass check
@@ -1827,11 +1882,14 @@ const cancel = async (table_id, viewname, config, body, { req, res }) => {
 const share_chat = async (table_id, viewname, config, body, { req, res }) => {
   const { run_id } = body;
   const run = await WorkflowRun.findOne({ id: +run_id });
+  // before an existing token is handed out, or anyone could fetch the token
+  // of any run and open it with it
+  if (!runWritable(run, config, req))
+    return { json: { error: req.__("Not authorized") } };
   if (run.context.share_token)
     return { json: { share_token: run.context.share_token } };
   else {
-    if (run.started_by != req.user?.id && !config.shared) return;
-    const rndid = Math.floor(Math.random() * 16777215).toString(16);
+    const rndid = crypto.randomBytes(16).toString("hex");
     await run.update({ context: { ...run.context, share_token: rndid } });
     return { json: { share_token: rndid } };
   }
@@ -2006,7 +2064,7 @@ const skillroute = async (table_id, viewname, config, body, { req, res }) => {
     if (table) triggering_row = await table.getRow({ [pk]: triggering_row_id });
   }
   const run = await WorkflowRun.findOne({ id: +run_id });
-  if (!run || (run.started_by != req.user?.id && !config.shared)) return;
+  if (!runWritable(run, config, req)) return;
 
   const instances = get_skill_instances(action.configuration);
   const instance = instances.find((i) => i.skillid === skillid);
@@ -2040,7 +2098,7 @@ const execute_user_action = (modcfg) => async (
   const run = await WorkflowRun.findOne({ id: +run_id });
   //console.log("run uas",run.context.user_actions );
 
-  if (!run || (run.started_by != req.user?.id && !config.shared)) return;
+  if (!runWritable(run, config, req)) return;
   const instances = get_skill_instances(action.configuration);
   const instance = instances.find((i) => i.userActions?.[uaname]);
   //console.log({ instance });
