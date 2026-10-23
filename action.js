@@ -83,6 +83,14 @@ module.exports = (modcfg) => ({
         sublabel: "Override default model name",
         type: "String",
       },
+      {
+        name: "max_tool_result_chars",
+        label: "Max tool result size",
+        sublabel:
+          "Tool results longer than this many characters are truncated before they are sent to the LLM. Default 100000",
+        type: "Integer",
+        attributes: { min: 1000 },
+      },
       new FieldRepeat({
         name: "skills",
         label: "Skills",

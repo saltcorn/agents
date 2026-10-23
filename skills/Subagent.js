@@ -86,9 +86,10 @@ class SubagentToSkill {
         chat,
         agent_view_config,
         dyn_updates,
+        modcfg,
       }) => {
         getState().log(6, "Running subagent", this.agent_name);
-        const subres = await agent_action.run({
+        const subres = await agent_action(modcfg || {}).run({
           row: {},
           configuration: {
             ...trigger.configuration,

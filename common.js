@@ -342,6 +342,30 @@ const isToolResultMessage = (msg) =>
 
 // Find tool calls in the chat that have no matching tool result. The shape of
 // the chat depends on the LLM backend, so all the known shapes are inspected.
+// a single huge tool result can push the chat past the model's context window
+// for good, so what the LLM sees of a tool result is capped. The full result is
+// still rendered to the user.
+const DEFAULT_MAX_TOOL_RESULT_CHARS = 100000;
+
+const toolResponseMessage = (tool_response, maxChars) => {
+  const max =
+    Number(maxChars) > 0 ? Number(maxChars) : DEFAULT_MAX_TOOL_RESULT_CHARS;
+  const isText = !tool_response || typeof tool_response === "string";
+  const text = isText
+    ? tool_response || "Action run"
+    : JSON.stringify(tool_response);
+  if (text.length <= max)
+    return isText
+      ? { type: "text", value: text }
+      : { type: "json", value: JSON.parse(text) };
+  return {
+    type: "text",
+    value:
+      text.slice(0, max) +
+      `\n\n[Result truncated: it was ${text.length} characters, only the first ${max} are shown. Narrow the request, for instance by querying fewer rows, to see the rest.]`,
+  };
+};
+
 const pendingToolCalls = (chat) => {
   const calls = new Map(); // tool_call_id -> {tool_name, index}
   const answered = new Set();
@@ -502,10 +526,13 @@ const process_interaction_inner = async (
   if (stream && viewname) {
     const view = View.findOne({ name: viewname });
     complArgs.streamCallback = (response) => {
+      // the LLM module may report a stream error with no message as undefined
+      if (!response) return;
       const content =
         typeof response === "string"
           ? response
-          : response.choices[0].content || response.choices[0].delta?.content;
+          : response.choices?.[0]?.content ||
+            response.choices?.[0]?.delta?.content;
       if (content) {
         const pageLoadTag = req?.body?.page_load_tag;
         if (pageLoadTag)
@@ -831,15 +858,7 @@ const process_interaction_inner = async (
 
           await sysState.functions.llm_add_message.run(
             "tool_response",
-            !tool_response || typeof tool_response === "string"
-              ? {
-                  type: "text",
-                  value: tool_response || "Action run",
-                }
-              : {
-                  type: "json",
-                  value: JSON.parse(JSON.stringify(tool_response)),
-                },
+            toolResponseMessage(tool_response, config.max_tool_result_chars),
             {
               chat: run.context.interactions,
               tool_call,
@@ -915,6 +934,7 @@ const process_interaction_inner = async (
                 run,
                 agent_view_config: agentsViewCfg,
                 dyn_updates,
+                modcfg,
                 async generate(prompt, opts = {}) {
                   generateUsed = true;
                   const genAnswer = await sysState.functions.llm_generate.run(
@@ -1184,6 +1204,7 @@ module.exports = {
   wrapSegment,
   process_interaction,
   pendingToolCalls,
+  toolResponseMessage,
   ensureToolResults,
   dropEmptyMessages,
   find_image_tool,
