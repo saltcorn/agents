@@ -18,6 +18,10 @@ class TableToSkill {
     Object.assign(this, cfg);
   }
 
+  maxRows() {
+    return Number(this.max_rows) > 0 ? Math.floor(Number(this.max_rows)) : 50;
+  }
+
   systemPrompt() {
     return `Use the query_${this.table_name} tool to search the ${
       this.table_name
@@ -70,6 +74,15 @@ class TableToSkill {
         },
       },
       {
+        name: "max_rows",
+        label: "Max rows",
+        type: "Integer",
+        sublabel:
+          "Maximum number of rows returned to the agent by one query. Default 50",
+        attributes: { min: 1 },
+        showIf: { query: true },
+      },
+      {
         name: "hidden_fields",
         label: "Hide fields",
         type: "String",
@@ -108,6 +121,9 @@ class TableToSkill {
         type: "function",
         process: async (q, { req }) => {
           console.log("Table search", q);
+          const max_rows = this.maxRows();
+          // one more than the limit tells us whether rows were left out
+          const limit = max_rows + 1;
 
           let rows = [];
           if (q.query?.full_text_search || q.full_text_search) {
@@ -128,7 +144,7 @@ class TableToSkill {
                   schema: db.isSQLite ? undefined : db.getTenantSchema(),
                 },
               },
-              { forUser: req.user, forPublic: !req.user },
+              { forUser: req.user, forPublic: !req.user, limit },
             );
           } else {
             rows = await table.getRows(
@@ -137,8 +153,9 @@ class TableToSkill {
                 ? {
                     forUser: req.user,
                     forPublic: !req.user,
+                    limit,
                   }
-                : {},
+                : { limit },
             );
           }
           if (this.hidden_fields) {
@@ -152,6 +169,11 @@ class TableToSkill {
             });
           }
 
+          if (rows.length > max_rows)
+            return {
+              rows: rows.slice(0, max_rows),
+              note: `Only the first ${max_rows} matching rows are shown. More rows exist; refine the query to find others.`,
+            };
           if (rows.length) return { rows };
           else
             return {
@@ -179,7 +201,7 @@ class TableToSkill {
           name: `query_${this.table_name}`,
           description: `Search the ${this.table_name} database table${
             table.description ? ` (${table.description})` : ""
-          } by a search phrase matched against all fields in the table with full text search or a more specific query. The retrieved rows will be returned`,
+          } by a search phrase matched against all fields in the table with full text search or a more specific query. At most ${this.maxRows()} retrieved rows will be returned`,
           parameters: {
             type: "object",
             properties: {

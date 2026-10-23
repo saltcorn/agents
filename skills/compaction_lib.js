@@ -54,6 +54,9 @@ const DEFAULTS = {
   protect_tool_output_tokens: 20000,
   min_clear_tokens: 20000,
   tool_result_max_chars: 2000,
+  // a forced compaction truncates results of the latest tool calls to this, as
+  // they alone can be too big for the context window
+  working_tool_result_max_chars: 40000,
   // the summarization call has to fit in the window that is already full:
   // ~30k tokens of input leaves room for any model
   summary_input_max_chars: 120000,
@@ -326,6 +329,46 @@ const clearedToolResultMsg = (msg) => {
   return msg;
 };
 
+const truncateText = (value, maxChars) => {
+  const text = typeof value === "string" ? value : JSON.stringify(value) || "";
+  if (text.length <= maxChars) return null;
+  return (
+    text.slice(0, maxChars) +
+    `\n\n[Result truncated by compaction: it was ${text.length} characters, only the first ${maxChars} are kept]`
+  );
+};
+
+// The result of a tool call the model is still working on cannot be cleared,
+// but it can be shortened. Returns null if there is nothing to shorten.
+const truncatedToolResultMsg = (msg, maxChars) => {
+  if (msg.type === "function_call_output") {
+    const t = truncateText(msg.output, maxChars);
+    return t === null ? null : { ...msg, output: t };
+  }
+  if (msg.role === "tool" && typeof msg.tool_call_id === "string") {
+    const t = truncateText(msg.content, maxChars);
+    return t === null ? null : { ...msg, content: t };
+  }
+  if (Array.isArray(msg.content)) {
+    let changed = false;
+    const content = msg.content.map((part) => {
+      if (!["tool-result", "tool-error"].includes(part?.type)) return part;
+      const t = truncateText(part.output?.value ?? part.output, maxChars);
+      if (t === null) return part;
+      changed = true;
+      return {
+        ...part,
+        output: {
+          type: part.type === "tool-error" ? "error-text" : "text",
+          value: t,
+        },
+      };
+    });
+    return changed ? { ...msg, content } : null;
+  }
+  return null;
+};
+
 const isClearedToolResult = (msg) => {
   if (!isToolResultMsg(msg)) return false;
   if (msg.output === CLEARED_TEXT || msg.content === CLEARED_TEXT) return true;
@@ -378,7 +421,26 @@ const clearOldToolResults = (chat, cfg, opts = {}) => {
   for (let i = (chat || []).length - 1; i >= floor; i--) {
     const msg = chat[i];
     if (!isToolResultMsg(msg) || isClearedToolResult(msg)) continue;
-    if (toolResultIdsIn(msg).some((id) => working.has(id))) continue;
+    const isWorking = toolResultIdsIn(msg).some((id) => working.has(id));
+    if (!isWorking && opts.workingOnly) continue;
+    if (isWorking) {
+      // a forced compaction is the last resort before the run is stuck for
+      // good, so even the results being worked on are shortened if too big
+      if (!opts.force) continue;
+      const truncated = truncatedToolResultMsg(
+        msg,
+        numOr(
+          cfg?.working_tool_result_max_chars,
+          DEFAULTS.working_tool_result_max_chars,
+        ),
+      );
+      if (!truncated) continue;
+      const freed = estimateTokens(msg) - estimateTokens(truncated);
+      if (freed <= 0) continue;
+      plan.push([i, truncated]);
+      tokensFreed += freed;
+      continue;
+    }
     const tokens = estimateTokens(msg);
     if (protectedTokens < protectTokens) {
       protectedTokens += tokens;
@@ -680,8 +742,13 @@ const compactChat = async ({
   }
 
   let tokens = tokensBefore;
-  if (clearsToolResults(cfg)) {
-    const { cleared, tokensFreed } = clearOldToolResults(chat, cfg, { force });
+  // even when old tool output is not to be cleared, a forced compaction still
+  // shortens oversized results of the latest tool calls
+  if (clearsToolResults(cfg) || force) {
+    const { cleared, tokensFreed } = clearOldToolResults(chat, cfg, {
+      force,
+      workingOnly: !clearsToolResults(cfg),
+    });
     report.cleared = cleared;
     report.tokens_freed = tokensFreed;
     tokens -= tokensFreed;
@@ -779,6 +846,7 @@ module.exports = {
   SUMMARY_TEMPLATE,
   buildSummaryPrompt,
   clearOldToolResults,
+  truncatedToolResultMsg,
   compactChat,
   estimateChatTokens,
   estimateContextTokens,

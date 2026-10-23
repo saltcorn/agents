@@ -369,6 +369,49 @@ describe("clearing old tool results", () => {
   });
 });
 
+// A run stuck the way a single huge tool result leaves it: the chat ends with
+// the results of the latest tool calls, which the model never got to answer.
+const stuck = (chat) =>
+  chat.slice(0, chat.findIndex((m) => toolResultIdsIn(m).includes("c2")) + 1);
+const latestResult = (chat) =>
+  chat.find((m) => toolResultIdsIn(m).includes("c2"));
+
+describe("oversized results of the latest tool calls", () => {
+  eachShape("are left alone without force", (mkChat) => {
+    const chat = stuck(mkChat);
+    const before = JSON.parse(JSON.stringify(chat));
+    clearOldToolResults(chat, {
+      protect_tool_output_tokens: 0,
+      min_clear_tokens: 0,
+      working_tool_result_max_chars: 1000,
+    });
+    expect(latestResult(chat)).toEqual(latestResult(before));
+  });
+
+  for (const [label, cfg] of [
+    ["clearing", clearOnly],
+    ["summarizing", summarizeOnly],
+  ])
+    eachShapeAsync(`are truncated by a forced compaction (${label})`, async (mkChat) => {
+      const chat = stuck(mkChat);
+      const before = JSON.parse(JSON.stringify(chat));
+      const report = await compactChat({
+        chat,
+        cfg: { ...cfg, working_tool_result_max_chars: 1000 },
+        generate: stubSummary,
+        force: true,
+      });
+      expect(report.compacted).toBe(true);
+      const latest = JSON.stringify(latestResult(chat));
+      expect(latest).toContain("Result truncated by compaction");
+      expect(latest.length).toBeLessThan(2000);
+      expect(estimateChatTokens(chat)).toBeLessThan(estimateChatTokens(before));
+      // still every call answered, by the same results
+      expect(pendingToolCalls(chat)).toEqual([]);
+      expect(chat.map(toolResultIdsIn)).toEqual(before.map(toolResultIdsIn));
+    });
+});
+
 describe("serialization for the summarizer", () => {
   eachShape("truncates tool results", (chat) => {
     const out = serializeForSummary(chat, 100);

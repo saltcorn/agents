@@ -69,11 +69,11 @@ for (const nameconfig of require("./configs")) {
     });
     it("has config fields", async () => {
       const cfgFldsNoTable = await action.configFields({});
-      expect(cfgFldsNoTable.length).toBe(3);
+      expect(cfgFldsNoTable.length).toBe(4);
       const cfgFldsWithTable = await action.configFields({
         table: Table.findOne("books"),
       });      
-      expect(cfgFldsWithTable.length).toBe(5);
+      expect(cfgFldsWithTable.length).toBe(6);
     });
     it("generates text", async () => {
       const result = await action.run({
@@ -125,6 +125,12 @@ for (const nameconfig of require("./configs")) {
       const lastInteraction = await getLastInteraction(result.json);
 
       expect(result.json.response || lastInteraction).toContain("987");
+      // the subagent really ran in this run: its handover prompt is in the chat.
+      // The answer alone does not show this, the agent can work it out itself
+      const run = await WorkflowRuns.findOne({ id: result.json.run_id });
+      expect(JSON.stringify(run.context.interactions)).toContain(
+        "Your instructions and tools have changed",
+      );
     });
     it("run multiple subagents concurrenty", async () => {
       const configuration = { ...require("./agentcfg").agent1 };

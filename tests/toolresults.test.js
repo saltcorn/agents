@@ -1,6 +1,6 @@
 const { describe, it, expect } = require("@saltcorn/db-common/test_expect");
 
-const { pendingToolCalls } = require("../common");
+const { pendingToolCalls, toolResponseMessage } = require("../common");
 
 describe("pendingToolCalls", () => {
   it("finds unanswered AI SDK tool calls", () => {
@@ -71,5 +71,40 @@ describe("pendingToolCalls", () => {
       { role: "assistant", content: [{ type: "text", text: "bye" }] },
     ];
     expect(pendingToolCalls(chat)).toEqual([]);
+  });
+});
+
+describe("toolResponseMessage", () => {
+  it("passes small results through", () => {
+    expect(toolResponseMessage("hi")).toEqual({ type: "text", value: "hi" });
+    expect(toolResponseMessage(undefined)).toEqual({
+      type: "text",
+      value: "Action run",
+    });
+    expect(toolResponseMessage({ rows: [{ id: 1 }] })).toEqual({
+      type: "json",
+      value: { rows: [{ id: 1 }] },
+    });
+  });
+
+  it("truncates a huge text result", () => {
+    const msg = toolResponseMessage("x".repeat(1000000), 5000);
+    expect(msg.type).toBe("text");
+    expect(msg.value.length).toBeLessThan(5300);
+    expect(msg.value).toContain("Result truncated");
+    expect(msg.value).toContain("1000000 characters");
+  });
+
+  it("truncates a huge JSON result to text", () => {
+    const rows = Array.from({ length: 20000 }, (_, id) => ({ id, name: "n" }));
+    const msg = toolResponseMessage({ rows }, 5000);
+    expect(msg.type).toBe("text");
+    expect(msg.value.startsWith('{"rows":[{"id":0')).toBe(true);
+    expect(msg.value.length).toBeLessThan(5300);
+  });
+
+  it("uses the default cap when none is configured", () => {
+    const msg = toolResponseMessage("x".repeat(3000000));
+    expect(msg.value.length).toBeLessThan(100300);
   });
 });
