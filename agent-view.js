@@ -874,31 +874,24 @@ const run = async (
     script(
       `
     function activate_mermaid() {
-      const mermaids = document.querySelectorAll('code.language-mermaid:not([data-processed])')
-      if(mermaids.length) {
-        
-        const el0 =document.querySelector('code.language-mermaid:not([data-processed])')
-        const parent = el0.closest("div.copy-to-clipboard-elem")        
-        if(!parent) return;
-        parent.setAttribute("data-copy-text", parent.innerText)
-        
-        let processed = false
-        parent.querySelectorAll('code.language-mermaid:not([data-processed])').forEach(async (el) => {
-          try {
-            // parse() throws if the syntax is invalid
-            await mermaid.parse(el.textContent);
+      // only the modern chat layout wraps messages in copy-to-clipboard-elem,
+      // so diagrams are found on the whole page, not just inside such a wrapper
+      document.querySelectorAll('code.language-mermaid:not([data-processed])').forEach(async (el) => {
+        // keep the diagram source copyable before it is replaced by the svg
+        const parent = el.closest("div.copy-to-clipboard-elem")
+        if(parent) parent.setAttribute("data-copy-text", parent.innerText)
+        try {
+          // parse() throws if the syntax is invalid
+          await mermaid.parse(el.textContent);
 
-            // Valid — safe to render
-            // mermaid.run() works on a live NodeList, so target this element directly
-            mermaid.run({ nodes: [el] });
-            processed = true
-          } catch (e) {
-            // Invalid — leave the <code> block completely untouched
-            console.warn('Mermaid syntax error (diagram left as-is):', e.message);
-          }
-        })
-        if(processed) activate_mermaid()
-      }
+          // Valid — safe to render
+          // mermaid.run() works on a live NodeList, so target this element directly
+          mermaid.run({ nodes: [el] });
+        } catch (e) {
+          // Invalid — leave the <code> block completely untouched
+          console.warn('Mermaid syntax error (diagram left as-is):', e.message);
+        }
+      })
     }
     function scrollAgentToBottom() {
       const container = document.getElementById('copilotinteractions');
